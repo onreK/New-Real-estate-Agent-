@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 
-// Enhanced Google Sheets logging with lead scoring
+// Enhanced Google Sheets logging with lead scoring 
 const logToSheets = async (message, leadData = {}, sessionId) => {
   const timestamp = new Date().toISOString();
   
