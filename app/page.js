@@ -2,25 +2,82 @@
 
 import React, { useState, useEffect } from "react";
 
-// Enhanced Google Sheets logging with lead scoring 
+// Enhanced Google Sheets logging with advanced lead scoring
 const logToSheets = async (message, leadData = {}, sessionId) => {
   const timestamp = new Date().toISOString();
   
-  // Simple lead scoring based on keywords
+  // Enhanced lead scoring with detailed analysis
   const getLeadScore = (message, leadData) => {
-    const hotKeywords = ['buy', 'sell', 'ready', 'looking', 'serious', 'budget', 'timeline'];
-    const warmKeywords = ['interested', 'thinking', 'considering', 'maybe', 'possible'];
-    
     const messageText = message.toLowerCase();
+    
+    // HOT keywords (high buying intent)
+    const hotKeywords = [
+      'buy', 'sell', 'ready', 'looking', 'serious', 'budget', 'timeline',
+      'mortgage', 'preapproved', 'cash', 'closing', 'offer', 'contract',
+      'urgent', 'asap', 'immediately', 'soon', 'this week', 'this month'
+    ];
+    
+    // WARM keywords (moderate interest)
+    const warmKeywords = [
+      'interested', 'thinking', 'considering', 'maybe', 'possible',
+      'exploring', 'researching', 'planning', 'future', 'eventually',
+      'curious', 'wondering', 'might', 'could', 'would like'
+    ];
+    
+    // COLD keywords (just browsing)
+    const coldKeywords = [
+      'just browsing', 'just looking', 'no rush', 'far future',
+      'years from now', 'general info', 'just curious'
+    ];
+    
+    // Count keyword matches
     const hotMatches = hotKeywords.filter(keyword => messageText.includes(keyword)).length;
     const warmMatches = warmKeywords.filter(keyword => messageText.includes(keyword)).length;
+    const coldMatches = coldKeywords.filter(keyword => messageText.includes(keyword)).length;
     
-    if (hotMatches >= 2) return 'HOT';
-    if (hotMatches >= 1 || warmMatches >= 2) return 'WARM';
+    // Scoring logic with additional factors
+    let score = 0;
+    
+    // Base scoring
+    score += hotMatches * 3;    // Hot keywords worth 3 points each
+    score += warmMatches * 1;   // Warm keywords worth 1 point each
+    score -= coldMatches * 2;   // Cold keywords subtract 2 points
+    
+    // Bonus points for specific indicators
+    if (leadData.phone) score += 2;        // Provided phone = +2
+    if (leadData.email) score += 2;        // Provided email = +2
+    if (leadData.name) score += 1;         // Provided name = +1
+    if (leadData.budget) score += 3;       // Mentioned budget = +3
+    
+    // Time urgency bonuses
+    if (messageText.match(/today|tomorrow|this week|urgent|asap/)) score += 4;
+    if (messageText.match(/next month|soon|quickly/)) score += 2;
+    
+    // Financial readiness indicators
+    if (messageText.match(/preapproved|pre-approved|financing|loan/)) score += 3;
+    if (messageText.match(/cash buyer|cash offer|all cash/)) score += 5;
+    if (messageText.match(/\$[\d,]+/)) score += 2; // Any dollar amount mentioned
+    
+    // Property specificity (more specific = higher intent)
+    if (messageText.match(/bedroom|bathroom|garage|square feet|sqft/)) score += 1;
+    if (messageText.match(/neighborhood|area|school district|commute/)) score += 1;
+    
+    // Determine final score category
+    if (score >= 8) return 'HOT';
+    if (score >= 4) return 'WARM';
+    if (score >= 1) return 'LUKEWARM';
     return 'COLD';
   };
 
   const leadScore = getLeadScore(message, leadData);
+  
+  // Log detailed analysis
+  console.log('Enhanced Lead Analysis:', {
+    message: message.substring(0, 100) + (message.length > 100 ? '...' : ''),
+    leadScore,
+    leadData,
+    timestamp
+  });
   
   const params = new URLSearchParams({
     timestamp,
@@ -51,7 +108,7 @@ const logToSheets = async (message, leadData = {}, sessionId) => {
   }
 };
 
-// NEW: SMS notification function
+// Enhanced SMS notification function
 const sendSMSNotification = async (type, leadData, message = '') => {
   try {
     console.log('Sending SMS notification:', type, leadData);
@@ -97,7 +154,7 @@ const getSessionId = () => {
   }
 };
 
-// Lead data extractor from conversation
+// Enhanced lead data extractor from conversation
 const extractLeadData = (messages) => {
   const conversation = messages.map(m => m.text).join(' ').toLowerCase();
   
@@ -107,18 +164,32 @@ const extractLeadData = (messages) => {
   const emailMatch = conversation.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
   if (emailMatch) leadData.email = emailMatch[0];
   
-  // Extract phone
-  const phoneMatch = conversation.match(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/);
+  // Extract phone (multiple formats)
+  const phoneMatch = conversation.match(/\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/);
   if (phoneMatch) leadData.phone = phoneMatch[0];
   
   // Extract name (look for "my name is" or "I'm")
-  const nameMatch = conversation.match(/(?:my name is|i'm|i am)\s+([a-zA-Z\s]+)/i);
+  const nameMatch = conversation.match(/(?:my name is|i'm|i am|this is)\s+([a-zA-Z\s]+)/i);
   if (nameMatch) leadData.name = nameMatch[1].trim();
   
-  // Extract budget
-  if (conversation.includes('budget') || conversation.includes('price') || conversation.includes('$')) {
-    const budgetMatch = conversation.match(/\$[\d,]+/);
-    if (budgetMatch) leadData.budget = budgetMatch[0];
+  // Extract budget (multiple formats)
+  const budgetMatch = conversation.match(/\$[\d,]+(?:k|,000)?|\b\d+k\b|budget.*?\$?[\d,]+/i);
+  if (budgetMatch) leadData.budget = budgetMatch[0];
+  
+  // Extract property type
+  if (conversation.includes('condo') || conversation.includes('townhouse') || conversation.includes('apartment')) {
+    leadData.propertyType = 'Condo/Townhouse';
+  } else if (conversation.includes('house') || conversation.includes('home')) {
+    leadData.propertyType = 'Single Family';
+  }
+  
+  // Extract timeline urgency
+  if (conversation.match(/urgent|asap|immediately|this week/)) {
+    leadData.timeline = 'Immediate';
+  } else if (conversation.match(/soon|next month|quickly/)) {
+    leadData.timeline = 'Short Term';
+  } else if (conversation.match(/planning|future|eventually/)) {
+    leadData.timeline = 'Long Term';
   }
   
   return leadData;
@@ -183,7 +254,7 @@ export default function RealEstateAgent() {
   const [messages, setMessages] = useState([
     { 
       from: "bot", 
-      text: "Hi! I'm Amanda's AI assistant with real-time booking capabilities. I can help you with real estate questions and actually schedule appointments with Amanda. Are you looking to buy or sell a property in the Richmond & Chester area?",
+      text: "Hi! I'm Amanda's AI assistant with enhanced lead tracking and real-time SMS alerts. I can help you with real estate questions and schedule appointments with Amanda. Are you looking to buy or sell a property in the Richmond & Chester area?",
       timestamp: new Date().toISOString()
     }
   ]);
@@ -214,23 +285,23 @@ export default function RealEstateAgent() {
     setInput("");
     setIsTyping(true);
 
-    // Extract and update lead data
+    // Extract and update lead data with enhanced extraction
     const extractedData = extractLeadData(newMessages);
     const updatedLeadData = { ...leadData, ...extractedData };
     setLeadData(updatedLeadData);
 
-    // Log user message with lead scoring
+    // Log user message with enhanced lead scoring
     const leadScore = await logToSheets(userMessage.text, updatedLeadData, sessionId);
     
     // Update lead data with score
     updatedLeadData.leadScore = leadScore;
 
-    // Send SMS notification for new leads
-    if (updatedLeadData.name || updatedLeadData.email) {
+    // Enhanced SMS notification logic
+    if (updatedLeadData.name || updatedLeadData.email || updatedLeadData.phone) {
       // This is a qualified lead - send SMS to agent
       await sendSMSNotification('new_lead', updatedLeadData, userMessage.text);
       
-      // If it's a HOT lead, send urgent alert
+      // Special alerts for high-value leads
       if (leadScore === 'HOT') {
         await sendSMSNotification('hot_lead_alert', updatedLeadData, userMessage.text);
       }
@@ -309,6 +380,17 @@ export default function RealEstateAgent() {
     });
   };
 
+  // Get lead score color for UI
+  const getLeadScoreColor = (score) => {
+    switch(score) {
+      case 'HOT': return 'text-red-600 bg-red-100';
+      case 'WARM': return 'text-orange-600 bg-orange-100';
+      case 'LUKEWARM': return 'text-yellow-600 bg-yellow-100';
+      case 'COLD': return 'text-blue-600 bg-blue-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
       {/* Hero Section */}
@@ -346,7 +428,7 @@ export default function RealEstateAgent() {
             <div className="bg-white p-6 rounded-xl shadow-md text-center">
               <div className="text-5xl mb-4">🤖</div>
               <h3 className="text-xl font-semibold mb-2">AI-Powered Service</h3>
-              <p className="text-gray-600">24/7 intelligent assistant with real-time booking and SMS alerts</p>
+              <p className="text-gray-600">24/7 intelligent assistant with enhanced lead scoring and real-time SMS alerts</p>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-md text-center">
               <div className="text-5xl mb-4">💯</div>
@@ -423,7 +505,7 @@ export default function RealEstateAgent() {
         </div>
       </section>
 
-      {/* AI Chat Widget with SMS NOTIFICATIONS */}
+      {/* Enhanced AI Chat Widget with Lead Scoring Display */}
       <div className="fixed bottom-6 right-6 z-50">
         <button
           className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:shadow-xl transition-all duration-300 transform hover:scale-110"
@@ -435,7 +517,7 @@ export default function RealEstateAgent() {
         
         {chatOpen && (
           <div className="w-96 h-[600px] bg-white border rounded-2xl shadow-2xl p-4 mt-4">
-            {/* Chat Header */}
+            {/* Enhanced Chat Header with Lead Score */}
             <div className="flex items-center justify-between mb-4 pb-2 border-b">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-full flex items-center justify-center text-white text-sm font-bold mr-2">
@@ -443,9 +525,14 @@ export default function RealEstateAgent() {
                 </div>
                 <div>
                   <div className="font-semibold text-sm">Amanda's AI Assistant</div>
-                  <div className="text-xs text-green-500">● Real-Time SMS Alerts</div>
+                  <div className="text-xs text-green-500">● Enhanced Lead Scoring</div>
                 </div>
               </div>
+              {leadData.leadScore && (
+                <div className={`px-2 py-1 rounded-full text-xs font-semibold ${getLeadScoreColor(leadData.leadScore)}`}>
+                  {leadData.leadScore}
+                </div>
+              )}
             </div>
 
             {/* Messages Container */}
