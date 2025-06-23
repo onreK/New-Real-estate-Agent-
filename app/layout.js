@@ -1,14 +1,22 @@
-import './globals.css'
+import { Inter } from 'next/font/google';
+import { ClerkProvider } from '@clerk/nextjs';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Amanda the Realtor - Your Richmond & Chester Real Estate Expert',
-  description: 'Professional real estate services in Richmond & Chester, Virginia. Schedule your free consultation today!',
-}
+  title: 'AI Business Automation Platform',
+  description: 'Multi-tenant AI chatbot platform for service businesses',
+};
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  )
+    <ClerkProvider>
+      <html lang="en">
+        <body className={inter.className}>
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
+  );
 }
