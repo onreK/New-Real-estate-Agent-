@@ -1,9 +1,9 @@
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
 
-// For now, we'll use in-memory storage (replace with database later)
-let businesses = [];
-let businessIdCounter = 1;
+// Global in-memory storage (temporary solution)
+global.businesses = global.businesses || [];
+global.businessIdCounter = global.businessIdCounter || 1;
 
 export async function POST(request) {
   try {
@@ -15,22 +15,30 @@ export async function POST(request) {
 
     const data = await request.json();
     
+    console.log('Received business data:', data);
+    console.log('User ID:', userId);
+    
+    // Validate required fields
+    if (!data.businessName || !data.subdomain) {
+      return NextResponse.json({ error: 'Business name and subdomain are required' }, { status: 400 });
+    }
+    
     // Check if subdomain already exists
-    const existingBusiness = businesses.find(b => b.subdomain === data.subdomain);
+    const existingBusiness = global.businesses.find(b => b.subdomain === data.subdomain);
     if (existingBusiness) {
       return NextResponse.json({ error: 'Subdomain already taken' }, { status: 400 });
     }
 
     // Create new business
     const newBusiness = {
-      id: `business_${businessIdCounter++}`,
+      id: `business_${global.businessIdCounter++}`,
       clerkUserId: userId,
       businessName: data.businessName,
-      industry: data.industry,
+      industry: data.industry || 'other',
       subdomain: data.subdomain,
-      ownerName: data.ownerName,
-      email: data.email,
-      phone: data.phone,
+      ownerName: data.ownerName || '',
+      email: data.email || '',
+      phone: data.phone || '',
       primaryColor: data.primaryColor || '#3B82F6',
       logoUrl: data.logoUrl || null,
       
@@ -51,14 +59,17 @@ export async function POST(request) {
       updatedAt: new Date().toISOString()
     };
 
-    businesses.push(newBusiness);
-    console.log('Business created:', newBusiness);
+    global.businesses.push(newBusiness);
+    console.log('Business created successfully:', newBusiness.id);
+    console.log('Total businesses:', global.businesses.length);
 
     return NextResponse.json(newBusiness, { status: 201 });
     
   } catch (error) {
     console.error('Error creating business:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Internal server error: ' + error.message 
+    }, { status: 500 });
   }
 }
 
@@ -71,7 +82,9 @@ export async function GET(request) {
     }
 
     // Get all businesses for this user
-    const userBusinesses = businesses.filter(b => b.clerkUserId === userId);
+    const userBusinesses = global.businesses.filter(b => b.clerkUserId === userId);
+    
+    console.log('Found businesses for user:', userBusinesses.length);
     
     return NextResponse.json(userBusinesses);
     
