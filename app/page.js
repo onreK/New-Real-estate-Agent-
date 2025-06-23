@@ -51,6 +51,38 @@ const logToSheets = async (message, leadData = {}, sessionId) => {
   }
 };
 
+// NEW: SMS notification function
+const sendSMSNotification = async (type, leadData, message = '') => {
+  try {
+    console.log('Sending SMS notification:', type, leadData);
+    
+    const response = await fetch('/api/sms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: type,
+        leadData: leadData,
+        message: message
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log('SMS sent successfully:', result.messageSid);
+    } else {
+      console.error('SMS failed:', result.error);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('SMS notification failed:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Session ID generator with fallback
 const getSessionId = () => {
   try {
@@ -189,6 +221,20 @@ export default function RealEstateAgent() {
 
     // Log user message with lead scoring
     const leadScore = await logToSheets(userMessage.text, updatedLeadData, sessionId);
+    
+    // Update lead data with score
+    updatedLeadData.leadScore = leadScore;
+
+    // Send SMS notification for new leads
+    if (updatedLeadData.name || updatedLeadData.email) {
+      // This is a qualified lead - send SMS to agent
+      await sendSMSNotification('new_lead', updatedLeadData, userMessage.text);
+      
+      // If it's a HOT lead, send urgent alert
+      if (leadScore === 'HOT') {
+        await sendSMSNotification('hot_lead_alert', updatedLeadData, userMessage.text);
+      }
+    }
 
     // Generate AI response with lead context
     const aiResponse = await generateAIResponse(newMessages, updatedLeadData);
@@ -228,6 +274,10 @@ export default function RealEstateAgent() {
             timestamp: new Date().toISOString()
           };
           setMessages(prev => [...prev, bookingSuccessMessage]);
+          
+          // Send SMS notification about booking attempt
+          await sendSMSNotification('appointment_booked', updatedLeadData);
+          
         } else {
           // Fallback to widget
           setShowBookingWidget(true);
@@ -296,7 +346,7 @@ export default function RealEstateAgent() {
             <div className="bg-white p-6 rounded-xl shadow-md text-center">
               <div className="text-5xl mb-4">🤖</div>
               <h3 className="text-xl font-semibold mb-2">AI-Powered Service</h3>
-              <p className="text-gray-600">24/7 intelligent assistant with real-time booking capabilities</p>
+              <p className="text-gray-600">24/7 intelligent assistant with real-time booking and SMS alerts</p>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-md text-center">
               <div className="text-5xl mb-4">💯</div>
@@ -373,7 +423,7 @@ export default function RealEstateAgent() {
         </div>
       </section>
 
-      {/* AI Chat Widget with REAL BOOKING */}
+      {/* AI Chat Widget with SMS NOTIFICATIONS */}
       <div className="fixed bottom-6 right-6 z-50">
         <button
           className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:shadow-xl transition-all duration-300 transform hover:scale-110"
@@ -393,7 +443,7 @@ export default function RealEstateAgent() {
                 </div>
                 <div>
                   <div className="font-semibold text-sm">Amanda's AI Assistant</div>
-                  <div className="text-xs text-green-500">● Real-Time Booking</div>
+                  <div className="text-xs text-green-500">● Real-Time SMS Alerts</div>
                 </div>
               </div>
             </div>
