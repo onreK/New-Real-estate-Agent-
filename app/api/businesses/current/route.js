@@ -1,10 +1,6 @@
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
 
-// Import businesses from storage (in a real app, this would be a database)
-// Note: This is temporary in-memory storage
-let businesses = [];
-
 export async function GET(request) {
   try {
     const { userId } = auth();
@@ -13,12 +9,17 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Access global businesses array
+    const businesses = global.businesses || [];
+    
     // Find the user's business (assuming one business per user for now)
     const business = businesses.find(b => b.clerkUserId === userId);
     
     if (!business) {
       return NextResponse.json({ error: 'No business found' }, { status: 404 });
     }
+    
+    console.log('Found current business:', business.id);
     
     return NextResponse.json(business);
     
@@ -37,6 +38,7 @@ export async function PUT(request) {
     }
 
     const data = await request.json();
+    const businesses = global.businesses || [];
     
     // Find and update the user's business
     const businessIndex = businesses.findIndex(b => b.clerkUserId === userId);
@@ -46,13 +48,13 @@ export async function PUT(request) {
     }
     
     // Update business data
-    businesses[businessIndex] = {
-      ...businesses[businessIndex],
+    global.businesses[businessIndex] = {
+      ...global.businesses[businessIndex],
       ...data,
       updatedAt: new Date().toISOString()
     };
     
-    return NextResponse.json(businesses[businessIndex]);
+    return NextResponse.json(global.businesses[businessIndex]);
     
   } catch (error) {
     console.error('Error updating business:', error);
