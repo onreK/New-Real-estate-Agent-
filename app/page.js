@@ -79,6 +79,10 @@ const extractLeadData = (messages) => {
   const phoneMatch = conversation.match(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/);
   if (phoneMatch) leadData.phone = phoneMatch[0];
   
+  // Extract name (look for "my name is" or "I'm")
+  const nameMatch = conversation.match(/(?:my name is|i'm|i am)\s+([a-zA-Z\s]+)/i);
+  if (nameMatch) leadData.name = nameMatch[1].trim();
+  
   // Extract budget
   if (conversation.includes('budget') || conversation.includes('price') || conversation.includes('$')) {
     const budgetMatch = conversation.match(/\$[\d,]+/);
@@ -115,6 +119,7 @@ const generateAIResponse = async (messages, leadData) => {
 
 export default function RealEstateAgent() {
   const [chatOpen, setChatOpen] = useState(false);
+  const [showBookingWidget, setShowBookingWidget] = useState(false);
   const [messages, setMessages] = useState([
     { 
       from: "bot", 
@@ -160,6 +165,26 @@ export default function RealEstateAgent() {
 
     setMessages([...newMessages, botMessage]);
     setIsTyping(false);
+
+    // Check if AI wants to book appointment
+    const wantsToBook = aiResponse.toLowerCase().includes('book') || 
+                       aiResponse.toLowerCase().includes('schedule') ||
+                       userMessage.text.toLowerCase().includes('appointment') ||
+                       userMessage.text.toLowerCase().includes('book') ||
+                       userMessage.text.toLowerCase().includes('schedule');
+
+    // If they want to book and we have their info, show booking widget
+    if (wantsToBook && updatedLeadData.name && updatedLeadData.email) {
+      setTimeout(() => {
+        setShowBookingWidget(true);
+        const bookingConfirmMessage = {
+          from: "bot",
+          text: `Perfect! I've opened the booking calendar for you, ${updatedLeadData.name}. Select your preferred time and your appointment will be instantly booked with Amanda!`,
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, bookingConfirmMessage]);
+      }, 1000);
+    }
 
     // Log bot response
     await logToSheets(`BOT_RESPONSE: ${aiResponse}`, updatedLeadData, sessionId);
@@ -344,6 +369,28 @@ export default function RealEstateAgent() {
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Smart Booking Widget */}
+              {showBookingWidget && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
+                  <div className="text-sm font-semibold text-green-800 mb-2">📅 Book Your Appointment</div>
+                  <div className="text-xs text-green-600 mb-2">Click below to select your preferred time:</div>
+                  <iframe
+                    src={`https://calendly.com/kernopay/home-buyer-consultation?prefill_email=${leadData.email}&prefill_name=${leadData.name}`}
+                    width="100%"
+                    height="200"
+                    frameBorder="0"
+                    className="rounded"
+                    title="Quick Book"
+                  ></iframe>
+                  <button 
+                    onClick={() => setShowBookingWidget(false)}
+                    className="text-xs text-gray-500 mt-1 hover:text-gray-700"
+                  >
+                    Close booking widget
+                  </button>
                 </div>
               )}
             </div>
