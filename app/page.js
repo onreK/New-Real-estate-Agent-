@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 // Enhanced Google Sheets logging with lead scoring
 const logToSheets = async (message, leadData = {}, sessionId) => {
@@ -118,7 +118,7 @@ const generateAIResponse = async (messages, leadData) => {
 };
 
 export default function RealEstateAgent() {
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true); // AUTO-OPEN CHAT
   const [showBookingWidget, setShowBookingWidget] = useState(false);
   const [messages, setMessages] = useState([
     { 
@@ -130,6 +130,14 @@ export default function RealEstateAgent() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [leadData, setLeadData] = useState({});
+
+  // Auto-open chat after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setChatOpen(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -318,7 +326,7 @@ export default function RealEstateAgent() {
         </div>
       </section>
 
-      {/* AI Chat Widget */}
+      {/* BIGGER AI Chat Widget */}
       <div className="fixed bottom-6 right-6 z-50">
         <button
           className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:shadow-xl transition-all duration-300 transform hover:scale-110"
@@ -329,7 +337,7 @@ export default function RealEstateAgent() {
         </button>
         
         {chatOpen && (
-          <div className="w-80 h-96 bg-white border rounded-2xl shadow-2xl p-4 mt-4">
+          <div className="w-96 h-[600px] bg-white border rounded-2xl shadow-2xl p-4 mt-4"> {/* BIGGER: w-96 h-[600px] */}
             {/* Chat Header */}
             <div className="flex items-center justify-between mb-4 pb-2 border-b">
               <div className="flex items-center">
@@ -343,8 +351,8 @@ export default function RealEstateAgent() {
               </div>
             </div>
 
-            {/* Messages Container */}
-            <div className="overflow-y-auto h-64 pb-2 mb-2 space-y-3">
+            {/* Messages Container - BIGGER */}
+            <div className="overflow-y-auto h-[450px] pb-2 mb-2 space-y-3"> {/* BIGGER: h-[450px] */}
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-xs px-4 py-2 rounded-2xl ${
@@ -372,18 +380,19 @@ export default function RealEstateAgent() {
                 </div>
               )}
 
-              {/* Smart Booking Widget */}
+              {/* FIXED Smart Booking Widget */}
               {showBookingWidget && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
                   <div className="text-sm font-semibold text-green-800 mb-2">📅 Book Your Appointment</div>
                   <div className="text-xs text-green-600 mb-2">Click below to select your preferred time:</div>
                   <iframe
-                    src={`https://calendly.com/kernopay/home-buyer-consultation?prefill_email=${leadData.email}&prefill_name=${leadData.name}`}
+                    src={`https://calendly.com/kernopay/home-buyer-consultation?prefill_email=${leadData.email}&prefill_name=${leadData.name}&hide_gdpr_banner=1`}
                     width="100%"
-                    height="200"
+                    height="300" // TALLER FOR FULL CALENDAR
                     frameBorder="0"
                     className="rounded"
                     title="Quick Book"
+                    style={{minHeight: '300px'}} // ENSURE MINIMUM HEIGHT
                   ></iframe>
                   <button 
                     onClick={() => setShowBookingWidget(false)}
