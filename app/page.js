@@ -35,8 +35,8 @@ const logToSheets = async (message, leadData = {}, sessionId) => {
     budget: leadData.budget || ''
   });
   
-  // Replace with your Google Apps Script URL
-  const url = `https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec?${params}`;
+  // Your Google Apps Script URL
+  const url = `https://script.google.com/macros/s/AKfycbwk-n0IMHKWQw4-WW1HmLQe38-QJuDROcmgB_ZiTm_mOh7HBI4ssIgjQ1tIdHGv_8Y0/exec?${params}`;
   
   try {
     await fetch(url, {
