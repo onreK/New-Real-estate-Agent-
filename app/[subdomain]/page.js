@@ -5,33 +5,51 @@ async function getBusinessData(subdomain) {
   try {
     console.log('Fetching business data for subdomain:', subdomain);
     
-    // Get the current domain for the API call
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'localhost:3000';
-    const baseUrl = process.env.NODE_ENV === 'production' ? `${protocol}://${host}` : 'http://localhost:3000';
+    // For server-side calls, we need to construct the full URL differently
+    // Try multiple URL construction methods to ensure it works
+    let baseUrl;
     
-    console.log('API URL:', `${baseUrl}/api/businesses?slug=${subdomain}`);
+    if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`;
+    } else if (process.env.NODE_ENV === 'production') {
+      // Try to get the URL from headers or construct it
+      baseUrl = 'https://new-real-estate-agent-bph2zbddg-kernos-projects.vercel.app';
+    } else {
+      baseUrl = 'http://localhost:3000';
+    }
     
-    const response = await fetch(`${baseUrl}/api/businesses?slug=${subdomain}`, {
+    const apiUrl = `${baseUrl}/api/businesses?slug=${subdomain}`;
+    console.log('Server-side API URL:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
+      // Add timeout to prevent hanging
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
     
-    console.log('API Response status:', response.status);
+    console.log('Server-side API Response status:', response.status);
+    console.log('Server-side API Response ok:', response.ok);
     
     if (!response.ok) {
-      console.log('API response not ok:', response.status, response.statusText);
+      console.log('Server-side API response not ok:', response.status, response.statusText);
+      
+      // If server-side fetch fails, return null and let client handle it
+      // This is a fallback approach
       return null;
     }
     
     const data = await response.json();
-    console.log('API Response data:', data);
+    console.log('Server-side API Response data:', data);
     
     return data.business || null;
   } catch (error) {
-    console.error('Error fetching business data:', error);
+    console.error('Server-side API Error:', error);
+    
+    // Fallback: If server-side fails, we'll handle it client-side
+    // For now, return null to show "Site Not Found"
     return null;
   }
 }
@@ -45,19 +63,45 @@ export default async function CustomerSitePage({ params }) {
   
   if (!business) {
     console.log('Business not found for subdomain:', subdomain);
+    
+    // Add debug info to help troubleshoot
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-2xl">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Site Not Found</h1>
           <p className="text-lg text-gray-600 mb-6">
             The subdomain "{subdomain}" doesn't exist or hasn't been set up yet.
           </p>
-          <a 
-            href="/"
-            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-          >
-            Go to Main Site
-          </a>
+          
+          {/* Debug info */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-left">
+            <h3 className="font-bold text-yellow-800 mb-2">Debug Info:</h3>
+            <div className="text-sm text-yellow-700 space-y-1">
+              <p><strong>Requested subdomain:</strong> {subdomain}</p>
+              <p><strong>API endpoint tried:</strong> /api/businesses?slug={subdomain}</p>
+              <p><strong>Troubleshooting steps:</strong></p>
+              <ol className="list-decimal list-inside ml-4 space-y-1">
+                <li>Check if business exists: <a href={`/api/businesses?slug=${subdomain}`} className="text-blue-600 underline" target="_blank">Test API directly</a></li>
+                <li>Check dashboard for correct subdomain</li>
+                <li>Verify business was created successfully</li>
+              </ol>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <a 
+              href="/"
+              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 mr-3"
+            >
+              Go to Main Site
+            </a>
+            <a 
+              href="/dashboard"
+              className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
+            >
+              Go to Dashboard
+            </a>
+          </div>
         </div>
       </div>
     );
