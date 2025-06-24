@@ -41,32 +41,6 @@ export default async function CustomerSitePage({ params }) {
   
   console.log('Customer site page rendered for subdomain:', subdomain);
   
-  // For debugging, let's always show a test page first
-  // Comment this out once we know the routing works
-  if (subdomain === 'kjhubhj') {
-    return (
-      <div className="min-h-screen bg-white p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-6">🎉 SUCCESS!</h1>
-          <p className="text-lg text-gray-600 mb-4">
-            The dynamic route is working! Subdomain: <strong>{subdomain}</strong>
-          </p>
-          <p className="text-gray-500">
-            Now we just need to fetch the business data and display the real website.
-          </p>
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-            <h2 className="font-bold text-blue-900 mb-2">Next Steps:</h2>
-            <ol className="list-decimal list-inside text-blue-800 space-y-1">
-              <li>Confirm this page loads (you should see this message)</li>
-              <li>Test the API call to fetch business data</li>
-              <li>Display the full business website</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
   const business = await getBusinessData(subdomain);
   
   if (!business) {
