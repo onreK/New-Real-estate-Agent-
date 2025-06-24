@@ -42,6 +42,15 @@ export async function POST(request) {
       primaryColor: data.primaryColor || '#3B82F6',
       logoUrl: data.logoUrl || null,
       
+      // NEW: Site type configuration
+      siteType: data.siteType || 'fullsite', // 'widget' or 'fullsite'
+      
+      // Website content (for full site customers)
+      businessDescription: data.businessDescription || '',
+      services: data.services || [],
+      heroText: data.heroText || `Welcome to ${data.businessName}`,
+      aboutText: data.aboutText || '',
+      
       // Twilio settings (will be configured later)
       twilioPhoneNumber: null,
       twilioAccountSid: null,
@@ -53,7 +62,7 @@ export async function POST(request) {
       
       // Subscription
       subscriptionStatus: 'trial',
-      plan: 'starter',
+      plan: data.siteType === 'widget' ? 'widget-starter' : 'fullsite-starter',
       
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
