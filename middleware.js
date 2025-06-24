@@ -1,36 +1,26 @@
-import { authMiddleware } from "@clerk/nextjs";
+import { NextResponse } from 'next/server';
 
-export default authMiddleware({
-  // Routes that can be accessed while signed out
-  publicRoutes: [
-    "/",
-    "/sign-in(.*)",
-    "/sign-up(.*)",
-    "/api/webhooks(.*)",
-    "/api/chat",
-    "/api/sites/(.*)",
-    "/api/conversations",
-    "/api/google-sheets",
-    "/api/sms",
-    "/api/calendly",
-    "/api/widget/(.*)",
-    // Allow all customer subdomain routes (like /test-fix, /test-business, etc.)
-    "/((?!dashboard|onboarding).*)"
-  ],
-  // Routes that always require authentication  
-  ignoredRoutes: [
-    "/api/webhooks(.*)"
-  ],
-});
+export function middleware(request) {
+  const { pathname } = request.nextUrl;
+  
+  // Only protect dashboard routes - let everything else be public
+  if (pathname.startsWith('/dashboard')) {
+    // Check if user is authenticated for dashboard access
+    const token = request.cookies.get('auth-token');
+    
+    if (!token) {
+      // Redirect to YOUR login page, not Vercel's
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+  
+  // All other routes (including customer sites) are public
+  return NextResponse.next();
+}
 
 export const config = {
-  // Protects all routes, including api/trpc.
-  // See https://clerk.com/docs/references/nextjs/auth-middleware
-  // for more information about configuring your Middleware
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    "/((?!.*\\..*|_next).*)",
-    // Always run for API routes
-    "/(api|trpc)(.*)"
-  ],
+    // Only run middleware on dashboard routes
+    '/dashboard/:path*'
+  ]
 };
