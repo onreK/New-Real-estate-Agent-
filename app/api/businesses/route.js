@@ -1,226 +1,226 @@
-import { auth } from '@clerk/nextjs';
+// app/api/businesses/route.js
 import { NextResponse } from 'next/server';
 
-// Global in-memory storage (temporary solution)
-global.businesses = global.businesses || [];
-global.businessIdCounter = global.businessIdCounter || 1;
+// In-memory storage (replace with database in production)
+let businesses = [
+  {
+    id: 'business_test_1',
+    clerkUserId: 'test-user-123',
+    businessName: 'Test Real Estate Co',
+    industry: 'real-estate',
+    businessType: 'ai-only',
+    slug: 'test-realestate',
+    aiFeatures: ['chatbot', 'voice', 'lead-scoring'],
+    businessDescription: 'Professional real estate services you can trust in the test area.',
+    targetAudience: 'Home buyers and sellers',
+    isPrimary: true,
+    onboardingCompleted: true,
+    createdAt: '2025-06-24T08:03:46.624Z',
+    updatedAt: '2025-06-24T08:03:46.624Z',
+    // Legacy fields for compatibility
+    name: 'Test Real Estate Co',
+    subdomain: 'test-realestate',
+    description: 'Professional real estate services you can trust in the test area.'
+  }
+];
 
-// Add permanent test businesses that survive redeployments
-if (global.businesses.length === 0) {
-  global.businesses = [
-    {
-      id: 'business_test_1',
-      clerkUserId: 'test-user-123',
-      businessName: 'Test Real Estate Co',
-      industry: 'real-estate',
-      subdomain: 'test-realestate',
-      slug: 'test-realestate',
-      ownerName: 'John Test',
-      email: 'john@test.com',
-      phone: '(555) 123-4567',
-      primaryColor: '#3B82F6',
-      logoUrl: null,
-      siteType: 'fullsite',
-      businessDescription: 'Professional real estate services you can trust in the Test area.',
-      services: ['Home Buying', 'Home Selling', 'Market Analysis', 'First-time Buyer Support'],
-      heroText: 'Welcome to Test Real Estate Co',
-      aboutText: 'Your trusted real estate partner',
-      calendlyUrl: null,
-      googleSheetUrl: null,
-      subscriptionStatus: 'trial',
-      plan: 'fullsite-starter',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ];
-  console.log('Initialized with test business data');
+// Generate unique ID
+function generateId() {
+  return 'business_' + Math.random().toString(36).substr(2, 9);
 }
 
-export async function POST(request) {
-  console.log('=== API CALL STARTED ===');
-  
-  try {
-    // Try to get auth, but don't fail if it doesn't work
-    let userId;
-    try {
-      const authResult = auth();
-      userId = authResult?.userId;
-      console.log('Auth result:', { userId, hasAuth: !!authResult });
-    } catch (authError) {
-      console.error('Auth error:', authError);
-      // For now, let's continue without auth to test
-      userId = 'temp-user-' + Date.now();
-      console.log('Using temporary userId:', userId);
-    }
-    
-    if (!userId) {
-      console.log('No userId found, creating temporary one');
-      userId = 'temp-user-' + Date.now();
-    }
-
-    const data = await request.json();
-    console.log('Received business data:', JSON.stringify(data, null, 2));
-    
-    // Handle both 'slug' and 'subdomain' field names
-    let businessSlug = data.slug || data.subdomain;
-    console.log('Original business slug:', businessSlug);
-    
-    // Check if subdomain already exists and make it unique
-    let finalSlug = businessSlug;
-    let counter = 1;
-    while (global.businesses.find(b => b.subdomain === finalSlug || b.slug === finalSlug)) {
-      finalSlug = `${businessSlug}-${counter}`;
-      counter++;
-      console.log('Slug already exists, trying:', finalSlug);
-    }
-    
-    console.log('Final unique slug:', finalSlug);
-    
-    // Validate required fields
-    if (!data.businessName) {
-      console.error('Missing businessName');
-      return NextResponse.json({ 
-        error: 'Business name is required',
-        received: data
-      }, { status: 400 });
-    }
-    
-    if (!businessSlug) {
-      console.error('Missing slug/subdomain');
-      return NextResponse.json({ 
-        error: 'Business slug/subdomain is required',
-        received: data
-      }, { status: 400 });
-    }
-
-    // Create new business
-    const newBusiness = {
-      id: `business_${global.businessIdCounter++}`,
-      clerkUserId: userId,
-      businessName: data.businessName,
-      industry: data.industry || 'other',
-      subdomain: finalSlug, // Use the unique slug
-      slug: finalSlug, // Also store as slug for consistency
-      ownerName: data.ownerName || '',
-      email: data.email || '',
-      phone: data.phone || '',
-      primaryColor: data.primaryColor || '#3B82F6',
-      logoUrl: data.logoUrl || null,
-      
-      siteType: data.siteType || 'fullsite',
-      
-      businessDescription: data.businessDescription || '',
-      services: Array.isArray(data.services) ? data.services : 
-                (typeof data.services === 'string' ? data.services.split('\n').filter(s => s.trim()) : []),
-      heroText: data.heroText || `Welcome to ${data.businessName}`,
-      aboutText: data.aboutText || '',
-      
-      twilioPhoneNumber: null,
-      twilioAccountSid: null,
-      twilioAuthToken: null,
-      
-      calendlyUrl: data.calendlyUrl || null,
-      googleSheetUrl: data.googleSheetUrl || null,
-      
-      subscriptionStatus: 'trial',
-      plan: data.siteType === 'widget' ? 'widget-starter' : 'fullsite-starter',
-      
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    console.log('Creating business:', JSON.stringify(newBusiness, null, 2));
-    
-    global.businesses.push(newBusiness);
-    console.log('Business created successfully. Total businesses:', global.businesses.length);
-    console.log('All businesses:', global.businesses.map(b => ({ id: b.id, slug: b.slug })));
-
-    return NextResponse.json(newBusiness, { status: 201 });
-    
-  } catch (error) {
-    console.error('=== DETAILED ERROR ===');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', error);
-    
-    return NextResponse.json({ 
-      error: 'Internal server error: ' + error.message,
-      stack: error.stack
-    }, { status: 500 });
-  }
+// Generate slug from business name
+function generateSlug(businessName) {
+  return businessName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim('-');
 }
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get('slug');
-    const { pathname } = new URL(request.url);
     
-    console.log('GET request - pathname:', pathname, 'slug:', slug);
-    console.log('Available businesses:', global.businesses.map(b => ({ 
-      id: b.id, 
-      slug: b.slug, 
-      subdomain: b.subdomain,
-      businessName: b.businessName 
-    })));
-    
-    // If requesting specific business by slug (for customer sites)
     if (slug) {
-      console.log('Searching for business with slug:', slug);
-      const business = global.businesses.find(b => {
-        console.log('Checking business:', { 
-          id: b.id, 
-          slug: b.slug, 
-          subdomain: b.subdomain,
-          matches: b.subdomain === slug || b.slug === slug 
-        });
-        return b.subdomain === slug || b.slug === slug;
-      });
+      // Find business by slug
+      const business = businesses.find(b => 
+        b.slug === slug || b.subdomain === slug
+      );
       
-      if (!business) {
-        console.log('Business not found for slug:', slug);
-        console.log('All available slugs:', global.businesses.map(b => b.subdomain || b.slug));
-        return NextResponse.json({ error: 'Business not found' }, { status: 404 });
-      }
-      
-      console.log('Found business for slug:', slug, business.businessName);
-      return NextResponse.json({ business });
-    }
-    
-    // Handle /api/businesses/current route (for dashboard)
-    if (pathname.includes('/current')) {
-      let userId;
-      try {
-        const authResult = auth();
-        userId = authResult?.userId;
-      } catch (authError) {
-        console.log('Auth error in GET, returning all businesses');
-        // For testing, return the most recent business if no auth
-        if (global.businesses.length > 0) {
-          return NextResponse.json([global.businesses[global.businesses.length - 1]]);
-        }
-        return NextResponse.json([]);
-      }
-      
-      if (userId) {
-        const userBusinesses = global.businesses.filter(b => b.clerkUserId === userId);
-        console.log('Found businesses for user:', userBusinesses.length);
-        return NextResponse.json(userBusinesses);
+      if (business) {
+        return NextResponse.json([business]);
       } else {
-        // For testing, return the most recent business
-        if (global.businesses.length > 0) {
-          return NextResponse.json([global.businesses[global.businesses.length - 1]]);
-        }
         return NextResponse.json([]);
       }
     }
     
-    // Return all businesses for general requests (dashboard)
-    console.log('Returning all businesses:', global.businesses.length);
-    return NextResponse.json(global.businesses);
+    // Return all businesses
+    return NextResponse.json(businesses);
+  } catch (error) {
+    console.error('Error fetching businesses:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch businesses' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const data = await request.json();
+    console.log('Received business data:', data);
+    
+    // Validate required fields
+    const requiredFields = ['businessName', 'industry', 'businessType'];
+    const missingFields = requiredFields.filter(field => !data[field]);
+    
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields);
+      return NextResponse.json(
+        { 
+          error: 'Missing required fields',
+          missingFields,
+          received: Object.keys(data)
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Generate unique ID and slug
+    const businessId = generateId();
+    const slug = generateSlug(data.businessName);
+    
+    // Check if slug already exists
+    const existingBusiness = businesses.find(b => b.slug === slug);
+    if (existingBusiness) {
+      return NextResponse.json(
+        { error: 'Business name already exists' },
+        { status: 409 }
+      );
+    }
+    
+    // Create new business object
+    const newBusiness = {
+      id: businessId,
+      clerkUserId: data.clerkUserId || 'anonymous-user',
+      businessName: data.businessName,
+      industry: data.industry,
+      businessType: data.businessType || 'ai-only',
+      slug: slug,
+      aiFeatures: data.aiFeatures || [],
+      businessDescription: data.businessDescription || '',
+      targetAudience: data.targetAudience || '',
+      isPrimary: businesses.length === 0, // First business is primary
+      onboardingCompleted: data.onboardingCompleted || false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      
+      // Legacy fields for compatibility
+      name: data.businessName,
+      subdomain: slug,
+      description: data.businessDescription || ''
+    };
+    
+    // Add to businesses array
+    businesses.push(newBusiness);
+    
+    console.log('Created new business:', newBusiness);
+    console.log('Total businesses:', businesses.length);
+    
+    return NextResponse.json(newBusiness, { status: 201 });
     
   } catch (error) {
-    console.error('Error in GET:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error creating business:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to create business',
+        details: error.message
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request) {
+  try {
+    const data = await request.json();
+    const { id } = data;
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Business ID is required for updates' },
+        { status: 400 }
+      );
+    }
+    
+    // Find business to update
+    const businessIndex = businesses.findIndex(b => b.id === id);
+    
+    if (businessIndex === -1) {
+      return NextResponse.json(
+        { error: 'Business not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Update business
+    const updatedBusiness = {
+      ...businesses[businessIndex],
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+    
+    businesses[businessIndex] = updatedBusiness;
+    
+    console.log('Updated business:', updatedBusiness);
+    
+    return NextResponse.json(updatedBusiness);
+    
+  } catch (error) {
+    console.error('Error updating business:', error);
+    return NextResponse.json(
+      { error: 'Failed to update business' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Business ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Find and remove business
+    const businessIndex = businesses.findIndex(b => b.id === id);
+    
+    if (businessIndex === -1) {
+      return NextResponse.json(
+        { error: 'Business not found' },
+        { status: 404 }
+      );
+    }
+    
+    const deletedBusiness = businesses.splice(businessIndex, 1)[0];
+    
+    console.log('Deleted business:', deletedBusiness);
+    
+    return NextResponse.json({ success: true, deleted: deletedBusiness });
+    
+  } catch (error) {
+    console.error('Error deleting business:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete business' },
+      { status: 500 }
+    );
   }
 }
