@@ -126,7 +126,35 @@ export async function GET(request) {
     const { pathname } = new URL(request.url);
     
     console.log('GET request - pathname:', pathname, 'slug:', slug);
-    console.log('Available businesses:', global.businesses.map(b => ({ id: b.id, slug: b.slug })));
+    console.log('Available businesses:', global.businesses.map(b => ({ 
+      id: b.id, 
+      slug: b.slug, 
+      subdomain: b.subdomain,
+      businessName: b.businessName 
+    })));
+    
+    // If requesting specific business by slug (for customer sites)
+    if (slug) {
+      console.log('Searching for business with slug:', slug);
+      const business = global.businesses.find(b => {
+        console.log('Checking business:', { 
+          id: b.id, 
+          slug: b.slug, 
+          subdomain: b.subdomain,
+          matches: b.subdomain === slug || b.slug === slug 
+        });
+        return b.subdomain === slug || b.slug === slug;
+      });
+      
+      if (!business) {
+        console.log('Business not found for slug:', slug);
+        console.log('All available slugs:', global.businesses.map(b => b.subdomain || b.slug));
+        return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+      }
+      
+      console.log('Found business for slug:', slug, business.businessName);
+      return NextResponse.json({ business });
+    }
     
     // Handle /api/businesses/current route (for dashboard)
     if (pathname.includes('/current')) {
@@ -136,9 +164,9 @@ export async function GET(request) {
         userId = authResult?.userId;
       } catch (authError) {
         console.log('Auth error in GET, returning all businesses');
-        // For testing, return the first business if no auth
+        // For testing, return the most recent business if no auth
         if (global.businesses.length > 0) {
-          return NextResponse.json([global.businesses[0]]);
+          return NextResponse.json([global.businesses[global.businesses.length - 1]]);
         }
         return NextResponse.json([]);
       }
@@ -148,27 +176,15 @@ export async function GET(request) {
         console.log('Found businesses for user:', userBusinesses.length);
         return NextResponse.json(userBusinesses);
       } else {
-        // For testing, return all businesses
-        return NextResponse.json(global.businesses);
+        // For testing, return the most recent business
+        if (global.businesses.length > 0) {
+          return NextResponse.json([global.businesses[global.businesses.length - 1]]);
+        }
+        return NextResponse.json([]);
       }
     }
     
-    // If requesting specific business by slug (for customer sites)
-    if (slug) {
-      const business = global.businesses.find(b => 
-        b.subdomain === slug || b.slug === slug
-      );
-      
-      if (!business) {
-        console.log('Business not found for slug:', slug);
-        return NextResponse.json({ error: 'Business not found' }, { status: 404 });
-      }
-      
-      console.log('Found business for slug:', slug);
-      return NextResponse.json({ business });
-    }
-    
-    // Return all businesses for general requests
+    // Return all businesses for general requests (dashboard)
     console.log('Returning all businesses:', global.businesses.length);
     return NextResponse.json(global.businesses);
     
