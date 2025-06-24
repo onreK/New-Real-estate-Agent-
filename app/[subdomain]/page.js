@@ -10,9 +10,9 @@ const getBaseUrl = () => {
     return `https://${process.env.VERCEL_URL}`;
   }
   
-  // Handle production with current deployment - UPDATED URL
+  // Handle production with current deployment - LATEST URL
   if (process.env.NODE_ENV === 'production') {
-    return 'https://new-real-estate-agent-391jvmoi9-kemos-projects.vercel.app';
+    return 'https://new-real-estate-agent-p8w1fdpr5-kemos-projects.vercel.app';
   }
   
   // Development fallback
@@ -27,11 +27,15 @@ export default async function CustomerSite({ params }) {
     const apiUrl = `${baseUrl}/api/businesses?slug=${subdomain}`;
     console.log('Server-side fetch attempting:', apiUrl);
     
+    // Try different approaches to handle 401 issue
     const response = await fetch(apiUrl, {
-      cache: 'no-store', // Ensure fresh data
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
-        // Add any authentication headers if needed
+        'User-Agent': 'Mozilla/5.0 (compatible; NextJS-SSR)',
+        // Try adding origin header
+        'Origin': baseUrl,
+        'Referer': baseUrl,
       },
     });
 
@@ -39,6 +43,12 @@ export default async function CustomerSite({ params }) {
 
     if (!response.ok) {
       console.error(`API call failed: ${response.status} ${response.statusText}`);
+      
+      // If 401, try to provide more helpful error info
+      if (response.status === 401) {
+        console.error('Authentication issue - API might require different headers for server-side calls');
+      }
+      
       throw new Error(`Failed to fetch business: ${response.status}`);
     }
 
@@ -272,6 +282,14 @@ export default async function CustomerSite({ params }) {
             <h3 className="font-semibold text-red-900 mb-2">Error Details:</h3>
             <p className="text-red-700 text-sm">API URL: {apiUrl}</p>
             <p className="text-red-700 text-sm">{error.message}</p>
+            {error.message.includes('401') && (
+              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded">
+                <p className="text-yellow-800 text-xs">
+                  🔐 API Authentication Issue: The server-side call is being rejected. 
+                  This might be due to CORS or authentication differences between browser and server calls.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
