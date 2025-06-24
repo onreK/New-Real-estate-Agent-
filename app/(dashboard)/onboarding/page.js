@@ -103,6 +103,13 @@ export default function OnboardingPage() {
     }
   };
 
+  // Function to determine if Continue button should be disabled
+  const isContinueDisabled = () => {
+    if (step === 1) return false; // Step 1 doesn't require any fields
+    if (step === 2) return !formData.businessName || !formData.subdomain;
+    return false; // Other steps don't have required fields for continue
+  };
+
   const maxSteps = formData.siteType === 'widget' ? 3 : 4;
 
   return (
@@ -474,7 +481,7 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => setStep(step + 1)}
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ml-auto"
-                  disabled={!formData.businessName || !formData.subdomain}
+                  disabled={isContinueDisabled()}
                 >
                   Continue
                 </button>
