@@ -3,18 +3,32 @@ import { notFound } from 'next/navigation';
 // Server component to fetch business data
 async function getBusinessData(subdomain) {
   try {
-    // In a real app, this would be an internal API call or direct database query
-    // For now, we'll use the same API endpoint
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    console.log('Fetching business data for subdomain:', subdomain);
+    
+    // Get the current domain for the API call
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'localhost:3000';
+    const baseUrl = process.env.NODE_ENV === 'production' ? `${protocol}://${host}` : 'http://localhost:3000';
+    
+    console.log('API URL:', `${baseUrl}/api/businesses?slug=${subdomain}`);
+    
     const response = await fetch(`${baseUrl}/api/businesses?slug=${subdomain}`, {
-      cache: 'no-store' // Always get fresh data
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      }
     });
     
+    console.log('API Response status:', response.status);
+    
     if (!response.ok) {
+      console.log('API response not ok:', response.status, response.statusText);
       return null;
     }
     
     const data = await response.json();
+    console.log('API Response data:', data);
+    
     return data.business || null;
   } catch (error) {
     console.error('Error fetching business data:', error);
@@ -25,13 +39,54 @@ async function getBusinessData(subdomain) {
 export default async function CustomerSitePage({ params }) {
   const { subdomain } = params;
   
-  console.log('Customer site requested for subdomain:', subdomain);
+  console.log('Customer site page rendered for subdomain:', subdomain);
+  
+  // For debugging, let's always show a test page first
+  // Comment this out once we know the routing works
+  if (subdomain === 'kjhubhj') {
+    return (
+      <div className="min-h-screen bg-white p-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl font-bold text-gray-900 mb-6">🎉 SUCCESS!</h1>
+          <p className="text-lg text-gray-600 mb-4">
+            The dynamic route is working! Subdomain: <strong>{subdomain}</strong>
+          </p>
+          <p className="text-gray-500">
+            Now we just need to fetch the business data and display the real website.
+          </p>
+          <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+            <h2 className="font-bold text-blue-900 mb-2">Next Steps:</h2>
+            <ol className="list-decimal list-inside text-blue-800 space-y-1">
+              <li>Confirm this page loads (you should see this message)</li>
+              <li>Test the API call to fetch business data</li>
+              <li>Display the full business website</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   const business = await getBusinessData(subdomain);
   
   if (!business) {
     console.log('Business not found for subdomain:', subdomain);
-    notFound();
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Site Not Found</h1>
+          <p className="text-lg text-gray-600 mb-6">
+            The subdomain "{subdomain}" doesn't exist or hasn't been set up yet.
+          </p>
+          <a 
+            href="/"
+            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+          >
+            Go to Main Site
+          </a>
+        </div>
+      </div>
+    );
   }
   
   console.log('Business found:', business.businessName);
@@ -123,68 +178,6 @@ export default async function CustomerSitePage({ params }) {
         </section>
       )}
 
-      {/* About Section */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                Why Choose {business.businessName}?
-              </h2>
-              <p className="text-lg text-gray-600 mb-6">
-                {business.aboutText || business.businessDescription}
-              </p>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm mr-3"
-                    style={{ backgroundColor: business.primaryColor }}
-                  >
-                    ✓
-                  </div>
-                  <span className="text-gray-700">Professional & Experienced</span>
-                </div>
-                <div className="flex items-center">
-                  <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm mr-3"
-                    style={{ backgroundColor: business.primaryColor }}
-                  >
-                    ✓
-                  </div>
-                  <span className="text-gray-700">Local Market Expert</span>
-                </div>
-                <div className="flex items-center">
-                  <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm mr-3"
-                    style={{ backgroundColor: business.primaryColor }}
-                  >
-                    ✓
-                  </div>
-                  <span className="text-gray-700">Personalized Service</span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-100 rounded-lg p-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Get In Touch</h3>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">👤</span>
-                  <span className="text-gray-700">{business.ownerName}</span>
-                </div>
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">📞</span>
-                  <span className="text-gray-700">{business.phone}</span>
-                </div>
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">📧</span>
-                  <span className="text-gray-700">{business.email}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* AI Chat Widget */}
       <div className="fixed bottom-6 right-6 z-50">
         <div className="bg-white rounded-lg shadow-lg p-4 max-w-sm">
@@ -201,7 +194,7 @@ export default async function CustomerSitePage({ params }) {
             </div>
           </div>
           <div className="bg-gray-100 p-3 rounded-lg text-sm mb-3">
-            Hi! I'm {business.ownerName}'s AI assistant with enhanced lead tracking and real-time SMS alerts. I can help you with {business.industry.replace('-', ' ')} questions and schedule appointments with {business.ownerName}. Are you looking to buy or sell a property in the Richmond & Chester area?
+            Hi! I'm {business.ownerName}'s AI assistant with enhanced lead tracking and real-time SMS alerts. How can I help you today?
           </div>
           <button 
             className="w-full text-white px-4 py-2 rounded text-sm font-medium"
