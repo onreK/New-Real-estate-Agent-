@@ -1,28 +1,28 @@
 // app/[subdomain]/page.js
+
+// Define getBaseUrl outside the component so it's accessible everywhere
+const getBaseUrl = () => {
+  // Check for custom NEXTAUTH_URL first
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+  
+  // Handle Vercel deployments - VERCEL_URL should be set automatically
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // Handle production with current deployment
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://new-real-estate-agent-phsf3petn-kemos-projects.vercel.app';
+  }
+  
+  // Development fallback
+  return 'http://localhost:3000';
+};
+
 export default async function CustomerSite({ params }) {
   const subdomain = params.subdomain;
   
   try {
-    // Fix: Use absolute URL for server-side fetch
-    const getBaseUrl = () => {
-      // Check for custom NEXTAUTH_URL first
-      if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
-      
-      // Handle Vercel deployments
-      if (process.env.VERCEL_URL) {
-        return `https://${process.env.VERCEL_URL}`;
-      }
-      
-      // Handle production - use the current request's host
-      if (process.env.NODE_ENV === 'production') {
-        // For your specific Vercel deployment
-        return 'https://new-real-estate-agent-bab6u5h70-kemos-projects.vercel.app';
-      }
-      
-      // Development fallback
-      return 'http://localhost:3000';
-    };
-    
     const baseUrl = getBaseUrl();
     const apiUrl = `${baseUrl}/api/businesses?slug=${subdomain}`;
     console.log('Server-side fetch attempting:', apiUrl);
@@ -31,6 +31,7 @@ export default async function CustomerSite({ params }) {
       cache: 'no-store', // Ensure fresh data
       headers: {
         'Content-Type': 'application/json',
+        // Add any authentication headers if needed
       },
     });
 
@@ -42,6 +43,7 @@ export default async function CustomerSite({ params }) {
     }
 
     const data = await response.json();
+    console.log('Received data:', data);
     
     if (!data || data.length === 0) {
       return (
@@ -75,7 +77,7 @@ export default async function CustomerSite({ params }) {
             <div className="flex justify-between items-center py-6">
               <div className="flex items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
-                  {business.name}
+                  {business.name || business.businessName}
                 </h1>
               </div>
               <nav className="hidden md:flex space-x-8">
@@ -92,10 +94,10 @@ export default async function CustomerSite({ params }) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
             <div className="text-center">
               <h2 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-                Welcome to {business.name}
+                Welcome to {business.name || business.businessName}
               </h2>
               <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-                {business.description || "Your trusted partner for all your business needs."}
+                {business.description || business.businessDescription || "Your trusted partner for all your business needs."}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
@@ -142,7 +144,7 @@ export default async function CustomerSite({ params }) {
             <div className="text-center mb-16">
               <h3 className="text-3xl font-bold text-gray-900 mb-4">Get In Touch</h3>
               <p className="text-gray-600 max-w-2xl mx-auto">
-                Ready to work with {business.name}? Contact us today.
+                Ready to work with {business.name || business.businessName}? Contact us today.
               </p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -236,7 +238,7 @@ export default async function CustomerSite({ params }) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               <p className="text-gray-400">
-                © 2024 {business.name}. All rights reserved.
+                © 2024 {business.name || business.businessName}. All rights reserved.
               </p>
             </div>
           </div>
@@ -247,7 +249,8 @@ export default async function CustomerSite({ params }) {
           <strong>Debug:</strong><br/>
           Subdomain: {subdomain}<br/>
           Business ID: {business.id}<br/>
-          API URL: {apiUrl}
+          API URL: {apiUrl}<br/>
+          Business Data: {JSON.stringify(business).substring(0, 100)}...
         </div>
       </div>
     );
