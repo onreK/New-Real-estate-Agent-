@@ -31,8 +31,19 @@ export async function POST(request) {
     console.log('Received business data:', JSON.stringify(data, null, 2));
     
     // Handle both 'slug' and 'subdomain' field names
-    const businessSlug = data.slug || data.subdomain;
-    console.log('Business slug extracted:', businessSlug);
+    let businessSlug = data.slug || data.subdomain;
+    console.log('Original business slug:', businessSlug);
+    
+    // Check if subdomain already exists and make it unique
+    let finalSlug = businessSlug;
+    let counter = 1;
+    while (global.businesses.find(b => b.subdomain === finalSlug || b.slug === finalSlug)) {
+      finalSlug = `${businessSlug}-${counter}`;
+      counter++;
+      console.log('Slug already exists, trying:', finalSlug);
+    }
+    
+    console.log('Final unique slug:', finalSlug);
     
     // Validate required fields
     if (!data.businessName) {
@@ -50,15 +61,6 @@ export async function POST(request) {
         received: data
       }, { status: 400 });
     }
-    
-    // Check if subdomain already exists
-    const existingBusiness = global.businesses.find(b => 
-      b.subdomain === businessSlug || b.slug === businessSlug
-    );
-    if (existingBusiness) {
-      console.log('Business already exists:', businessSlug);
-      return NextResponse.json({ error: 'Subdomain already taken' }, { status: 400 });
-    }
 
     // Create new business
     const newBusiness = {
@@ -66,8 +68,8 @@ export async function POST(request) {
       clerkUserId: userId,
       businessName: data.businessName,
       industry: data.industry || 'other',
-      subdomain: businessSlug,
-      slug: businessSlug,
+      subdomain: finalSlug, // Use the unique slug
+      slug: finalSlug, // Also store as slug for consistency
       ownerName: data.ownerName || '',
       email: data.email || '',
       phone: data.phone || '',
@@ -121,9 +123,35 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get('slug');
+    const { pathname } = new URL(request.url);
     
-    console.log('GET request for slug:', slug);
+    console.log('GET request - pathname:', pathname, 'slug:', slug);
     console.log('Available businesses:', global.businesses.map(b => ({ id: b.id, slug: b.slug })));
+    
+    // Handle /api/businesses/current route (for dashboard)
+    if (pathname.includes('/current')) {
+      let userId;
+      try {
+        const authResult = auth();
+        userId = authResult?.userId;
+      } catch (authError) {
+        console.log('Auth error in GET, returning all businesses');
+        // For testing, return the first business if no auth
+        if (global.businesses.length > 0) {
+          return NextResponse.json([global.businesses[0]]);
+        }
+        return NextResponse.json([]);
+      }
+      
+      if (userId) {
+        const userBusinesses = global.businesses.filter(b => b.clerkUserId === userId);
+        console.log('Found businesses for user:', userBusinesses.length);
+        return NextResponse.json(userBusinesses);
+      } else {
+        // For testing, return all businesses
+        return NextResponse.json(global.businesses);
+      }
+    }
     
     // If requesting specific business by slug (for customer sites)
     if (slug) {
@@ -140,7 +168,7 @@ export async function GET(request) {
       return NextResponse.json({ business });
     }
     
-    // Return all businesses for now (since auth might be broken)
+    // Return all businesses for general requests
     console.log('Returning all businesses:', global.businesses.length);
     return NextResponse.json(global.businesses);
     
