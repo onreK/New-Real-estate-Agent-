@@ -67,6 +67,12 @@ export default function DashboardPage() {
               <p className="text-gray-600">{primaryBusiness.businessName || primaryBusiness.name}</p>
             </div>
             <div className="flex items-center space-x-4">
+              <a
+                href="/demo"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                🤖 Test AI Chatbot
+              </a>
               <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                 Configure AI Assistant
               </button>
