@@ -103,6 +103,8 @@ export default function ChatWidget({ businessId, businessName = "AI Assistant", 
 
   const captureLead = async (name, email) => {
     try {
+      console.log('Attempting to capture lead:', { name, email, businessId });
+      
       const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,6 +118,9 @@ export default function ChatWidget({ businessId, businessName = "AI Assistant", 
         })
       });
 
+      const responseData = await response.json();
+      console.log('Lead capture response:', response.status, responseData);
+
       if (response.ok) {
         setLeadCaptured(true);
         const thankYouMessage = {
@@ -125,9 +130,24 @@ export default function ChatWidget({ businessId, businessName = "AI Assistant", 
           timestamp: new Date()
         };
         setMessages(prev => [...prev, thankYouMessage]);
+        
+        // Success notification
+        console.log('✅ Lead captured successfully!', responseData);
+      } else {
+        console.error('❌ Failed to capture lead:', responseData);
+        throw new Error(responseData.error || 'Failed to capture lead');
       }
     } catch (error) {
       console.error('Error capturing lead:', error);
+      
+      // Show error message to user
+      const errorMessage = {
+        id: Date.now(),
+        text: "I'm sorry, there was an issue saving your information. Please try again or contact us directly.",
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
 
