@@ -5,11 +5,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function OnboardingPage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
+    siteType: 'fullsite', // Default to full site
     businessName: '',
     industry: 'real-estate',
     subdomain: '',
@@ -17,9 +18,28 @@ export default function OnboardingPage() {
     email: user?.emailAddresses?.[0]?.emailAddress || '',
     phone: '',
     primaryColor: '#3B82F6',
+    businessDescription: '',
+    heroText: '',
+    aboutText: '',
+    services: '',
     calendlyUrl: '',
     googleSheetUrl: ''
   });
+
+  // Wait for user to load
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // If no user, redirect to sign-in
+  if (!user) {
+    router.push('/sign-in');
+    return null;
+  }
 
   const industries = [
     { value: 'real-estate', label: 'Real Estate' },
@@ -49,7 +69,9 @@ export default function OnboardingPage() {
         .substring(0, 20);
       setFormData(prev => ({
         ...prev,
-        subdomain
+        subdomain,
+        heroText: `Welcome to ${value}`,
+        businessDescription: `Professional ${prev.industry.replace('-', ' ')} services you can trust.`
       }));
     }
   };
@@ -81,31 +103,102 @@ export default function OnboardingPage() {
     }
   };
 
+  const maxSteps = formData.siteType === 'widget' ? 3 : 4;
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-2xl mx-auto px-4">
         <div className="bg-white rounded-lg shadow-lg p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Welcome to AI Business Automation!</h1>
-            <p className="text-gray-600 mt-2">Let's set up your business profile in just a few steps.</p>
+            <p className="text-gray-600 mt-2">Let's set up your AI assistant in just a few steps.</p>
+            <p className="text-sm text-blue-600 mt-1">Signed in as: {user.emailAddresses?.[0]?.emailAddress}</p>
           </div>
 
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex items-center">
-              <div className={`flex-1 h-2 rounded-l-full ${step >= 1 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-              <div className={`flex-1 h-2 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-              <div className={`flex-1 h-2 rounded-r-full ${step >= 3 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+              {Array.from({ length: maxSteps }, (_, i) => (
+                <div 
+                  key={i}
+                  className={`flex-1 h-2 ${i === 0 ? 'rounded-l-full' : ''} ${i === maxSteps - 1 ? 'rounded-r-full' : ''} ${
+                    step > i ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                ></div>
+              ))}
             </div>
             <div className="flex justify-between text-sm text-gray-500 mt-2">
+              <span>Site Type</span>
               <span>Business Info</span>
               <span>Branding</span>
-              <span>Integrations</span>
+              {formData.siteType === 'fullsite' && <span>Content</span>}
+              <span>Setup</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit}>
+            {/* STEP 1: Site Type Selection */}
             {step === 1 && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold text-gray-900">Choose Your Setup</h2>
+                <p className="text-gray-600">How do you want to use your AI assistant?</p>
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Widget Option */}
+                  <div 
+                    className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
+                      formData.siteType === 'widget' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, siteType: 'widget' }))}
+                  >
+                    <div className="text-center">
+                      <div className="text-4xl mb-4">🔗</div>
+                      <h3 className="text-lg font-semibold mb-2">Widget for Existing Site</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        I have a website. I just want to add an AI chatbot widget.
+                      </p>
+                      <div className="text-sm text-green-600 font-medium">Starting at $97/month</div>
+                    </div>
+                  </div>
+
+                  {/* Full Site Option */}
+                  <div 
+                    className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
+                      formData.siteType === 'fullsite' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, siteType: 'fullsite' }))}
+                  >
+                    <div className="text-center">
+                      <div className="text-4xl mb-4">🏠</div>
+                      <h3 className="text-lg font-semibold mb-2">Complete Website + AI</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        I need a full business website with integrated AI assistant.
+                      </p>
+                      <div className="text-sm text-green-600 font-medium">Starting at $197/month</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">
+                    {formData.siteType === 'widget' ? '🔗 Widget Setup' : '🏠 Full Website Setup'}
+                  </h4>
+                  <p className="text-blue-800 text-sm">
+                    {formData.siteType === 'widget' 
+                      ? 'You\'ll get embeddable code to add to your existing website, plus a demo page to test and manage your AI assistant.'
+                      : 'You\'ll get a complete business website with integrated AI assistant, contact forms, and lead management.'
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Business Information */}
+            {step === 2 && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Business Information</h2>
                 
@@ -145,7 +238,7 @@ export default function OnboardingPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Website Subdomain *
+                    {formData.siteType === 'widget' ? 'Admin/Demo Subdomain *' : 'Website Subdomain *'}
                   </label>
                   <div className="flex">
                     <input
@@ -161,7 +254,12 @@ export default function OnboardingPage() {
                       .yoursite.com
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">This will be your chatbot website URL</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {formData.siteType === 'widget' 
+                      ? 'This will be your admin dashboard and demo page URL'
+                      : 'This will be your complete business website URL'
+                    }
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -196,7 +294,8 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {step === 2 && (
+            {/* STEP 3: Branding */}
+            {step === 3 && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Branding</h2>
                 
@@ -219,7 +318,7 @@ export default function OnboardingPage() {
                       className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">This will be used for buttons and highlights on your chatbot</p>
+                  <p className="text-sm text-gray-500 mt-1">This will be used for buttons and highlights</p>
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-lg">
@@ -252,7 +351,58 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {step === 3 && (
+            {/* STEP 4: Website Content (Full Site Only) */}
+            {step === 4 && formData.siteType === 'fullsite' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold text-gray-900">Website Content</h2>
+                <p className="text-gray-600">Let's add some content for your business website</p>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Hero Text (Main headline)
+                  </label>
+                  <input
+                    type="text"
+                    name="heroText"
+                    value={formData.heroText}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="Welcome to Amanda's Real Estate"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Description
+                  </label>
+                  <textarea
+                    name="businessDescription"
+                    value={formData.businessDescription}
+                    onChange={handleInputChange}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="Professional real estate services you can trust..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Services (one per line)
+                  </label>
+                  <textarea
+                    name="services"
+                    value={formData.services}
+                    onChange={handleInputChange}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="Home Buying&#10;Home Selling&#10;Market Analysis&#10;First-time Buyer Support"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* FINAL STEP: Integrations */}
+            {((step === 4 && formData.siteType === 'widget') || (step === 5 && formData.siteType === 'fullsite')) && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Integrations</h2>
                 <p className="text-gray-600">Connect your existing tools (optional - you can set these up later)</p>
@@ -288,8 +438,20 @@ export default function OnboardingPage() {
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h3 className="font-medium text-blue-900 mb-2">🎉 Almost Ready!</h3>
                   <p className="text-blue-800 text-sm">
-                    After setup, you'll get your own AI chatbot website at: <br/>
-                    <strong>{formData.subdomain || 'your-business'}.yoursite.com</strong>
+                    After setup, you'll get:
+                    {formData.siteType === 'widget' ? (
+                      <>
+                        <br/>• Embeddable widget code for your website
+                        <br/>• Admin dashboard at: <strong>{formData.subdomain}.yoursite.com</strong>
+                        <br/>• Demo page to test your AI assistant
+                      </>
+                    ) : (
+                      <>
+                        <br/>• Complete business website at: <strong>{formData.subdomain}.yoursite.com</strong>
+                        <br/>• Integrated AI assistant
+                        <br/>• Lead capture and management
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -307,7 +469,7 @@ export default function OnboardingPage() {
                 </button>
               )}
               
-              {step < 3 ? (
+              {step < maxSteps ? (
                 <button
                   type="button"
                   onClick={() => setStep(step + 1)}
