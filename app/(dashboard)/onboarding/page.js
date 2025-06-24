@@ -93,7 +93,7 @@ export default function OnboardingPage() {
         router.push('/dashboard');
       } else {
         const error = await response.json();
-        alert('Error creating business: ' + error.message);
+        alert('Error creating business: ' + error.error);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -110,7 +110,17 @@ export default function OnboardingPage() {
     return false; // Other steps don't have required fields for continue
   };
 
-  const maxSteps = formData.siteType === 'widget' ? 3 : 4;
+  // FIXED: Correct maxSteps calculation
+  const maxSteps = formData.siteType === 'widget' ? 4 : 5; // Widget: 4 steps, Fullsite: 5 steps
+  
+  // Helper function to determine if we're on the final step
+  const isFinalStep = () => {
+    if (formData.siteType === 'widget') {
+      return step === 4; // Widget final step
+    } else {
+      return step === 5; // Fullsite final step
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -129,7 +139,7 @@ export default function OnboardingPage() {
                 <div 
                   key={i}
                   className={`flex-1 h-2 ${i === 0 ? 'rounded-l-full' : ''} ${i === maxSteps - 1 ? 'rounded-r-full' : ''} ${
-                    step > i ? 'bg-blue-600' : 'bg-gray-200'
+                    step > i + 1 ? 'bg-blue-600' : 'bg-gray-200'
                   }`}
                 ></div>
               ))}
@@ -409,7 +419,7 @@ export default function OnboardingPage() {
             )}
 
             {/* FINAL STEP: Integrations */}
-            {((step === 4 && formData.siteType === 'widget') || (step === 5 && formData.siteType === 'fullsite')) && (
+            {isFinalStep() && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Integrations</h2>
                 <p className="text-gray-600">Connect your existing tools (optional - you can set these up later)</p>
@@ -476,7 +486,7 @@ export default function OnboardingPage() {
                 </button>
               )}
               
-              {step < maxSteps ? (
+              {!isFinalStep() ? (
                 <button
                   type="button"
                   onClick={() => setStep(step + 1)}
