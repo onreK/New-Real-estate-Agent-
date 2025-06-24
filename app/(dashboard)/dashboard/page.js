@@ -6,26 +6,40 @@ import { useState, useEffect } from 'react';
 export default function DashboardPage() {
   const [businesses, setBusinesses] = useState([]);
   const [primaryBusiness, setPrimaryBusiness] = useState(null);
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchBusinesses = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/businesses');
-        const data = await response.json();
-        setBusinesses(data);
+        // Fetch businesses
+        const businessResponse = await fetch('/api/businesses');
+        const businessData = await businessResponse.json();
+        setBusinesses(businessData);
         
         // Find primary business or use first one
-        const primary = data.find(b => b.isPrimary) || data[0];
+        const primary = businessData.find(b => b.isPrimary) || businessData[0];
         setPrimaryBusiness(primary);
+
+        // Fetch leads for the primary business
+        if (primary) {
+          const leadsResponse = await fetch(`/api/leads?businessId=${primary.id}`);
+          const leadsData = await leadsResponse.json();
+          console.log('Fetched leads:', leadsData);
+          setLeads(leadsData);
+        }
       } catch (error) {
-        console.error('Error fetching businesses:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBusinesses();
+    fetchData();
+    
+    // Refresh data every 30 seconds to catch new leads
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -104,7 +118,7 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Leads</p>
-                <p className="text-2xl font-bold text-gray-900">3</p>
+                <p className="text-2xl font-bold text-gray-900">{leads.length}</p>
               </div>
             </div>
           </div>
@@ -118,7 +132,7 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Hot Leads</p>
-                <p className="text-2xl font-bold text-gray-900">1</p>
+                <p className="text-2xl font-bold text-gray-900">{leads.filter(l => l.score === 'HOT').length}</p>
               </div>
             </div>
           </div>
@@ -132,7 +146,11 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">This Month</p>
-                <p className="text-2xl font-bold text-gray-900">3</p>
+                <p className="text-2xl font-bold text-gray-900">{leads.filter(l => {
+                  const leadDate = new Date(l.createdAt);
+                  const now = new Date();
+                  return leadDate.getMonth() === now.getMonth() && leadDate.getFullYear() === now.getFullYear();
+                }).length}</p>
               </div>
             </div>
           </div>
@@ -146,7 +164,7 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Conversion Rate</p>
-                <p className="text-2xl font-bold text-gray-900">33%</p>
+                <p className="text-2xl font-bold text-gray-900">{leads.length > 0 ? Math.round((leads.filter(l => l.score === 'HOT').length / leads.length) * 100) : 0}%</p>
               </div>
             </div>
           </div>
@@ -205,50 +223,60 @@ export default function DashboardPage() {
 
         {/* Recent Leads Table */}
         <div className="bg-white rounded-lg shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-lg font-semibold text-gray-900">Recent Leads</h3>
+            <button 
+              onClick={() => window.location.reload()}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
+              🔄 Refresh
+            </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">John Smith</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">john@example.com</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">AI Chatbot</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">HOT</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">6/24/2025</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sarah Johnson</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">sarah@example.com</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Voice Agent</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">WARM</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">6/23/2025</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Mike Davis</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">mike@example.com</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">AI Chatbot</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">COLD</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">6/21/2025</td>
-                </tr>
-              </tbody>
-            </table>
+            {leads.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No leads captured yet. Test your AI chatbot to see leads appear here!</p>
+                <a 
+                  href="/demo" 
+                  className="inline-block mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Test AI Chatbot
+                </a>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {leads.map((lead) => (
+                    <tr key={lead.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{lead.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{lead.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{lead.source}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          lead.score === 'HOT' ? 'bg-red-100 text-red-800' :
+                          lead.score === 'WARM' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {lead.score}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {new Date(lead.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
