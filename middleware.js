@@ -6,14 +6,21 @@ export default authMiddleware({
     "/",
     "/sign-in(.*)",
     "/sign-up(.*)",
+    "/api/webhooks(.*)",
+    "/api/chat",
+    "/api/sites/(.*)",
+    "/api/conversations",
+    "/api/google-sheets",
+    "/api/sms",
+    "/api/calendly",
+    "/api/widget/(.*)",
+    // Allow all customer subdomain routes (like /test-fix, /test-business, etc.)
+    "/((?!dashboard|onboarding).*)"
+  ],
+  // Routes that always require authentication  
+  ignoredRoutes: [
     "/api/webhooks(.*)"
   ],
-  // Routes that can always be reached, and have 
-  // no authentication information
-  ignoredRoutes: [
-    "/((?!api|trpc))(_next.*|.+.[w]+$)",
-    "/api/webhooks(.*)"
-  ]
 });
 
 export const config = {
@@ -22,8 +29,8 @@ export const config = {
   // for more information about configuring your Middleware
   matcher: [
     // Skip Next.js internals and all static files, unless found in search params
-    '/((?!.+\\.[\\w]+$|_next).*)',
+    "/((?!.*\\..*|_next).*)",
     // Always run for API routes
-    '/(api|trpc)(.*)'
-  ]
+    "/(api|trpc)(.*)"
+  ],
 };
