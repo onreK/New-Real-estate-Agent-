@@ -5,6 +5,37 @@ import { NextResponse } from 'next/server';
 global.businesses = global.businesses || [];
 global.businessIdCounter = global.businessIdCounter || 1;
 
+// Add permanent test businesses that survive redeployments
+if (global.businesses.length === 0) {
+  global.businesses = [
+    {
+      id: 'business_test_1',
+      clerkUserId: 'test-user-123',
+      businessName: 'Test Real Estate Co',
+      industry: 'real-estate',
+      subdomain: 'test-realestate',
+      slug: 'test-realestate',
+      ownerName: 'John Test',
+      email: 'john@test.com',
+      phone: '(555) 123-4567',
+      primaryColor: '#3B82F6',
+      logoUrl: null,
+      siteType: 'fullsite',
+      businessDescription: 'Professional real estate services you can trust in the Test area.',
+      services: ['Home Buying', 'Home Selling', 'Market Analysis', 'First-time Buyer Support'],
+      heroText: 'Welcome to Test Real Estate Co',
+      aboutText: 'Your trusted real estate partner',
+      calendlyUrl: null,
+      googleSheetUrl: null,
+      subscriptionStatus: 'trial',
+      plan: 'fullsite-starter',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ];
+  console.log('Initialized with test business data');
+}
+
 export async function POST(request) {
   console.log('=== API CALL STARTED ===');
   
