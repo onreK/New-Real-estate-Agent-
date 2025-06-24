@@ -10,9 +10,9 @@ const getBaseUrl = () => {
     return `https://${process.env.VERCEL_URL}`;
   }
   
-  // Handle production with current deployment
+  // Handle production with current deployment - UPDATED URL
   if (process.env.NODE_ENV === 'production') {
-    return 'https://new-real-estate-agent-phsf3petn-kemos-projects.vercel.app';
+    return 'https://new-real-estate-agent-391jvmoi9-kemos-projects.vercel.app';
   }
   
   // Development fallback
