@@ -78,6 +78,11 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('=== FORM SUBMIT TRIGGERED ===');
+    console.log('Current step:', step);
+    console.log('Is final step:', isFinalStep());
+    console.log('Form data:', formData);
+    
     setLoading(true);
 
     try {
@@ -90,9 +95,11 @@ export default function OnboardingPage() {
       });
 
       if (response.ok) {
+        console.log('Business created successfully, redirecting to dashboard');
         router.push('/dashboard');
       } else {
         const error = await response.json();
+        console.error('Business creation failed:', error);
         alert('Error creating business: ' + error.error);
       }
     } catch (error) {
@@ -115,12 +122,13 @@ export default function OnboardingPage() {
   
   // Helper function to determine if we're on the final step
   const isFinalStep = () => {
-    if (formData.siteType === 'widget') {
-      return step === 4; // Widget final step
-    } else {
-      return step === 5; // Fullsite final step
-    }
+    const final = formData.siteType === 'widget' ? step === 4 : step === 5;
+    console.log('isFinalStep check:', { step, siteType: formData.siteType, isFinal: final, maxSteps });
+    return final;
   };
+
+  // Add debug logging for step changes
+  console.log('Current render - Step:', step, 'Site Type:', formData.siteType, 'Max Steps:', maxSteps);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -130,6 +138,7 @@ export default function OnboardingPage() {
             <h1 className="text-3xl font-bold text-gray-900">Welcome to AI Business Automation!</h1>
             <p className="text-gray-600 mt-2">Let's set up your AI assistant in just a few steps.</p>
             <p className="text-sm text-blue-600 mt-1">Signed in as: {user.emailAddresses?.[0]?.emailAddress}</p>
+            <p className="text-xs text-gray-400 mt-1">DEBUG: Step {step} of {maxSteps}</p>
           </div>
 
           {/* Progress Bar */}
@@ -479,7 +488,10 @@ export default function OnboardingPage() {
               {step > 1 && (
                 <button
                   type="button"
-                  onClick={() => setStep(step - 1)}
+                  onClick={() => {
+                    console.log('Back clicked, going from step', step, 'to', step - 1);
+                    setStep(step - 1);
+                  }}
                   className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >
                   Back
@@ -489,7 +501,12 @@ export default function OnboardingPage() {
               {!isFinalStep() ? (
                 <button
                   type="button"
-                  onClick={() => setStep(step + 1)}
+                  onClick={() => {
+                    console.log('Continue clicked, going from step', step, 'to', step + 1);
+                    console.log('Current site type:', formData.siteType);
+                    console.log('Will be final step?', formData.siteType === 'widget' ? step + 1 === 4 : step + 1 === 5);
+                    setStep(step + 1);
+                  }}
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ml-auto"
                   disabled={isContinueDisabled()}
                 >
