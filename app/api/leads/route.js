@@ -13,34 +13,43 @@ export async function GET(request) {
       {
         id: 'lead_1',
         businessId: 'business_1',
+        name: 'John Smith',
         customerName: 'John Smith',
         email: 'john@example.com',
         phone: '(555) 123-4567',
         score: 'HOT',
+        leadScore: 'HOT',
         lastMessage: 'Interested in buying a house in Richmond',
         timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+        date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
         status: 'new'
       },
       {
         id: 'lead_2',
         businessId: 'business_1',
+        name: 'Sarah Johnson',
         customerName: 'Sarah Johnson',
         email: 'sarah@example.com',
         phone: '(555) 987-6543',
         score: 'WARM',
+        leadScore: 'WARM',
         lastMessage: 'Looking for a real estate agent',
         timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+        date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
         status: 'contacted'
       },
       {
         id: 'lead_3',
         businessId: 'business_1',
+        name: 'Mike Davis',
         customerName: 'Mike Davis',
         email: 'mike@example.com',
         phone: '(555) 456-7890',
         score: 'COLD',
+        leadScore: 'COLD',
         lastMessage: 'Just browsing properties',
         timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
         status: 'follow-up'
       }
     ];
