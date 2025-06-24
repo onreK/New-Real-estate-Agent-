@@ -78,11 +78,7 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('=== FORM SUBMIT TRIGGERED ===');
-    console.log('Current step:', step);
-    console.log('Is final step:', isFinalStep());
-    console.log('Form data:', formData);
-    
+    console.log('Form submit triggered');
     setLoading(true);
 
     try {
@@ -95,11 +91,9 @@ export default function OnboardingPage() {
       });
 
       if (response.ok) {
-        console.log('Business created successfully, redirecting to dashboard');
         router.push('/dashboard');
       } else {
         const error = await response.json();
-        console.error('Business creation failed:', error);
         alert('Error creating business: ' + error.error);
       }
     } catch (error) {
@@ -112,23 +106,31 @@ export default function OnboardingPage() {
 
   // Function to determine if Continue button should be disabled
   const isContinueDisabled = () => {
-    if (step === 1) return false; // Step 1 doesn't require any fields
+    if (step === 1) return false;
     if (step === 2) return !formData.businessName || !formData.subdomain;
-    return false; // Other steps don't have required fields for continue
+    return false;
   };
 
-  // FIXED: Correct maxSteps calculation
-  const maxSteps = formData.siteType === 'widget' ? 4 : 5; // Widget: 4 steps, Fullsite: 5 steps
-  
-  // Helper function to determine if we're on the final step
-  const isFinalStep = () => {
-    const final = formData.siteType === 'widget' ? step === 4 : step === 5;
-    console.log('isFinalStep check:', { step, siteType: formData.siteType, isFinal: final, maxSteps });
-    return final;
+  // Calculate total steps based on site type
+  const getTotalSteps = () => {
+    return formData.siteType === 'widget' ? 4 : 5;
   };
 
-  // Add debug logging for step changes
-  console.log('Current render - Step:', step, 'Site Type:', formData.siteType, 'Max Steps:', maxSteps);
+  // Check if we're on the final step
+  const isOnFinalStep = () => {
+    return step === getTotalSteps();
+  };
+
+  // Check if we should show the final step content
+  const shouldShowFinalStepContent = () => {
+    if (formData.siteType === 'widget') {
+      return step === 4; // Widget final step (integrations)
+    } else {
+      return step === 5; // Fullsite final step (integrations)
+    }
+  };
+
+  const totalSteps = getTotalSteps();
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -138,16 +140,15 @@ export default function OnboardingPage() {
             <h1 className="text-3xl font-bold text-gray-900">Welcome to AI Business Automation!</h1>
             <p className="text-gray-600 mt-2">Let's set up your AI assistant in just a few steps.</p>
             <p className="text-sm text-blue-600 mt-1">Signed in as: {user.emailAddresses?.[0]?.emailAddress}</p>
-            <p className="text-xs text-gray-400 mt-1">DEBUG: Step {step} of {maxSteps}</p>
           </div>
 
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex items-center">
-              {Array.from({ length: maxSteps }, (_, i) => (
+              {Array.from({ length: totalSteps }, (_, i) => (
                 <div 
                   key={i}
-                  className={`flex-1 h-2 ${i === 0 ? 'rounded-l-full' : ''} ${i === maxSteps - 1 ? 'rounded-r-full' : ''} ${
+                  className={`flex-1 h-2 ${i === 0 ? 'rounded-l-full' : ''} ${i === totalSteps - 1 ? 'rounded-r-full' : ''} ${
                     step > i + 1 ? 'bg-blue-600' : 'bg-gray-200'
                   }`}
                 ></div>
@@ -428,7 +429,7 @@ export default function OnboardingPage() {
             )}
 
             {/* FINAL STEP: Integrations */}
-            {isFinalStep() && (
+            {shouldShowFinalStepContent() && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Integrations</h2>
                 <p className="text-gray-600">Connect your existing tools (optional - you can set these up later)</p>
@@ -488,25 +489,17 @@ export default function OnboardingPage() {
               {step > 1 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    console.log('Back clicked, going from step', step, 'to', step - 1);
-                    setStep(step - 1);
-                  }}
+                  onClick={() => setStep(step - 1)}
                   className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >
                   Back
                 </button>
               )}
               
-              {!isFinalStep() ? (
+              {!isOnFinalStep() ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    console.log('Continue clicked, going from step', step, 'to', step + 1);
-                    console.log('Current site type:', formData.siteType);
-                    console.log('Will be final step?', formData.siteType === 'widget' ? step + 1 === 4 : step + 1 === 5);
-                    setStep(step + 1);
-                  }}
+                  onClick={() => setStep(step + 1)}
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ml-auto"
                   disabled={isContinueDisabled()}
                 >
