@@ -29,7 +29,7 @@ export function middleware(request) {
 
 export const config = {
   matcher: [
-    // Only run on dashboard routes for now
+    // Only run on dashboard routes - main page is now public
     '/dashboard/:path*'
   ]
 };
