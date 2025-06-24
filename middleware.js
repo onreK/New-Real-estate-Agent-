@@ -9,8 +9,8 @@ export function middleware(request) {
     const token = request.cookies.get('auth-token');
     
     if (!token) {
-      // Redirect to YOUR login page, not Vercel's
-      return NextResponse.redirect(new URL('/login', request.url));
+      // Redirect to YOUR sign-in page, not Vercel's
+      return NextResponse.redirect(new URL('/sign-in', request.url));
     }
   }
   
