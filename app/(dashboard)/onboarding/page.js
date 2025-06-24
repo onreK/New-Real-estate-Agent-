@@ -140,6 +140,7 @@ export default function OnboardingPage() {
             <h1 className="text-3xl font-bold text-gray-900">Welcome to AI Business Automation!</h1>
             <p className="text-gray-600 mt-2">Let's set up your AI assistant in just a few steps.</p>
             <p className="text-sm text-blue-600 mt-1">Signed in as: {user.emailAddresses?.[0]?.emailAddress}</p>
+            <p className="text-xs text-red-500">DEBUG: Step {step} of {maxSteps} | Site Type: {formData.siteType}</p>
           </div>
 
           {/* Progress Bar */}
