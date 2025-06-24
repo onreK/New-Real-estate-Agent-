@@ -1,130 +1,56 @@
+// app/(dashboard)/dashboard/page.js
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
-  const { user, isLoaded } = useUser();
-  const router = useRouter();
   const [businesses, setBusinesses] = useState([]);
-  const [leads, setLeads] = useState([]);
+  const [primaryBusiness, setPrimaryBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  // Fetch user's businesses and leads
   useEffect(() => {
-    if (isLoaded && user) {
-      fetchDashboardData();
-    }
-  }, [isLoaded, user]);
+    const fetchBusinesses = async () => {
+      try {
+        const response = await fetch('/api/businesses');
+        const data = await response.json();
+        setBusinesses(data);
+        
+        // Find primary business or use first one
+        const primary = data.find(b => b.isPrimary) || data[0];
+        setPrimaryBusiness(primary);
+      } catch (error) {
+        console.error('Error fetching businesses:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch businesses
-      const businessResponse = await fetch('/api/businesses');
-      const businessData = await businessResponse.json();
-      console.log('Business data received:', businessData);
-      
-      // Handle both array response and businesses property
-      const businessArray = Array.isArray(businessData) ? businessData : (businessData.businesses || []);
-      setBusinesses(businessArray);
-      
-      // Fetch leads
-      const leadsResponse = await fetch('/api/leads');
-      const leadsData = await leadsResponse.json();
-      console.log('Leads data received:', leadsData);
-      
-      const leadsArray = Array.isArray(leadsData) ? leadsData : (leadsData.leads || []);
-      setLeads(leadsArray);
-      
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      setError('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get the primary business (first one for now)
-  const primaryBusiness = businesses.length > 0 ? businesses[0] : null;
-
-  // Calculate stats
-  const totalLeads = leads.length;
-  const hotLeads = leads.filter(lead => lead.score === 'HOT' || lead.leadScore === 'HOT').length;
-  const thisMonthLeads = leads.filter(lead => {
-    const leadDate = new Date(lead.timestamp || lead.date);
-    const now = new Date();
-    return leadDate.getMonth() === now.getMonth() && leadDate.getFullYear() === now.getFullYear();
-  }).length;
-  const conversionRate = totalLeads > 0 ? Math.round((hotLeads / totalLeads) * 100) : 0;
-
-  // Handle View Site button
-  const handleViewSite = () => {
-    if (primaryBusiness && primaryBusiness.subdomain) {
-      // Create the customer site URL
-      const siteUrl = `${window.location.protocol}//${window.location.host}/${primaryBusiness.subdomain}`;
-      console.log('Redirecting to:', siteUrl);
-      window.open(siteUrl, '_blank');
-    } else {
-      alert('No business found. Please complete the onboarding process first.');
-      router.push('/onboarding');
-    }
-  };
-
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    router.push('/sign-in');
-    return null;
-  }
+    fetchBusinesses();
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Dashboard</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={fetchDashboardData}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Retry
-          </button>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
-  // If no businesses, redirect to onboarding
-  if (businesses.length === 0) {
+  if (!primaryBusiness) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to AI Business Automation!</h2>
-          <p className="text-gray-600 mb-6">Let's set up your business profile first.</p>
-          <button 
-            onClick={() => router.push('/onboarding')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">No Business Found</h1>
+          <p className="text-gray-600 mb-6">Complete your onboarding to access the dashboard.</p>
+          <a
+            href="/onboarding"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Complete Setup
-          </button>
+            Start Setup
+          </a>
         </div>
       </div>
     );
@@ -132,33 +58,21 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
+      {/* Header */}
+      <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
+            <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              {primaryBusiness && (
-                <span className="ml-4 text-sm text-gray-500">
-                  {primaryBusiness.businessName}
-                </span>
-              )}
+              <p className="text-gray-600">{primaryBusiness.businessName || primaryBusiness.name}</p>
             </div>
             <div className="flex items-center space-x-4">
-              <button
-                onClick={handleViewSite}
-                className="text-blue-600 hover:text-blue-800 font-medium"
-                disabled={!primaryBusiness}
-              >
-                View Your Site →
+              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                Configure AI Assistant
               </button>
-              <div className="flex items-center space-x-2">
-                <img
-                  className="h-8 w-8 rounded-full"
-                  src={user.imageUrl}
-                  alt={user.fullName}
-                />
-                <span className="text-sm font-medium text-gray-700">{user.fullName}</span>
-              </div>
+              <button className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                Settings
+              </button>
             </div>
           </div>
         </div>
@@ -166,134 +80,169 @@ export default function DashboardPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Debug Info */}
-        <div className="mb-4 p-4 bg-yellow-50 rounded-lg">
-          <h3 className="font-medium text-yellow-800">Debug Info:</h3>
-          <p className="text-sm text-yellow-700">
-            Businesses found: {businesses.length} | 
-            Primary business: {primaryBusiness?.businessName || 'None'} | 
-            Subdomain: {primaryBusiness?.subdomain || 'None'}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-yellow-900 mb-2">Debug Info:</h3>
+          <p className="text-yellow-700 text-sm">
+            Businesses found: {businesses.length} | Primary business: {primaryBusiness.businessName || primaryBusiness.name} | Industry: {primaryBusiness.industry || 'Not set'}
           </p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">👥</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Leads</dt>
-                    <dd className="text-3xl font-bold text-blue-600">{totalLeads}</dd>
-                  </dl>
-                </div>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-600">Total Leads</p>
+                <p className="text-2xl font-bold text-gray-900">3</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">🔥</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Hot Leads</dt>
-                    <dd className="text-3xl font-bold text-red-600">{hotLeads}</dd>
-                  </dl>
-                </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-600">Hot Leads</p>
+                <p className="text-2xl font-bold text-gray-900">1</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">📅</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">This Month</dt>
-                    <dd className="text-3xl font-bold text-green-600">{thisMonthLeads}</dd>
-                  </dl>
-                </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-600">This Month</p>
+                <p className="text-2xl font-bold text-gray-900">3</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">📈</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Conversion Rate</dt>
-                    <dd className="text-3xl font-bold text-purple-600">{conversionRate}%</dd>
-                  </dl>
-                </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-600">Conversion Rate</p>
+                <p className="text-2xl font-bold text-gray-900">33%</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Recent Leads */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Recent Leads</h3>
-            
-            {leads.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No leads yet. Your AI assistant will capture leads when customers visit your site.</p>
+        {/* AI Assistant Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Assistant Status</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                  <span className="text-gray-700">AI Chatbot</span>
+                </div>
+                <span className="text-green-600 text-sm font-medium">Active</span>
               </div>
-            ) : (
-              <div className="overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {leads.map((lead) => (
-                      <tr key={lead.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {lead.name || lead.customerName || 'Anonymous'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {lead.email || 'No email'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            (lead.score === 'HOT' || lead.leadScore === 'HOT') 
-                              ? 'bg-red-100 text-red-800' 
-                              : (lead.score === 'WARM' || lead.leadScore === 'WARM')
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {lead.score || lead.leadScore || 'COLD'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {lead.timestamp || lead.date 
-                            ? new Date(lead.timestamp || lead.date).toLocaleDateString()
-                            : 'Unknown'
-                          }
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
+                  <span className="text-gray-700">Voice Agent</span>
+                </div>
+                <span className="text-yellow-600 text-sm font-medium">Setup Required</span>
               </div>
-            )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                  <span className="text-gray-700">Lead Scoring</span>
+                </div>
+                <span className="text-green-600 text-sm font-medium">Active</span>
+              </div>
+            </div>
+            <button className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+              Configure AI Settings
+            </button>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="font-medium text-gray-900">Train AI Assistant</div>
+                <div className="text-sm text-gray-600">Upload documents and FAQs</div>
+              </button>
+              <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="font-medium text-gray-900">Setup Integrations</div>
+                <div className="text-sm text-gray-600">Connect CRM, email, phone systems</div>
+              </button>
+              <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="font-medium text-gray-900">View Analytics</div>
+                <div className="text-sm text-gray-600">AI performance and engagement metrics</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Leads Table */}
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Leads</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">John Smith</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">john@example.com</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">AI Chatbot</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">HOT</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">6/24/2025</td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sarah Johnson</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">sarah@example.com</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Voice Agent</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">WARM</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">6/23/2025</td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Mike Davis</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">mike@example.com</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">AI Chatbot</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">COLD</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">6/21/2025</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
