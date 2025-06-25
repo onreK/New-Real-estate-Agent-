@@ -126,6 +126,17 @@ export async function POST(request) {
       targetAudience: data.targetAudience || '',
       isPrimary: businesses.length === 0, // First business is primary
       onboardingCompleted: data.onboardingCompleted || false,
+      
+      // AI Configuration fields with defaults
+      openaiApiKey: data.openaiApiKey || '',
+      aiPersonality: data.aiPersonality || 'professional',
+      aiTone: data.aiTone || 'helpful',
+      customInstructions: data.customInstructions || '',
+      knowledgeBase: data.knowledgeBase || '',
+      model: data.model || 'gpt-4',
+      maxTokens: data.maxTokens || 200,
+      temperature: data.temperature || 0.7,
+      
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       
