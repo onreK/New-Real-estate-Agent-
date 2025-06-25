@@ -87,9 +87,12 @@ export default function DashboardPage() {
               >
                 🤖 Test AI Chatbot
               </a>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <a
+                href="/ai-config"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 Configure AI Assistant
-              </button>
+              </a>
               <button className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
                 Settings
               </button>
@@ -197,18 +200,24 @@ export default function DashboardPage() {
                 <span className="text-green-600 text-sm font-medium">Active</span>
               </div>
             </div>
-            <button className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+            <a
+              href="/ai-config"
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center inline-block"
+            >
               Configure AI Settings
-            </button>
+            </a>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <a 
+                href="/ai-config"
+                className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors block"
+              >
                 <div className="font-medium text-gray-900">Train AI Assistant</div>
                 <div className="text-sm text-gray-600">Upload documents and FAQs</div>
-              </button>
+              </a>
               <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="font-medium text-gray-900">Setup Integrations</div>
                 <div className="text-sm text-gray-600">Connect CRM, email, phone systems</div>
