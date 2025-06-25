@@ -202,7 +202,7 @@ export default function DashboardPage() {
             </div>
             <a
               href="/ai-config"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center inline-block"
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center inline-block mt-4"
             >
               Configure AI Settings
             </a>
