@@ -23,6 +23,7 @@ export async function POST(request) {
       message: message?.substring(0, 50) + '...',
       historyLength: conversationHistory.length,
       smsMode: smsMode,
+      hotLeadDetection: enableHotLeadDetection,
       timestamp: new Date().toISOString()
     });
 
