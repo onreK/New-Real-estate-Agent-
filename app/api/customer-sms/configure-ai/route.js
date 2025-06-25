@@ -1,174 +1,318 @@
 import { NextResponse } from 'next/server';
 
-// In-memory storage for customer AI configurations (use database in production)
-let customerAIConfigs = new Map();
+// In-memory storage for customer SMS configurations
+const customerConfigs = new Map();
 
 export async function POST(request) {
   try {
-    const { phoneNumber, config, customerId } = await request.json();
+    const { phoneNumber, config } = await request.json();
 
-    if (!phoneNumber || !config) {
+    console.log('⚙️ Configuring SMS AI:', {
+      phoneNumber,
+      businessName: config?.businessName,
+      personality: config?.personality,
+      enableHotLeadAlerts: config?.enableHotLeadAlerts,
+      businessOwnerPhone: config?.businessOwnerPhone ? '***-***-****' : 'Not provided'
+    });
+
+    // Validation
+    if (!phoneNumber) {
       return NextResponse.json({
         success: false,
-        error: 'Phone number and configuration are required'
+        error: 'Phone number is required'
       }, { status: 400 });
     }
 
-    // Validate required config fields
-    if (!config.businessName || !config.businessInfo) {
+    if (!config || !config.businessName) {
       return NextResponse.json({
         success: false,
-        error: 'Business name and information are required'
+        error: 'Business name is required in config'
+      }, { status: 400 });
+    }
+
+    // Validate business owner phone if hot lead alerts are enabled
+    if (config.enableHotLeadAlerts && !config.businessOwnerPhone) {
+      return NextResponse.json({
+        success: false,
+        error: 'Business owner phone is required when hot lead alerts are enabled'
       }, { status: 400 });
     }
 
     // Create comprehensive AI configuration
     const aiConfig = {
       phoneNumber: phoneNumber,
-      customerId: customerId || 'demo_customer',
+      customerId: config.customerId || 'demo_customer',
       businessName: config.businessName,
       personality: config.personality || 'professional',
-      businessInfo: config.businessInfo,
-      welcomeMessage: config.welcomeMessage || `Hi! Thanks for texting ${config.businessName}. How can I help you today?`,
+      businessInfo: config.businessInfo || 'Professional service business focused on helping customers.',
+      welcomeMessage: config.welcomeMessage || `Hi! Thanks for reaching out to ${config.businessName}. How can I help you today?`,
+      model: config.model || 'gpt-4o-mini',
+      creativity: config.creativity || 0.7,
+      responseLength: 'short', // SMS optimized
       
       // Hot Lead Alert Settings
+      enableHotLeadAlerts: config.enableHotLeadAlerts !== false, // Default to true
       businessOwnerPhone: config.businessOwnerPhone || null,
-      enableHotLeadAlerts: config.enableHotLeadAlerts !== false,
-      alertConfig: {
-        respectBusinessHours: config.alertBusinessHours !== false,
-        startHour: 9,
-        endHour: 20,
-        allowedDays: [1, 2, 3, 4, 5], // Monday-Friday
-        minLeadScore: 7,
-        customTemplate: null
-      },
+      alertBusinessHours: config.alertBusinessHours !== false, // Default to true
+      hotLeadThreshold: config.hotLeadThreshold || 7, // Score threshold for alerts
       
-      // Technical AI settings optimized for SMS
-      model: 'gpt-4o-mini',
-      creativity: 0.7,
-      maxTokens: 150, // Shorter for SMS
-      
-      // SMS-specific settings
-      smsEnabled: true,
-      businessHours: {
-        enabled: false, // Can be configured later
-        start: '09:00',
-        end: '18:00',
-        timezone: 'America/New_York',
-        days: [1, 2, 3, 4, 5] // Monday-Friday
-      },
-      
-      // Auto-responses
-      autoResponses: {
-        afterHours: `Thanks for your message! Our business hours are 9 AM - 6 PM, Monday-Friday. We'll respond during business hours.`,
-        defaultError: `I apologize, but I'm having trouble right now. Please try again or call us directly.`
-      },
-      
-      // Metadata
+      // Timestamps
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      status: 'configured'
+      
+      // Status tracking
+      status: 'active',
+      isConfigured: true
     };
-
-    // Build system prompt based on personality and business info
-    const personalityPrompts = {
-      professional: "You are a professional business assistant. Be direct, informative, and helpful.",
-      friendly: "You are a friendly and conversational assistant. Be warm, approachable, and personable.",
-      enthusiastic: "You are an enthusiastic and energetic assistant. Be excited, positive, and motivating.",
-      empathetic: "You are an empathetic and understanding assistant. Be caring, supportive, and considerate."
-    };
-
-    aiConfig.systemPrompt = `${personalityPrompts[config.personality]}
-
-Business Information:
-Business Name: ${config.businessName}
-${config.businessInfo}
-
-IMPORTANT: This is an SMS conversation. Keep responses under 160 characters when possible. Be concise and helpful. Always represent ${config.businessName} professionally.
-
-If customers ask about services, pricing, hours, or want to schedule something, provide helpful information based on the business details above.`;
 
     // Store configuration
-    customerAIConfigs.set(phoneNumber, aiConfig);
+    customerConfigs.set(phoneNumber, aiConfig);
 
-    console.log('🤖 AI Configuration saved for customer:', {
+    console.log('✅ SMS AI configuration saved:', {
       phoneNumber,
-      businessName: config.businessName,
-      personality: config.personality
+      businessName: aiConfig.businessName,
+      personality: aiConfig.personality,
+      hotLeadAlertsEnabled: aiConfig.enableHotLeadAlerts,
+      businessHoursOnly: aiConfig.alertBusinessHours
     });
 
+    // Return success response with configuration summary
     return NextResponse.json({
       success: true,
+      message: 'SMS AI configured successfully',
       config: {
         phoneNumber: aiConfig.phoneNumber,
         businessName: aiConfig.businessName,
         personality: aiConfig.personality,
+        model: aiConfig.model,
+        enableHotLeadAlerts: aiConfig.enableHotLeadAlerts,
+        alertBusinessHours: aiConfig.alertBusinessHours,
+        isConfigured: aiConfig.isConfigured,
         status: aiConfig.status
-      }
+      },
+      features: {
+        smsAI: true,
+        hotLeadDetection: aiConfig.enableHotLeadAlerts,
+        businessOwnerAlerts: !!aiConfig.businessOwnerPhone,
+        businessHoursRespect: aiConfig.alertBusinessHours
+      },
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('❌ Configure AI Error:', error);
+    console.error('❌ SMS AI configuration error:', error);
+    
     return NextResponse.json({
       success: false,
-      error: 'Failed to save AI configuration'
+      error: error.message || 'Failed to configure SMS AI',
+      details: 'Please check your configuration data and try again'
     }, { status: 500 });
   }
 }
 
-// Get AI configuration for a phone number
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const phoneNumber = searchParams.get('phoneNumber');
-    const customerId = searchParams.get('customerId');
+    const action = searchParams.get('action');
 
-    if (phoneNumber) {
-      const config = customerAIConfigs.get(phoneNumber);
-      if (config) {
-        return NextResponse.json({
-          success: true,
-          config: config
-        });
-      } else {
-        return NextResponse.json({
-          success: false,
-          error: 'Configuration not found'
-        }, { status: 404 });
-      }
-    }
+    if (action === 'list') {
+      // Return all configurations (for admin/dashboard view)
+      const allConfigs = Array.from(customerConfigs.values()).map(config => ({
+        phoneNumber: config.phoneNumber,
+        businessName: config.businessName,
+        personality: config.personality,
+        enableHotLeadAlerts: config.enableHotLeadAlerts,
+        status: config.status,
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt
+      }));
 
-    // Get all configs for customer
-    if (customerId) {
-      const customerConfigs = Array.from(customerAIConfigs.values())
-        .filter(config => config.customerId === customerId);
-      
       return NextResponse.json({
         success: true,
-        configs: customerConfigs,
-        count: customerConfigs.length
+        configurations: allConfigs,
+        totalConfigs: allConfigs.length,
+        activeConfigs: allConfigs.filter(c => c.status === 'active').length
       });
     }
 
+    if (!phoneNumber) {
+      return NextResponse.json({
+        success: false,
+        error: 'Phone number parameter is required'
+      }, { status: 400 });
+    }
+
+    // Get specific configuration
+    const config = customerConfigs.get(phoneNumber);
+
+    if (!config) {
+      return NextResponse.json({
+        success: false,
+        error: 'Configuration not found for this phone number',
+        phoneNumber: phoneNumber
+      }, { status: 404 });
+    }
+
+    // Return configuration without sensitive data
+    const safeConfig = {
+      phoneNumber: config.phoneNumber,
+      businessName: config.businessName,
+      personality: config.personality,
+      businessInfo: config.businessInfo,
+      welcomeMessage: config.welcomeMessage,
+      model: config.model,
+      creativity: config.creativity,
+      enableHotLeadAlerts: config.enableHotLeadAlerts,
+      businessOwnerPhone: config.businessOwnerPhone ? 
+        config.businessOwnerPhone.replace(/(\d{3})\d{3}(\d{4})/, '$1***$2') : null,
+      alertBusinessHours: config.alertBusinessHours,
+      hotLeadThreshold: config.hotLeadThreshold,
+      status: config.status,
+      isConfigured: config.isConfigured,
+      createdAt: config.createdAt,
+      updatedAt: config.updatedAt
+    };
+
     return NextResponse.json({
-      success: false,
-      error: 'Phone number or customer ID required'
-    }, { status: 400 });
+      success: true,
+      config: safeConfig,
+      features: {
+        smsAI: true,
+        hotLeadDetection: config.enableHotLeadAlerts,
+        businessOwnerAlerts: !!config.businessOwnerPhone,
+        businessHoursRespect: config.alertBusinessHours
+      }
+    });
 
   } catch (error) {
-    console.error('❌ Get AI Config Error:', error);
+    console.error('❌ SMS AI configuration retrieval error:', error);
+    
     return NextResponse.json({
       success: false,
-      error: 'Failed to load AI configuration'
+      error: error.message || 'Failed to retrieve SMS AI configuration'
     }, { status: 500 });
   }
 }
 
-// Export functions for SMS webhook to use
-export function getCustomerAIConfig(phoneNumber) {
-  return customerAIConfigs.get(phoneNumber);
+export async function PUT(request) {
+  try {
+    const { phoneNumber, updates } = await request.json();
+
+    console.log('🔄 Updating SMS AI configuration:', {
+      phoneNumber,
+      updates: Object.keys(updates || {})
+    });
+
+    if (!phoneNumber) {
+      return NextResponse.json({
+        success: false,
+        error: 'Phone number is required'
+      }, { status: 400 });
+    }
+
+    // Get existing configuration
+    const existingConfig = customerConfigs.get(phoneNumber);
+    
+    if (!existingConfig) {
+      return NextResponse.json({
+        success: false,
+        error: 'Configuration not found for this phone number'
+      }, { status: 404 });
+    }
+
+    // Validate hot lead alert settings if being updated
+    if (updates.enableHotLeadAlerts && !updates.businessOwnerPhone && !existingConfig.businessOwnerPhone) {
+      return NextResponse.json({
+        success: false,
+        error: 'Business owner phone is required when enabling hot lead alerts'
+      }, { status: 400 });
+    }
+
+    // Merge updates with existing configuration
+    const updatedConfig = {
+      ...existingConfig,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Store updated configuration
+    customerConfigs.set(phoneNumber, updatedConfig);
+
+    console.log('✅ SMS AI configuration updated:', {
+      phoneNumber,
+      businessName: updatedConfig.businessName,
+      hotLeadAlertsEnabled: updatedConfig.enableHotLeadAlerts
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'SMS AI configuration updated successfully',
+      config: {
+        phoneNumber: updatedConfig.phoneNumber,
+        businessName: updatedConfig.businessName,
+        personality: updatedConfig.personality,
+        enableHotLeadAlerts: updatedConfig.enableHotLeadAlerts,
+        alertBusinessHours: updatedConfig.alertBusinessHours,
+        updatedAt: updatedConfig.updatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ SMS AI configuration update error:', error);
+    
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Failed to update SMS AI configuration'
+    }, { status: 500 });
+  }
 }
 
-export function getAllCustomerAIConfigs() {
-  return Array.from(customerAIConfigs.values());
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const phoneNumber = searchParams.get('phoneNumber');
+
+    if (!phoneNumber) {
+      return NextResponse.json({
+        success: false,
+        error: 'Phone number parameter is required'
+      }, { status: 400 });
+    }
+
+    // Check if configuration exists
+    const config = customerConfigs.get(phoneNumber);
+    
+    if (!config) {
+      return NextResponse.json({
+        success: false,
+        error: 'Configuration not found for this phone number'
+      }, { status: 404 });
+    }
+
+    // Delete configuration
+    customerConfigs.delete(phoneNumber);
+
+    console.log('🗑️ SMS AI configuration deleted:', {
+      phoneNumber,
+      businessName: config.businessName
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'SMS AI configuration deleted successfully',
+      deletedConfig: {
+        phoneNumber: config.phoneNumber,
+        businessName: config.businessName
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ SMS AI configuration deletion error:', error);
+    
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Failed to delete SMS AI configuration'
+    }, { status: 500 });
+  }
 }
