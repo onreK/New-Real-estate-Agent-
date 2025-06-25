@@ -6,335 +6,271 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
-// In-memory alert tracking (use database in production)
-let alertHistory = new Map();
-let alertSettings = new Map();
-
-function isWithinBusinessHours(alertConfig) {
-  if (!alertConfig.respectBusinessHours) return true;
-  
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentDay = now.getDay(); // 0 = Sunday
-  
-  // Check if current day is in allowed days
-  if (!alertConfig.allowedDays.includes(currentDay)) {
-    return false;
-  }
-  
-  // Check if current hour is in allowed range
-  return currentHour >= alertConfig.startHour && currentHour <= alertConfig.endHour;
-}
-
-function shouldThrottleAlert(leadPhone, businessOwnerPhone) {
-  const throttleKey = `${leadPhone}-${businessOwnerPhone}`;
-  const lastAlert = alertHistory.get(throttleKey);
-  
-  if (!lastAlert) return false;
-  
-  const now = Date.now();
-  const timeDiff = now - lastAlert.timestamp;
-  const throttleMinutes = 30; // Don't send same lead alert within 30 minutes
-  
-  return timeDiff < (throttleMinutes * 60 * 1000);
-}
-
-function formatPhoneForDisplay(phone) {
-  if (!phone || phone === 'Not provided') return 'No phone provided';
-  
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 10) {
-    return `(${cleaned.slice(0,3)}) ${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
-  }
-  if (cleaned.length === 11 && cleaned.startsWith('1')) {
-    const number = cleaned.slice(1);
-    return `(${number.slice(0,3)}) ${number.slice(3,6)}-${number.slice(6)}`;
-  }
-  return phone;
-}
-
-function generateAlertMessage(leadAnalysis, customAlertTemplate) {
-  const { leadInfo, leadScore, source, analysis } = leadAnalysis;
-  
-  // Use custom template if provided
-  if (customAlertTemplate) {
-    return customAlertTemplate
-      .replace('{leadName}', leadInfo.name)
-      .replace('{leadPhone}', formatPhoneForDisplay(leadInfo.phone))
-      .replace('{lastMessage}', leadInfo.lastMessage.substring(0, 100))
-      .replace('{score}', leadScore)
-      .replace('{source}', source);
-  }
-  
-  // Default templates based on score and source
-  const urgencyEmoji = leadScore >= 9 ? '🔥🔥🔥' : leadScore >= 8 ? '🔥🔥' : '🔥';
-  const sourceEmoji = source === 'sms' ? '📱' : '💬';
-  
-  let alertMessage;
-  
-  if (leadScore >= 9) {
-    alertMessage = `${urgencyEmoji} URGENT HOT LEAD! ${sourceEmoji}
-${leadInfo.name} via ${source}
-Said: "${leadInfo.lastMessage.substring(0, 80)}..."
-Phone: ${formatPhoneForDisplay(leadInfo.phone)}
-Score: ${leadScore}/10 🔥
-Reply CALL to connect now!`;
-  } else if (leadScore >= 8) {
-    alertMessage = `${urgencyEmoji} HOT LEAD ALERT! ${sourceEmoji}
-${leadInfo.name} from ${source}
-"${leadInfo.lastMessage.substring(0, 100)}"
-Contact: ${formatPhoneForDisplay(leadInfo.phone)}
-Lead score: ${leadScore}/10`;
-  } else {
-    alertMessage = `${urgencyEmoji} Qualified Lead ${sourceEmoji}
-${leadInfo.name} (${source})
-Interest: ${analysis.buyingIntent}
-Phone: ${formatPhoneForDisplay(leadInfo.phone)}
-"${leadInfo.lastMessage.substring(0, 80)}..."`;
-  }
-  
-  return alertMessage;
-}
+// In-memory storage for alert throttling and history
+const alertHistory = new Map();
+const throttleMap = new Map();
 
 export async function POST(request) {
   try {
     const {
-      leadAnalysis,
       businessOwnerPhone,
-      customerId,
-      alertConfig = {}
+      leadInfo,
+      messageContent,
+      customerConfig = {},
+      source = 'web'
     } = await request.json();
 
-    if (!leadAnalysis || !businessOwnerPhone) {
+    console.log('📢 Hot lead alert request:', {
+      businessOwnerPhone,
+      leadScore: leadInfo?.score,
+      source,
+      enableAlerts: customerConfig.enableHotLeadAlerts
+    });
+
+    // Validation
+    if (!businessOwnerPhone) {
       return NextResponse.json({
         success: false,
-        error: 'Lead analysis and business owner phone required'
+        error: 'Business owner phone number is required'
       }, { status: 400 });
     }
 
-    const { leadInfo, leadScore, source } = leadAnalysis;
-
-    console.log('🚨 Processing hot lead alert:', {
-      customerId,
-      leadScore,
-      source,
-      businessOwnerPhone: businessOwnerPhone.substring(0, 8) + '...'
-    });
-
-    // Check if within business hours (if configured)
-    if (!isWithinBusinessHours(alertConfig)) {
-      console.log('⏰ Outside business hours - skipping alert');
+    if (!leadInfo || !leadInfo.score) {
       return NextResponse.json({
-        success: true,
-        sent: false,
-        reason: 'Outside business hours'
+        success: false,
+        error: 'Lead info with score is required'
+      }, { status: 400 });
+    }
+
+    if (!twilioClient) {
+      return NextResponse.json({
+        success: false,
+        error: 'Twilio not configured'
+      }, { status: 500 });
+    }
+
+    // Check if alerts are enabled
+    if (customerConfig.enableHotLeadAlerts === false) {
+      console.log('🚫 Hot lead alerts disabled for this customer');
+      return NextResponse.json({
+        success: false,
+        reason: 'Hot lead alerts disabled',
+        alertSent: false
       });
     }
 
-    // Check throttling to prevent spam
-    if (shouldThrottleAlert(leadInfo.phone, businessOwnerPhone)) {
-      console.log('🛑 Alert throttled - recent alert for same lead');
-      return NextResponse.json({
-        success: true,
-        sent: false,
-        reason: 'Alert throttled - recent alert sent'
-      });
-    }
-
-    // Generate alert message
-    const alertMessage = generateAlertMessage(leadAnalysis, alertConfig.customTemplate);
-
-    // Send SMS alert
-    let alertSent = false;
-    let twilioResponse = null;
-
-    if (twilioClient) {
-      try {
-        twilioResponse = await twilioClient.messages.create({
-          body: alertMessage,
-          from: process.env.TWILIO_PHONE_NUMBER || process.env.AGENT_PHONE_NUMBER,
-          to: businessOwnerPhone
+    // Check business hours if enabled
+    if (customerConfig.alertBusinessHours) {
+      const now = new Date();
+      const hour = now.getHours();
+      const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+      
+      // Skip weekends and outside business hours (8 AM - 6 PM)
+      if (day === 0 || day === 6 || hour < 8 || hour > 18) {
+        console.log('🕐 Outside business hours, skipping alert');
+        return NextResponse.json({
+          success: false,
+          reason: 'Outside business hours',
+          alertSent: false
         });
-        alertSent = true;
-      } catch (twilioError) {
-        console.error('❌ Twilio SMS Error:', twilioError);
-        // Continue with demo mode if Twilio fails
       }
     }
 
-    // Record alert in history
+    // Check alert throttling - max 1 alert per lead per 30 minutes
+    const throttleKey = `${businessOwnerPhone}_${leadInfo.phone || 'web_visitor'}`;
+    const lastAlert = throttleMap.get(throttleKey);
+    const now = Date.now();
+    
+    if (lastAlert && (now - lastAlert) < 30 * 60 * 1000) {
+      console.log('⏳ Alert throttled - too recent');
+      return NextResponse.json({
+        success: false,
+        reason: 'Alert throttled - too recent',
+        alertSent: false,
+        nextAlertAllowed: new Date(lastAlert + 30 * 60 * 1000).toISOString()
+      });
+    }
+
+    // Create alert message
+    const urgencyEmoji = leadInfo.score >= 9 ? '🚨' : leadInfo.score >= 7 ? '🔥' : '⚡';
+    const sourceLabel = source === 'sms' ? 'SMS' : 'Website';
+    const businessName = customerConfig.businessName || 'Your Business';
+    
+    let alertMessage = `${urgencyEmoji} HOT LEAD ALERT!\n\n`;
+    alertMessage += `Score: ${leadInfo.score}/10\n`;
+    alertMessage += `Source: ${sourceLabel}\n`;
+    
+    if (leadInfo.phone) {
+      alertMessage += `Phone: ${leadInfo.phone}\n`;
+    }
+    
+    alertMessage += `Message: "${messageContent.slice(0, 100)}${messageContent.length > 100 ? '...' : ''}"\n\n`;
+    alertMessage += `Reason: ${leadInfo.reasoning}\n`;
+    
+    if (leadInfo.nextAction) {
+      alertMessage += `Next: ${leadInfo.nextAction}\n`;
+    }
+    
+    alertMessage += `\n${businessName} AI Assistant`;
+
+    // Send SMS alert
+    const message = await twilioClient.messages.create({
+      body: alertMessage,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: businessOwnerPhone
+    });
+
+    // Update throttle timestamp
+    throttleMap.set(throttleKey, now);
+
+    // Store alert history
     const alertRecord = {
-      id: `alert_${Date.now()}`,
-      customerId: customerId,
-      leadPhone: leadInfo.phone,
-      leadName: leadInfo.name,
-      businessOwnerPhone: businessOwnerPhone,
-      leadScore: leadScore,
-      source: source,
-      message: alertMessage,
-      sent: alertSent,
-      timestamp: Date.now(),
-      twilioSid: twilioResponse?.sid || null
+      id: message.sid,
+      timestamp: new Date().toISOString(),
+      businessOwnerPhone,
+      leadInfo,
+      messageContent: messageContent.slice(0, 200),
+      source,
+      customerConfig: {
+        businessName: customerConfig.businessName,
+        alertBusinessHours: customerConfig.alertBusinessHours
+      },
+      alertSent: true,
+      twilioSid: message.sid
     };
 
-    // Store alert
-    const throttleKey = `${leadInfo.phone}-${businessOwnerPhone}`;
-    alertHistory.set(throttleKey, alertRecord);
+    const historyKey = `${businessOwnerPhone}_alerts`;
+    const history = alertHistory.get(historyKey) || [];
+    history.unshift(alertRecord); // Add to beginning
+    
+    // Keep only last 50 alerts
+    if (history.length > 50) {
+      history.splice(50);
+    }
+    
+    alertHistory.set(historyKey, history);
 
-    console.log('✅ Hot lead alert processed:', {
-      sent: alertSent,
-      leadScore: leadScore,
-      messageSid: twilioResponse?.sid
+    console.log('✅ Hot lead alert sent successfully:', {
+      sid: message.sid,
+      to: businessOwnerPhone,
+      score: leadInfo.score
     });
 
     return NextResponse.json({
       success: true,
-      sent: alertSent,
-      alert: {
-        id: alertRecord.id,
-        message: alertMessage,
-        leadScore: leadScore,
-        source: source,
-        timestamp: alertRecord.timestamp
-      },
-      twilioSid: twilioResponse?.sid,
-      demo: !twilioClient
+      alertSent: true,
+      messageId: message.sid,
+      leadScore: leadInfo.score,
+      alertMessage: alertMessage.slice(0, 100) + '...',
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('❌ Business Owner Alert Error:', error);
+    console.error('❌ Business owner alert error:', error);
+    
     return NextResponse.json({
       success: false,
-      error: 'Failed to send business owner alert'
+      error: error.message,
+      alertSent: false
     }, { status: 500 });
   }
 }
 
-// Get alert history for a customer
+// GET endpoint for retrieving alert history
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const customerId = searchParams.get('customerId');
-    const limit = parseInt(searchParams.get('limit')) || 50;
+    const businessOwnerPhone = searchParams.get('phone');
 
-    if (!customerId) {
+    if (!businessOwnerPhone) {
       return NextResponse.json({
         success: false,
-        error: 'Customer ID required'
+        error: 'Business owner phone parameter is required'
       }, { status: 400 });
     }
 
-    // Get alerts for this customer
-    const customerAlerts = Array.from(alertHistory.values())
-      .filter(alert => alert.customerId === customerId)
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, limit)
-      .map(alert => ({
-        id: alert.id,
-        leadName: alert.leadName,
-        leadPhone: formatPhoneForDisplay(alert.leadPhone),
-        leadScore: alert.leadScore,
-        source: alert.source,
-        sent: alert.sent,
-        timestamp: new Date(alert.timestamp).toISOString(),
-        message: alert.message.substring(0, 100) + '...'
-      }));
+    const historyKey = `${businessOwnerPhone}_alerts`;
+    const history = alertHistory.get(historyKey) || [];
 
-    // Calculate stats
+    // Calculate statistics
     const stats = {
-      totalAlerts: customerAlerts.length,
-      alertsSent: customerAlerts.filter(a => a.sent).length,
-      avgLeadScore: customerAlerts.length > 0 
-        ? Math.round(customerAlerts.reduce((sum, a) => sum + a.leadScore, 0) / customerAlerts.length)
+      totalAlerts: history.length,
+      alertsLast24h: history.filter(alert => {
+        const alertTime = new Date(alert.timestamp);
+        const now = new Date();
+        return (now - alertTime) < 24 * 60 * 60 * 1000;
+      }).length,
+      alertsLast7days: history.filter(alert => {
+        const alertTime = new Date(alert.timestamp);
+        const now = new Date();
+        return (now - alertTime) < 7 * 24 * 60 * 60 * 1000;
+      }).length,
+      averageLeadScore: history.length > 0 
+        ? (history.reduce((sum, alert) => sum + (alert.leadInfo?.score || 0), 0) / history.length).toFixed(1)
         : 0,
-      sourcesBreakdown: {
-        sms: customerAlerts.filter(a => a.source === 'sms').length,
-        website: customerAlerts.filter(a => a.source === 'website').length
-      }
+      highestScore: history.length > 0 
+        ? Math.max(...history.map(alert => alert.leadInfo?.score || 0))
+        : 0
     };
 
     return NextResponse.json({
       success: true,
-      alerts: customerAlerts,
-      stats: stats,
-      count: customerAlerts.length
+      alerts: history.slice(0, 20), // Return last 20 alerts
+      stats,
+      throttleInfo: {
+        message: 'Alerts are throttled to max 1 per lead per 30 minutes',
+        businessHoursOnly: 'Configurable per customer'
+      }
     });
 
   } catch (error) {
-    console.error('❌ Get Alert History Error:', error);
+    console.error('❌ Alert history retrieval error:', error);
+    
     return NextResponse.json({
       success: false,
-      error: 'Failed to load alert history'
+      error: error.message,
+      alerts: [],
+      stats: {}
     }, { status: 500 });
   }
 }
 
-// Update alert settings for a customer
-export async function PUT(request) {
+// DELETE endpoint for clearing alert history (admin function)
+export async function DELETE(request) {
   try {
-    const {
-      customerId,
-      businessOwnerPhone,
-      respectBusinessHours = true,
-      startHour = 8,
-      endHour = 20,
-      allowedDays = [1, 2, 3, 4, 5], // Monday-Friday
-      customTemplate = null,
-      minLeadScore = 7
-    } = await request.json();
+    const { searchParams } = new URL(request.url);
+    const businessOwnerPhone = searchParams.get('phone');
 
-    if (!customerId) {
+    if (!businessOwnerPhone) {
       return NextResponse.json({
         success: false,
-        error: 'Customer ID required'
+        error: 'Business owner phone parameter is required'
       }, { status: 400 });
     }
 
-    const settings = {
-      customerId,
-      businessOwnerPhone,
-      respectBusinessHours,
-      startHour,
-      endHour,
-      allowedDays,
-      customTemplate,
-      minLeadScore,
-      updatedAt: new Date().toISOString()
-    };
+    const historyKey = `${businessOwnerPhone}_alerts`;
+    const deletedCount = alertHistory.get(historyKey)?.length || 0;
+    
+    alertHistory.delete(historyKey);
+    
+    // Also clear throttle entries for this phone
+    const throttleKeys = Array.from(throttleMap.keys()).filter(key => key.startsWith(businessOwnerPhone));
+    throttleKeys.forEach(key => throttleMap.delete(key));
 
-    alertSettings.set(customerId, settings);
-
-    console.log('⚙️ Alert settings updated:', {
-      customerId,
-      respectBusinessHours,
-      hours: `${startHour}-${endHour}`
-    });
+    console.log(`🗑️ Cleared ${deletedCount} alerts for ${businessOwnerPhone}`);
 
     return NextResponse.json({
       success: true,
-      settings: settings
+      deletedAlerts: deletedCount,
+      message: `Cleared ${deletedCount} alerts and throttle entries`
     });
 
   } catch (error) {
-    console.error('❌ Update Alert Settings Error:', error);
+    console.error('❌ Alert history deletion error:', error);
+    
     return NextResponse.json({
       success: false,
-      error: 'Failed to update alert settings'
+      error: error.message
     }, { status: 500 });
   }
-}
-
-// Export functions for other routes to use
-export function getCustomerAlertSettings(customerId) {
-  return alertSettings.get(customerId) || {
-    respectBusinessHours: true,
-    startHour: 8,
-    endHour: 20,
-    allowedDays: [1, 2, 3, 4, 5],
-    minLeadScore: 7
-  };
-}
-
-export function getAlertHistory() {
-  return Array.from(alertHistory.values());
 }
