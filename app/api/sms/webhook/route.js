@@ -1,239 +1,138 @@
 import { NextResponse } from 'next/server';
-import twilio from 'twilio';
+import OpenAI from 'openai';
 
-// Initialize Twilio
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Initialize OpenAI with debugging
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+}) : null;
 
-// In-memory storage for conversations (use database in production)
-let smsConversations = new Map();
-let smsLeads = [];
+// Debug: Log connection status
+console.log('🔍 OpenAI Connection Status:', {
+  hasApiKey: !!process.env.OPENAI_API_KEY,
+  keyPreview: process.env.OPENAI_API_KEY ? 
+    `${process.env.OPENAI_API_KEY.substring(0, 7)}...` : 'None',
+  clientInitialized: !!openai
+});
 
-// Business hours configuration
-const BUSINESS_HOURS = {
-  start: 9,    // 9 AM
-  end: 18,     // 6 PM
-  timezone: 'America/New_York',
-  days: [1, 2, 3, 4, 5] // Monday-Friday (0=Sunday, 6=Saturday)
-};
-
-function isBusinessHours() {
-  const now = new Date();
-  const hour = now.getHours();
-  const day = now.getDay();
-  
-  return BUSINESS_HOURS.days.includes(day) && 
-         hour >= BUSINESS_HOURS.start && 
-         hour < BUSINESS_HOURS.end;
-}
-
-function getConversationId(from, to) {
-  return `${from}-${to}`;
-}
-
-async function getAIResponse(message, conversationHistory = []) {
+export async function POST(request) {
   try {
-    // Get AI configuration
+    const { message, conversationHistory = [] } = await request.json();
+    
+    console.log('💬 Incoming Chat Request:', {
+      message: message?.substring(0, 50) + '...',
+      hasHistory: conversationHistory.length > 0,
+      timestamp: new Date().toISOString()
+    });
+
+    // Check if OpenAI is available
+    if (!openai) {
+      console.log('⚠️ No OpenAI API key - using fallback');
+      return NextResponse.json({
+        response: "I'm currently in demo mode. To enable full AI capabilities, please add your OpenAI API key to the environment variables. I can still help with basic information about your business!",
+        isAI: false,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Try to get AI configuration
     let aiConfig;
     try {
-      const { getAIConfig } = await import('../../ai-config/route.js');
+      const { getAIConfig } = await import('../ai-config/route.js');
       aiConfig = getAIConfig();
+      console.log('🤖 AI Config Loaded:', aiConfig.personality, aiConfig.model);
     } catch {
       aiConfig = {
         personality: 'professional',
         model: 'gpt-4o-mini',
         creativity: 0.7,
-        maxTokens: 150, // Shorter for SMS
+        maxTokens: 500,
         knowledgeBase: '',
         systemPrompt: ''
       };
+      console.log('📋 Using default AI config');
     }
 
-    // SMS-specific system prompt
-    const smsSystemPrompt = `You are an SMS AI assistant. Keep responses under 160 characters when possible. Be helpful and concise. You are representing a business via text message.`;
-    
+    // Build system prompt based on personality
     const personalityPrompts = {
-      professional: "Be professional and direct in your SMS responses.",
-      friendly: "Be warm and friendly in your text messages.",
-      enthusiastic: "Be positive and energetic in your SMS responses.",
-      empathetic: "Be understanding and caring in your text messages.",
-      expert: "Be knowledgeable and authoritative in your SMS responses."
+      professional: "You are a professional business assistant. Be direct, informative, and helpful.",
+      friendly: "You are a friendly and conversational assistant. Be warm, approachable, and personable.",
+      enthusiastic: "You are an enthusiastic and energetic assistant. Be excited, positive, and motivating.",
+      empathetic: "You are an empathetic and understanding assistant. Be caring, supportive, and considerate.",
+      expert: "You are an expert technical assistant. Be precise, detailed, and authoritative."
     };
 
-    let systemPrompt = smsSystemPrompt + ' ' + (aiConfig.systemPrompt || personalityPrompts[aiConfig.personality]);
+    let systemPrompt = aiConfig.systemPrompt || personalityPrompts[aiConfig.personality];
     
     if (aiConfig.knowledgeBase) {
-      systemPrompt += `\n\nBusiness Info: ${aiConfig.knowledgeBase}`;
+      systemPrompt += `\n\nBusiness Knowledge Base:\n${aiConfig.knowledgeBase}`;
     }
 
-    // Call the existing chat API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: message,
-        conversationHistory: conversationHistory,
-        smsMode: true // Flag for SMS-specific handling
-      })
+    // Build messages array
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory,
+      { role: 'user', content: message }
+    ];
+
+    console.log('🚀 Sending to OpenAI:', {
+      model: aiConfig.model,
+      messageCount: messages.length,
+      temperature: aiConfig.creativity,
+      maxTokens: aiConfig.maxTokens
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      return data.response;
-    } else {
-      throw new Error('Chat API error');
-    }
-  } catch (error) {
-    console.error('❌ AI Response Error:', error);
-    return "Thanks for your message! We'll get back to you soon.";
-  }
-}
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: aiConfig.model,
+      messages: messages,
+      temperature: aiConfig.creativity,
+      max_tokens: aiConfig.maxTokens,
+    });
 
-async function saveSMSLead(phoneNumber, message, businessNumber) {
-  const lead = {
-    id: `sms_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    type: 'sms',
-    phone: phoneNumber,
-    businessPhone: businessNumber,
-    message: message,
-    timestamp: new Date().toISOString(),
-    status: 'new',
-    source: 'SMS Chat'
-  };
-  
-  smsLeads.push(lead);
-  console.log('📱 SMS Lead captured:', lead);
-  return lead;
-}
-
-export async function POST(request) {
-  try {
-    // Parse Twilio webhook data
-    const formData = await request.formData();
-    const body = Object.fromEntries(formData);
+    const aiResponse = completion.choices[0].message.content;
     
-    const {
-      From: fromNumber,
-      To: businessNumber,
-      Body: messageBody,
-      MessageSid,
-      AccountSid
-    } = body;
+    console.log('✅ OpenAI Response Received:', {
+      responseLength: aiResponse.length,
+      usage: completion.usage,
+      model: completion.model
+    });
 
-    console.log('📱 Incoming SMS:', {
-      from: fromNumber,
-      to: businessNumber,
-      message: messageBody?.substring(0, 50) + '...',
+    return NextResponse.json({
+      response: aiResponse,
+      isAI: true,
+      model: aiConfig.model,
+      usage: completion.usage,
       timestamp: new Date().toISOString()
     });
 
-    // Validate required fields
-    if (!fromNumber || !messageBody || !businessNumber) {
-      console.error('❌ Missing required SMS fields');
-      return new NextResponse('Bad Request', { status: 400 });
-    }
-
-    // Get or create conversation
-    const conversationId = getConversationId(fromNumber, businessNumber);
-    let conversation = smsConversations.get(conversationId) || {
-      id: conversationId,
-      from: fromNumber,
-      to: businessNumber,
-      messages: [],
-      createdAt: new Date().toISOString(),
-      lastActivity: new Date().toISOString()
-    };
-
-    // Add incoming message to conversation
-    conversation.messages.push({
-      id: MessageSid,
-      from: fromNumber,
-      body: messageBody,
-      timestamp: new Date().toISOString(),
-      direction: 'inbound'
-    });
-
-    // Save lead on first message
-    if (conversation.messages.length === 1) {
-      await saveSMSLead(fromNumber, messageBody, businessNumber);
-    }
-
-    // Check business hours
-    let aiResponse;
-    if (!isBusinessHours()) {
-      aiResponse = "Thanks for your message! Our business hours are 9 AM - 6 PM, Monday-Friday. We'll respond during business hours or feel free to visit our website.";
-    } else {
-      // Get AI response with conversation history
-      const conversationHistory = conversation.messages.slice(-6).map(msg => ({
-        role: msg.from === fromNumber ? 'user' : 'assistant',
-        content: msg.body
-      }));
-
-      aiResponse = await getAIResponse(messageBody, conversationHistory);
-    }
-
-    // Add AI response to conversation
-    const responseMessage = {
-      id: `response_${Date.now()}`,
-      from: businessNumber,
-      body: aiResponse,
-      timestamp: new Date().toISOString(),
-      direction: 'outbound'
-    };
-    conversation.messages.push(responseMessage);
-    conversation.lastActivity = new Date().toISOString();
-
-    // Save conversation
-    smsConversations.set(conversationId, conversation);
-
-    // Send SMS response via Twilio
-    const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Message>${aiResponse}</Message>
-</Response>`;
-
-    console.log('✅ SMS Response sent:', {
-      to: fromNumber,
-      responseLength: aiResponse.length,
-      conversationLength: conversation.messages.length
-    });
-
-    return new NextResponse(twimlResponse, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/xml'
-      }
-    });
-
   } catch (error) {
-    console.error('❌ SMS Webhook Error:', error);
-    
-    // Return basic TwiML response on error
-    const errorResponse = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Message>Sorry, we're experiencing technical difficulties. Please try again later.</Message>
-</Response>`;
-
-    return new NextResponse(errorResponse, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/xml'
-      }
+    console.error('❌ Chat API Error:', {
+      message: error.message,
+      type: error.constructor.name,
+      code: error.code
     });
+
+    // Specific OpenAI error handling
+    if (error.code === 'invalid_api_key') {
+      return NextResponse.json({
+        response: "❌ Invalid OpenAI API key. Please check your API key in environment variables.",
+        isAI: false,
+        error: 'invalid_api_key'
+      });
+    }
+
+    if (error.code === 'insufficient_quota') {
+      return NextResponse.json({
+        response: "❌ OpenAI quota exceeded. Please check your billing or upgrade your plan.",
+        isAI: false,
+        error: 'quota_exceeded'
+      });
+    }
+
+    return NextResponse.json({
+      response: `I apologize, but I'm experiencing technical difficulties. Error: ${error.message}`,
+      isAI: false,
+      error: error.message
+    }, { status: 500 });
   }
-}
-
-// Export functions for other routes to use
-export function getSMSConversations() {
-  return Array.from(smsConversations.values());
-}
-
-export function getSMSLeads() {
-  return smsLeads;
-}
-
-export function getSMSConversation(conversationId) {
-  return smsConversations.get(conversationId);
 }
