@@ -17,7 +17,7 @@ console.log('🔍 OpenAI Connection Status:', {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { message, conversationHistory = [], smsMode = false } = body;
+    const { message, conversationHistory = [], smsMode = false, customConfig = null } = body;
     
     console.log('💬 Incoming Chat Request:', {
       message: message?.substring(0, 50) + '...',
@@ -51,20 +51,28 @@ export async function POST(request) {
 
     // Try to get AI configuration
     let aiConfig;
-    try {
-      const { getAIConfig } = await import('../ai-config/route.js');
-      aiConfig = getAIConfig();
-      console.log('🤖 AI Config Loaded:', aiConfig.personality, aiConfig.model);
-    } catch {
-      aiConfig = {
-        personality: 'professional',
-        model: 'gpt-4o-mini',
-        creativity: 0.7,
-        maxTokens: 500,
-        knowledgeBase: '',
-        systemPrompt: ''
-      };
-      console.log('📋 Using default AI config');
+    
+    // Use custom config if provided (for customer SMS)
+    if (customConfig) {
+      aiConfig = customConfig;
+      console.log('🏢 Using customer AI config:', customConfig.businessName, customConfig.personality);
+    } else {
+      // Use default platform config
+      try {
+        const { getAIConfig } = await import('../ai-config/route.js');
+        aiConfig = getAIConfig();
+        console.log('🤖 AI Config Loaded:', aiConfig.personality, aiConfig.model);
+      } catch {
+        aiConfig = {
+          personality: 'professional',
+          model: 'gpt-4o-mini',
+          creativity: 0.7,
+          maxTokens: 500,
+          knowledgeBase: '',
+          systemPrompt: ''
+        };
+        console.log('📋 Using default AI config');
+      }
     }
 
     // Build system prompt based on personality
@@ -78,8 +86,11 @@ export async function POST(request) {
 
     let systemPrompt = aiConfig.systemPrompt || personalityPrompts[aiConfig.personality];
     
+    // Add business knowledge - handle both old and new formats
     if (aiConfig.knowledgeBase) {
       systemPrompt += `\n\nBusiness Knowledge Base:\n${aiConfig.knowledgeBase}`;
+    } else if (aiConfig.businessInfo) {
+      systemPrompt += `\n\nBusiness Information:\nBusiness Name: ${aiConfig.businessName}\n${aiConfig.businessInfo}`;
     }
 
     // SMS-specific adjustments
