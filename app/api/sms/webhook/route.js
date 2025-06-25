@@ -1,310 +1,313 @@
 import { NextResponse } from 'next/server';
 import twilio from 'twilio';
+import OpenAI from 'openai';
 
-// Initialize OpenAI with debugging
+// Initialize OpenAI
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 }) : null;
 
 // Initialize Twilio
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-) : null;
+const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null;
 
-// In-memory storage for conversations (use database in production)
-let smsConversations = new Map();
-let smsLeads = [];
+// In-memory storage for conversations and customer configs
+const conversations = new Map();
+const customerConfigs = new Map();
 
-// Business hours configuration
-const BUSINESS_HOURS = {
-  start: 9,    // 9 AM
-  end: 18,     // 6 PM
-  timezone: 'America/New_York',
-  days: [1, 2, 3, 4, 5] // Monday-Friday (0=Sunday, 6=Saturday)
-};
+// Hot lead scoring function
+async function analyzeHotLead(messageContent, conversationHistory = []) {
+  if (!openai) {
+    return { isHotLead: false, score: 0, reasoning: 'OpenAI not configured' };
+  }
 
-function isBusinessHours() {
-  const now = new Date();
-  const hour = now.getHours();
-  const day = now.getDay();
-  
-  return BUSINESS_HOURS.days.includes(day) && 
-         hour >= BUSINESS_HOURS.start && 
-         hour < BUSINESS_HOURS.end;
-}
-
-function getConversationId(from, to) {
-  return `${from}-${to}`;
-}
-
-async function getAIResponse(message, conversationHistory = []) {
   try {
-    // Get AI configuration
-    let aiConfig;
-    try {
-      const { getAIConfig } = await import('../../ai-config/route.js');
-      aiConfig = getAIConfig();
-    } catch {
-      aiConfig = {
-        personality: 'professional',
-        model: 'gpt-4o-mini',
-        creativity: 0.7,
-        maxTokens: 150, // Shorter for SMS
-        knowledgeBase: '',
-        systemPrompt: ''
-      };
-    }
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a hot lead detection AI. Analyze the customer message and conversation history to determine if this is a hot lead (someone ready to buy/engage).
 
-    // SMS-specific system prompt
-    const smsSystemPrompt = `You are an SMS AI assistant. Keep responses under 160 characters when possible. Be helpful and concise. You are representing a business via text message.`;
-    
-    const personalityPrompts = {
-      professional: "Be professional and direct in your SMS responses.",
-      friendly: "Be warm and friendly in your text messages.",
-      enthusiastic: "Be positive and energetic in your SMS responses.",
-      empathetic: "Be understanding and caring in your text messages.",
-      expert: "Be knowledgeable and authoritative in your SMS responses."
-    };
+Score from 0-10 where:
+- 0-3: Just browsing, low intent
+- 4-6: Interested, medium intent  
+- 7-8: Strong interest, high intent
+- 9-10: Ready to buy NOW, urgent intent
 
-    let systemPrompt = smsSystemPrompt + ' ' + (aiConfig.systemPrompt || personalityPrompts[aiConfig.personality]);
-    
-    if (aiConfig.knowledgeBase) {
-      systemPrompt += `\n\nBusiness Info: ${aiConfig.knowledgeBase}`;
-    }
+Look for:
+🔥 HIGH INTENT (8-10): "want to buy", "ready to purchase", "budget is X", "call me", "need ASAP", "when can we meet"
+🔥 MEDIUM INTENT (5-7): "interested in", "tell me more", "pricing", "available", "schedule"
+🔥 LOW INTENT (1-4): "just looking", "browsing", "general info", "what are your hours"
 
-    // Call the existing chat API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: message,
-        conversationHistory: conversationHistory,
-        smsMode: true // Flag for SMS-specific handling
-      })
+Respond with JSON: {"score": number, "isHotLead": boolean, "reasoning": "brief explanation", "keywords": ["detected", "keywords"]}`
+        },
+        {
+          role: "user",
+          content: `Current message: "${messageContent}"\n\nConversation history: ${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}`
+        }
+      ],
+      max_tokens: 200,
+      temperature: 0.3
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      return data.response;
-    } else {
-      throw new Error('Chat API error');
-    }
+    const analysis = JSON.parse(completion.choices[0].message.content);
+    return {
+      isHotLead: analysis.score >= 7,
+      score: analysis.score,
+      reasoning: analysis.reasoning,
+      keywords: analysis.keywords || []
+    };
   } catch (error) {
-    console.error('❌ AI Response Error:', error);
-    return "Thanks for your message! We'll get back to you soon.";
+    console.error('Hot lead analysis error:', error);
+    return { isHotLead: false, score: 0, reasoning: 'Analysis failed' };
   }
 }
 
-async function saveSMSLead(phoneNumber, message, businessNumber) {
-  const lead = {
-    id: `sms_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    type: 'sms',
-    phone: phoneNumber,
-    businessPhone: businessNumber,
-    message: message,
-    timestamp: new Date().toISOString(),
-    status: 'new',
-    source: 'SMS Chat'
-  };
-  
-  smsLeads.push(lead);
-  console.log('📱 SMS Lead captured:', lead);
-  return lead;
+// Send hot lead alert to business owner
+async function sendHotLeadAlert(customerConfig, leadInfo, messageContent) {
+  if (!twilioClient || !customerConfig.businessOwnerPhone || !customerConfig.enableHotLeadAlerts) {
+    return false;
+  }
+
+  // Check business hours if enabled
+  if (customerConfig.alertBusinessHours) {
+    const now = new Date();
+    const hour = now.getHours();
+    if (hour < 8 || hour > 18) { // Outside 8 AM - 6 PM
+      return false;
+    }
+  }
+
+  // Throttle alerts - max 1 per lead per 30 minutes
+  const throttleKey = `${customerConfig.phoneNumber}_${leadInfo.phone}`;
+  const lastAlert = customerConfigs.get(`${throttleKey}_last_alert`);
+  if (lastAlert && (Date.now() - lastAlert) < 30 * 60 * 1000) {
+    return false; // Skip if alerted within last 30 minutes
+  }
+
+  try {
+    const alertMessage = `🔥 HOT LEAD ALERT!\n\nScore: ${leadInfo.score}/10\nFrom: ${leadInfo.phone}\nMessage: "${messageContent.slice(0, 100)}${messageContent.length > 100 ? '...' : ''}"\n\nReason: ${leadInfo.reasoning}\n\n${customerConfig.businessName} AI Assistant`;
+
+    await twilioClient.messages.create({
+      body: alertMessage,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: customerConfig.businessOwnerPhone
+    });
+
+    // Update throttle timestamp
+    customerConfigs.set(`${throttleKey}_last_alert`, Date.now());
+    
+    console.log(`Hot lead alert sent to ${customerConfig.businessOwnerPhone}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to send hot lead alert:', error);
+    return false;
+  }
+}
+
+// Get AI response with customer configuration
+async function getAIResponse(message, customerConfig, conversationHistory = []) {
+  if (!openai) {
+    return "I'm here to help! However, my AI capabilities are currently being configured. Please try again in a moment.";
+  }
+
+  try {
+    const systemPrompt = `You are ${customerConfig.businessName}'s AI assistant with a ${customerConfig.personality} personality.
+
+Business Information:
+${customerConfig.businessInfo || 'Professional service business focused on helping customers.'}
+
+Key Instructions:
+- Keep responses under 160 characters for SMS
+- Be helpful and ${customerConfig.personality}
+- Focus on ${customerConfig.businessName}
+- If asked about services, mention: "${customerConfig.businessInfo}"
+- Always aim to help and provide value
+- For complex inquiries, offer to connect them with a human representative
+
+Conversation history context: ${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}`;
+
+    const completion = await openai.chat.completions.create({
+      model: customerConfig.model || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ],
+      max_tokens: 150,
+      temperature: customerConfig.creativity || 0.7
+    });
+
+    return completion.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('AI Response Error:', error);
+    return "Thanks for your message! I'm experiencing some technical difficulties right now, but I'll make sure someone gets back to you soon.";
+  }
 }
 
 export async function POST(request) {
   try {
-    // Parse Twilio webhook data
     const formData = await request.formData();
-    const body = Object.fromEntries(formData);
-    
-    const {
-      From: fromNumber,
-      To: businessNumber,
-      Body: messageBody,
-      MessageSid,
-      AccountSid
-    } = body;
+    const messageBody = formData.get('Body');
+    const fromNumber = formData.get('From');
+    const toNumber = formData.get('To');
 
-    console.log('📱 Incoming SMS:', {
+    console.log('📱 SMS Webhook received:', {
       from: fromNumber,
-      to: businessNumber,
-      message: messageBody?.substring(0, 50) + '...',
-      timestamp: new Date().toISOString()
+      to: toNumber,
+      message: messageBody
     });
 
-    // Validate required fields
-    if (!fromNumber || !messageBody || !businessNumber) {
-      console.error('❌ Missing required SMS fields');
-      return new NextResponse('Bad Request', { status: 400 });
-    }
+    // Get customer configuration for this phone number
+    let customerConfig = customerConfigs.get(toNumber) || {
+      phoneNumber: toNumber,
+      businessName: 'Professional Service',
+      personality: 'professional',
+      businessInfo: 'We provide professional services to help our customers achieve their goals.',
+      model: 'gpt-4o-mini',
+      creativity: 0.7,
+      welcomeMessage: 'Thanks for reaching out! How can I help you today?',
+      businessOwnerPhone: null,
+      enableHotLeadAlerts: false,
+      alertBusinessHours: true
+    };
 
     // Get or create conversation
-    const conversationId = getConversationId(fromNumber, businessNumber);
-    let conversation = smsConversations.get(conversationId) || {
-      id: conversationId,
-      from: fromNumber,
-      to: businessNumber,
+    const conversationKey = `${toNumber}_${fromNumber}`;
+    let conversation = conversations.get(conversationKey) || {
+      id: conversationKey,
+      toNumber: toNumber,
+      fromNumber: fromNumber,
       messages: [],
-      createdAt: new Date().toISOString(),
-      lastActivity: new Date().toISOString()
+      leadCaptured: false,
+      createdAt: new Date().toISOString()
     };
 
     // Add incoming message to conversation
     conversation.messages.push({
-      id: MessageSid,
-      from: fromNumber,
+      id: Date.now().toString(),
       body: messageBody,
+      from: fromNumber,
+      to: toNumber,
       timestamp: new Date().toISOString(),
       direction: 'inbound'
     });
 
-    // Save lead on first message
-    if (conversation.messages.length === 1) {
-      await saveSMSLead(fromNumber, messageBody, businessNumber);
+    // Analyze for hot lead
+    const conversationHistory = conversation.messages.slice(-6).map(msg => ({
+      role: msg.from === fromNumber ? 'user' : 'assistant',
+      content: msg.body
+    }));
+
+    const hotLeadAnalysis = await analyzeHotLead(messageBody, conversationHistory);
+    
+    console.log('🔥 Hot lead analysis:', hotLeadAnalysis);
+
+    // Send alert if hot lead detected
+    if (hotLeadAnalysis.isHotLead) {
+      const alertSent = await sendHotLeadAlert(customerConfig, {
+        phone: fromNumber,
+        score: hotLeadAnalysis.score,
+        reasoning: hotLeadAnalysis.reasoning
+      }, messageBody);
+      
+      console.log('📢 Hot lead alert sent:', alertSent);
     }
 
-    // Check business hours
+    // Capture lead if not already captured
+    if (!conversation.leadCaptured) {
+      // Simple lead capture logic
+      conversation.leadCaptured = true;
+      console.log('📝 New lead captured:', {
+        phone: fromNumber,
+        source: 'SMS',
+        firstMessage: messageBody,
+        hotLeadScore: hotLeadAnalysis.score
+      });
+    }
+
+    // Get AI response
     let aiResponse;
-    if (!isBusinessHours()) {
-      aiResponse = "Thanks for your message! Our business hours are 9 AM - 6 PM, Monday-Friday. We'll respond during business hours or feel free to visit our website.";
+    
+    // Check if this is the first message and we have a welcome message
+    if (conversation.messages.length === 1 && customerConfig.welcomeMessage) {
+      aiResponse = customerConfig.welcomeMessage;
     } else {
-      // Get AI response with conversation history
-      const conversationHistory = conversation.messages.slice(-6).map(msg => ({
-        role: msg.from === fromNumber ? 'user' : 'assistant',
-        content: msg.body
-      }));
-
-      aiResponse = await getAIResponse(messageBody, conversationHistory);
-
-      // Hot Lead Detection for SMS
-      try {
-        // Build full conversation for analysis
-        const fullConversation = [
-          ...conversationHistory,
-          { role: 'user', content: messageBody }
-        ];
-
-        // Get AI config for business context
-        let aiConfig;
-        try {
-          const { getAIConfig } = await import('../../ai-config/route.js');
-          aiConfig = getAIConfig();
-        } catch {
-          aiConfig = { knowledgeBase: '', businessInfo: '' };
-        }
-
-        // Analyze for hot lead
-        const hotLeadResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/hot-lead-detection`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation: fullConversation,
-            source: 'sms',
-            businessContext: aiConfig.knowledgeBase || aiConfig.businessInfo || '',
-            customerId: 'sms_customer', // In production, determine from phone number
-            businessPhone: businessNumber
-          })
-        });
-
-        if (hotLeadResponse.ok) {
-          const leadData = await hotLeadResponse.json();
-          
-          console.log('📊 SMS Lead Analysis:', {
-            leadScore: leadData.leadScore,
-            isHotLead: leadData.isHotLead,
-            buyingIntent: leadData.analysis?.buyingIntent
-          });
-
-          // Send business owner alert if hot lead detected
-          if (leadData.isHotLead) {
-            // In production, get customer's business owner phone from database
-            const businessOwnerPhone = process.env.AGENT_PHONE_NUMBER; // Placeholder
-            
-            if (businessOwnerPhone) {
-              const alertResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/business-owner-alerts`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  leadAnalysis: leadData,
-                  businessOwnerPhone: businessOwnerPhone,
-                  customerId: 'sms_customer',
-                  alertConfig: {}
-                })
-              });
-
-              if (alertResponse.ok) {
-                console.log('🔥 Hot lead alert sent for SMS lead!');
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Hot lead detection error:', error);
-      }
+      aiResponse = await getAIResponse(messageBody, customerConfig, conversationHistory);
     }
 
     // Add AI response to conversation
-    const responseMessage = {
-      id: `response_${Date.now()}`,
-      from: businessNumber,
+    conversation.messages.push({
+      id: (Date.now() + 1).toString(),
       body: aiResponse,
-      timestamp: new Date().toISOString(),
-      direction: 'outbound'
-    };
-    conversation.messages.push(responseMessage);
-    conversation.lastActivity = new Date().toISOString();
-
-    // Save conversation
-    smsConversations.set(conversationId, conversation);
-
-    // Send SMS response via Twilio
-    const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Message>${aiResponse}</Message>
-</Response>`;
-
-    console.log('✅ SMS Response sent:', {
+      from: toNumber,
       to: fromNumber,
-      responseLength: aiResponse.length,
-      conversationLength: conversation.messages.length
+      timestamp: new Date().toISOString(),
+      direction: 'outbound',
+      hotLeadScore: hotLeadAnalysis.score
     });
 
-    return new NextResponse(twimlResponse, {
+    // Update conversation in storage
+    conversations.set(conversationKey, conversation);
+
+    console.log('✅ SMS processed successfully:', {
+      conversationId: conversationKey,
+      messageCount: conversation.messages.length,
+      aiResponse: aiResponse.slice(0, 50) + '...',
+      hotLeadScore: hotLeadAnalysis.score
+    });
+
+    // Return TwiML response (no actual SMS sending yet due to A2P registration)
+    const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <!-- SMS Response will be sent once A2P 10DLC registration is complete -->
+  <!-- For now, response is logged and stored for testing -->
+</Response>`;
+
+    return new Response(twimlResponse, {
       status: 200,
       headers: {
-        'Content-Type': 'text/xml'
-      }
+        'Content-Type': 'text/xml',
+      },
     });
 
   } catch (error) {
     console.error('❌ SMS Webhook Error:', error);
     
-    // Return basic TwiML response on error
     const errorResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message>Sorry, we're experiencing technical difficulties. Please try again later.</Message>
+  <!-- Error occurred but webhook acknowledged -->
 </Response>`;
 
-    return new NextResponse(errorResponse, {
+    return new Response(errorResponse, {
       status: 200,
       headers: {
-        'Content-Type': 'text/xml'
-      }
+        'Content-Type': 'text/xml',
+      },
     });
   }
 }
 
-// Export functions for other routes to use
-export function getSMSConversations() {
-  return Array.from(smsConversations.values());
-}
-
-export function getSMSLeads() {
-  return smsLeads;
-}
-
-export function getSMSConversation(conversationId) {
-  return smsConversations.get(conversationId);
+// GET endpoint for retrieving conversations (for dashboard)
+export async function GET(request) {
+  try {
+    const conversationArray = Array.from(conversations.values());
+    
+    return NextResponse.json({
+      success: true,
+      conversations: conversationArray,
+      totalConversations: conversationArray.length,
+      totalMessages: conversationArray.reduce((total, conv) => total + conv.messages.length, 0)
+    });
+  } catch (error) {
+    console.error('❌ SMS GET Error:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message,
+      conversations: [],
+      totalConversations: 0,
+      totalMessages: 0
+    }, { status: 500 });
+  }
 }
