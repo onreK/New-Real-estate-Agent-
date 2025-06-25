@@ -21,9 +21,12 @@ export default function DemoPage() {
               >
                 Back to Dashboard
               </a>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <a
+                href="/ai-config"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 Configure AI
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -99,14 +102,20 @@ export default function DemoPage() {
                 🚀 Next Steps:
               </h3>
               <div className="space-y-3">
-                <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <a
+                  href="/ai-config"
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors block"
+                >
                   <div className="font-medium text-gray-900">1. Configure AI Personality</div>
                   <div className="text-sm text-gray-600">Customize tone, responses, and business knowledge</div>
-                </button>
-                <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                </a>
+                <a
+                  href="/ai-config"
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors block"
+                >
                   <div className="font-medium text-gray-900">2. Train with Your Content</div>
                   <div className="text-sm text-gray-600">Upload FAQs, documents, and product information</div>
-                </button>
+                </a>
                 <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="font-medium text-gray-900">3. Get Embed Code</div>
                   <div className="text-sm text-gray-600">Add the chatbot to your website with one line of code</div>
@@ -148,9 +157,12 @@ export default function DemoPage() {
                 <button className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors">
                   Get Embed Code
                 </button>
-                <button className="border border-blue-300 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                <a
+                  href="/ai-config"
+                  className="border border-blue-300 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
                   Configure AI
-                </button>
+                </a>
               </div>
             </div>
 
