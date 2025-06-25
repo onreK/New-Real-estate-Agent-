@@ -6,10 +6,13 @@ export default function CustomerSMSDashboard() {
   const [smsService, setSmsService] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
+  const [hotLeadAlerts, setHotLeadAlerts] = useState([]);
+  const [alertSettings, setAlertSettings] = useState(null);
   const [stats, setStats] = useState({
     totalConversations: 0,
     totalMessages: 0,
     leadsThisMonth: 0,
+    hotLeadsThisMonth: 0,
     responseRate: 0
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +41,18 @@ export default function CustomerSMSDashboard() {
         const convData = await convResponse.json();
         setConversations(convData.conversations || []);
         setStats(convData.stats || stats);
+      }
+
+      // Load hot lead alerts
+      const alertResponse = await fetch('/api/business-owner-alerts?customerId=demo_customer&limit=10');
+      if (alertResponse.ok) {
+        const alertData = await alertResponse.json();
+        setHotLeadAlerts(alertData.alerts || []);
+        // Update stats with hot lead count
+        setStats(prev => ({
+          ...prev,
+          hotLeadsThisMonth: alertData.stats?.totalAlerts || 0
+        }));
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -195,10 +210,10 @@ export default function CustomerSMSDashboard() {
 
               <div className="bg-white p-6 rounded-lg shadow">
                 <div className="flex items-center">
-                  <div className="text-purple-600 text-2xl mr-4">🎯</div>
+                  <div className="text-red-600 text-2xl mr-4">🔥</div>
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Leads This Month</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.smsLeads || 0}</p>
+                    <p className="text-sm font-medium text-gray-600">Hot Leads</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.hotLeadsThisMonth}</p>
                   </div>
                 </div>
               </div>
@@ -214,10 +229,50 @@ export default function CustomerSMSDashboard() {
               </div>
             </div>
 
+            {/* Hot Lead Alerts Section */}
+            {hotLeadAlerts.length > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-semibold mb-4">🔥 Recent Hot Lead Alerts</h2>
+                <div className="space-y-3">
+                  {hotLeadAlerts.slice(0, 5).map((alert, index) => (
+                    <div key={alert.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-red-600 font-medium">🔥</span>
+                          <span className="font-medium">{alert.leadName}</span>
+                          <span className="text-sm text-gray-600">({alert.source})</span>
+                          <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">
+                            Score: {alert.leadScore}/10
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{alert.leadPhone}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">
+                          {formatTime(alert.timestamp)}
+                        </div>
+                        <div className={`text-xs ${alert.sent ? 'text-green-600' : 'text-gray-500'}`}>
+                          {alert.sent ? '✅ Alert Sent' : '⏳ Pending'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {hotLeadAlerts.length > 5 && (
+                  <div className="mt-4 text-center">
+                    <button className="text-blue-600 hover:text-blue-800 text-sm">
+                      View All {hotLeadAlerts.length} Hot Lead Alerts →
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Quick Actions */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold mb-4">⚡ Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <a 
                   href="/ai-config"
                   className="p-4 border rounded-lg hover:border-blue-500 transition-colors"
@@ -235,6 +290,12 @@ export default function CustomerSMSDashboard() {
                   <div className="font-medium">Test AI Responses</div>
                   <div className="text-sm text-gray-600">Send test messages and see AI responses</div>
                 </a>
+
+                <div className="p-4 border rounded-lg hover:border-red-500 transition-colors cursor-pointer">
+                  <div className="text-red-600 text-xl mb-2">🔥</div>
+                  <div className="font-medium">Hot Lead Alerts</div>
+                  <div className="text-sm text-gray-600">Configure when to get notified about hot leads</div>
+                </div>
 
                 <div className="p-4 border rounded-lg hover:border-purple-500 transition-colors cursor-pointer">
                   <div className="text-purple-600 text-xl mb-2">📊</div>
