@@ -371,6 +371,31 @@ export default function SMSOnboarding() {
                   </p>
                 </div>
 
+                {/* Hot Lead Test Section */}
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-red-800 mb-2">🔥 Test Hot Lead Detection</h3>
+                  <p className="text-sm text-red-700 mb-3">
+                    Try these phrases to see how the AI detects high-intent customers:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      "I want to buy a house today",
+                      "Ready to purchase, what's available?",
+                      "My budget is $500K, let's do this",
+                      "Can you call me? I need help ASAP"
+                    ].map((phrase, index) => (
+                      <button
+                        key={index}
+                        onClick={() => testSMS(phrase)}
+                        disabled={isLoading}
+                        className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded hover:bg-red-200 disabled:opacity-50"
+                      >
+                        Test: "{phrase.substring(0, 25)}..."
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   {['What are your hours?', 'How much does it cost?', 'Can I schedule an appointment?'].map((sample, index) => (
                     <div key={index} className="border rounded-lg p-4">
@@ -389,6 +414,12 @@ export default function SMSOnboarding() {
                         <div className="bg-gray-50 p-3 rounded mt-2">
                           <span className="text-sm font-medium text-gray-600">AI Response:</span>
                           <p className="text-gray-800 mt-1">{testResults.response}</p>
+                          {testResults.metadata?.leadScore && (
+                            <p className="text-xs text-orange-600 mt-1">
+                              Lead Score: {testResults.metadata.leadScore}/10
+                              {testResults.metadata.leadScore >= 7 && " 🔥 HOT LEAD!"}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -420,6 +451,7 @@ export default function SMSOnboarding() {
                     <p><strong>Phone Number:</strong> {formatPhoneNumber(selectedNumber?.phoneNumber)}</p>
                     <p><strong>Business:</strong> {smsConfig.businessName}</p>
                     <p><strong>Personality:</strong> {smsConfig.personality}</p>
+                    <p><strong>Hot Lead Alerts:</strong> {smsConfig.enableHotLeadAlerts ? `✅ Enabled (${smsConfig.businessOwnerPhone})` : '❌ Disabled'}</p>
                     <p><strong>Status:</strong> Ready to activate</p>
                   </div>
                 </div>
