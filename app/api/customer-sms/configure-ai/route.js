@@ -31,6 +31,18 @@ export async function POST(request) {
       businessInfo: config.businessInfo,
       welcomeMessage: config.welcomeMessage || `Hi! Thanks for texting ${config.businessName}. How can I help you today?`,
       
+      // Hot Lead Alert Settings
+      businessOwnerPhone: config.businessOwnerPhone || null,
+      enableHotLeadAlerts: config.enableHotLeadAlerts !== false,
+      alertConfig: {
+        respectBusinessHours: config.alertBusinessHours !== false,
+        startHour: 9,
+        endHour: 20,
+        allowedDays: [1, 2, 3, 4, 5], // Monday-Friday
+        minLeadScore: 7,
+        customTemplate: null
+      },
+      
       // Technical AI settings optimized for SMS
       model: 'gpt-4o-mini',
       creativity: 0.7,
