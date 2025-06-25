@@ -16,13 +16,23 @@ console.log('🔍 OpenAI Connection Status:', {
 
 export async function POST(request) {
   try {
-    const { message, conversationHistory = [] } = await request.json();
+    const body = await request.json();
+    const { message, conversationHistory = [] } = body;
     
     console.log('💬 Incoming Chat Request:', {
       message: message?.substring(0, 50) + '...',
-      hasHistory: conversationHistory.length > 0,
+      historyLength: conversationHistory.length,
       timestamp: new Date().toISOString()
     });
+
+    // Validate input
+    if (!message || typeof message !== 'string') {
+      return NextResponse.json({
+        response: "Please provide a valid message.",
+        isAI: false,
+        error: 'invalid_message'
+      }, { status: 400 });
+    }
 
     // Check if OpenAI is available
     if (!openai) {
@@ -67,21 +77,43 @@ export async function POST(request) {
       systemPrompt += `\n\nBusiness Knowledge Base:\n${aiConfig.knowledgeBase}`;
     }
 
-    // Build messages array
+    // Build messages array - FIXED MESSAGE FORMATTING
     const messages = [
-      { role: 'system', content: systemPrompt },
-      ...conversationHistory,
-      { role: 'user', content: message }
+      { role: 'system', content: systemPrompt }
     ];
+
+    // Add conversation history with proper validation
+    if (Array.isArray(conversationHistory)) {
+      conversationHistory.forEach((msg, index) => {
+        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+          // Only add valid messages with both role and content
+          if (['user', 'assistant', 'system'].includes(msg.role)) {
+            messages.push({
+              role: msg.role,
+              content: String(msg.content)
+            });
+          }
+        } else {
+          console.warn(`⚠️ Invalid message in history at index ${index}:`, msg);
+        }
+      });
+    }
+
+    // Add current user message
+    messages.push({ 
+      role: 'user', 
+      content: String(message) 
+    });
 
     console.log('🚀 Sending to OpenAI:', {
       model: aiConfig.model,
       messageCount: messages.length,
       temperature: aiConfig.creativity,
-      maxTokens: aiConfig.maxTokens
+      maxTokens: aiConfig.maxTokens,
+      validatedMessages: messages.map(m => ({ role: m.role, contentLength: m.content.length }))
     });
 
-    // Call OpenAI API
+    // Call OpenAI API with validated messages
     const completion = await openai.chat.completions.create({
       model: aiConfig.model,
       messages: messages,
@@ -109,7 +141,8 @@ export async function POST(request) {
     console.error('❌ Chat API Error:', {
       message: error.message,
       type: error.constructor.name,
-      code: error.code
+      code: error.code,
+      stack: error.stack?.substring(0, 200)
     });
 
     // Specific OpenAI error handling
@@ -118,7 +151,7 @@ export async function POST(request) {
         response: "❌ Invalid OpenAI API key. Please check your API key in environment variables.",
         isAI: false,
         error: 'invalid_api_key'
-      });
+      }, { status: 401 });
     }
 
     if (error.code === 'insufficient_quota') {
@@ -126,7 +159,7 @@ export async function POST(request) {
         response: "❌ OpenAI quota exceeded. Please check your billing or upgrade your plan.",
         isAI: false,
         error: 'quota_exceeded'
-      });
+      }, { status: 402 });
     }
 
     return NextResponse.json({
