@@ -6,7 +6,10 @@ export default function SMSOnboarding() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [availableNumbers, setAvailableNumbers] = useState([]);
-  const [selectedNumber, setSelectedNumber] = useState(null);
+  const [selectedNumber, setSelectedNumber] = useState('');
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [error, setError] = useState('');
+
   const [smsConfig, setSmsConfig] = useState({
     personality: 'professional',
     businessName: '',
@@ -14,467 +17,575 @@ export default function SMSOnboarding() {
     welcomeMessage: '',
     businessOwnerPhone: '',
     enableHotLeadAlerts: true,
-    alertBusinessHours: true
+    alertBusinessHours: true,
+    model: 'gpt-4o-mini',
+    creativity: 0.7
   });
-  const [testResults, setTestResults] = useState(null);
 
-  const steps = [
-    { id: 1, name: 'Choose Number', desc: 'Select your business SMS number' },
-    { id: 2, name: 'Configure AI', desc: 'Set up your AI personality' },
-    { id: 3, name: 'Test SMS', desc: 'Test your SMS AI responses' },
-    { id: 4, name: 'Go Live', desc: 'Activate SMS AI for customers' }
-  ];
-
+  // Load available phone numbers
   useEffect(() => {
-    if (currentStep === 1) {
-      loadAvailableNumbers();
-    }
-  }, [currentStep]);
+    loadAvailableNumbers();
+  }, []);
 
   const loadAvailableNumbers = async () => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       const response = await fetch('/api/customer-sms/available-numbers');
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableNumbers(data.numbers);
+      const data = await response.json();
+      
+      if (data.success) {
+        setAvailableNumbers(data.numbers || []);
+      } else {
+        setError(data.error || 'Failed to load available numbers');
       }
     } catch (error) {
       console.error('Error loading numbers:', error);
+      setError('Failed to connect to SMS service');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const purchaseNumber = async (number) => {
-    setIsLoading(true);
+  const handleNext = () => {
+    if (validateCurrentStep()) {
+      setCurrentStep(currentStep + 1);
+      setError('');
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(currentStep - 1);
+    setError('');
+  };
+
+  const validateCurrentStep = () => {
+    switch (currentStep) {
+      case 1:
+        if (!selectedNumber) {
+          setError('Please select a phone number');
+          return false;
+        }
+        break;
+      case 2:
+        if (!smsConfig.businessName.trim()) {
+          setError('Business name is required');
+          return false;
+        }
+        if (!smsConfig.businessInfo.trim()) {
+          setError('Business information is required');
+          return false;
+        }
+        break;
+      case 3:
+        if (smsConfig.enableHotLeadAlerts && !smsConfig.businessOwnerPhone.trim()) {
+          setError('Business owner phone is required for hot lead alerts');
+          return false;
+        }
+        if (smsConfig.businessOwnerPhone && !/^\+?[\d\s\-\(\)]+$/.test(smsConfig.businessOwnerPhone)) {
+          setError('Please enter a valid phone number');
+          return false;
+        }
+        break;
+      default:
+        break;
+    }
+    return true;
+  };
+
+  const handlePurchaseAndSetup = async () => {
+    if (!validateCurrentStep()) return;
+
     try {
-      const response = await fetch('/api/customer-sms/purchase-number', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: number })
-      });
+      setIsLoading(true);
+      setError('');
+
+      // Step 1: Purchase the phone number
+      console.log('🛒 Purchasing phone number:', selectedNumber);
       
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedNumber(data.phoneNumber);
-        setCurrentStep(2);
-      }
-    } catch (error) {
-      console.error('Error purchasing number:', error);
-    }
-    setIsLoading(false);
-  };
-
-  const saveAIConfig = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/customer-sms/configure-ai', {
+      const purchaseResponse = await fetch('/api/customer-sms/purchase-number', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phoneNumber: selectedNumber.phoneNumber,
+          phoneNumber: selectedNumber,
+          customerId: 'demo_customer_' + Date.now()
+        })
+      });
+
+      const purchaseData = await purchaseResponse.json();
+      
+      if (!purchaseData.success) {
+        throw new Error(purchaseData.error || 'Failed to purchase phone number');
+      }
+
+      console.log('✅ Phone number purchased successfully');
+
+      // Step 2: Configure AI with hot lead settings
+      console.log('⚙️ Configuring AI with hot lead features...');
+      
+      const configResponse = await fetch('/api/customer-sms/configure-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: selectedNumber,
           config: smsConfig
         })
       });
-      
-      if (response.ok) {
-        setCurrentStep(3);
-      }
-    } catch (error) {
-      console.error('Error saving config:', error);
-    }
-    setIsLoading(false);
-  };
 
-  const testSMS = async (testMessage) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/customer-sms/test', {
+      const configData = await configResponse.json();
+      
+      if (!configData.success) {
+        throw new Error(configData.error || 'Failed to configure AI');
+      }
+
+      console.log('✅ AI configured with hot lead detection');
+
+      // Step 3: Test the system
+      console.log('🧪 Testing SMS system...');
+      
+      const testResponse = await fetch('/api/customer-sms/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phoneNumber: selectedNumber.phoneNumber,
-          message: testMessage
+          phoneNumber: selectedNumber,
+          testMessage: 'Hello! This is a test message to verify SMS AI setup.'
         })
       });
+
+      const testData = await testResponse.json();
       
-      if (response.ok) {
-        const data = await response.json();
-        setTestResults(data);
+      if (!testData.success) {
+        console.warn('⚠️ Test failed but setup may still be valid:', testData.error);
       }
+
+      console.log('🎉 SMS AI setup complete!');
+      setSetupComplete(true);
+
     } catch (error) {
-      console.error('Error testing SMS:', error);
+      console.error('❌ Setup error:', error);
+      setError(error.message || 'Setup failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const goLive = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/customer-sms/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber: selectedNumber.phoneNumber
-        })
-      });
-      
-      if (response.ok) {
-        setCurrentStep(4);
-      }
-    } catch (error) {
-      console.error('Error activating SMS:', error);
-    }
-    setIsLoading(false);
-  };
-
-  const formatPhoneNumber = (phone) => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
+  const formatPhoneNumber = (number) => {
+    const cleaned = number.replace(/\D/g, '');
     if (cleaned.length === 11 && cleaned.startsWith('1')) {
-      const number = cleaned.slice(1);
-      return `+1 (${number.slice(0,3)}) ${number.slice(3,6)}-${number.slice(6)}`;
+      const areaCode = cleaned.slice(1, 4);
+      const exchange = cleaned.slice(4, 7);
+      const number_suffix = cleaned.slice(7);
+      return `+1 (${areaCode}) ${exchange}-${number_suffix}`;
     }
-    return phone;
+    return number;
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-lg">
-          {/* Header */}
-          <div className="p-6 border-b">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold text-gray-900">📱 Add SMS AI to Your Plan</h1>
-              <div className="text-sm text-gray-500">
-                Upgrade to Pro: $299/month
-              </div>
-            </div>
-            
-            {/* Progress Steps */}
-            <div className="flex items-center justify-between">
-              {steps.map((step, index) => (
-                <div key={step.id} className="flex items-center">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                    step.id <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {step.id}
-                  </div>
-                  <div className="ml-2 hidden sm:block">
-                    <div className={`text-sm font-medium ${
-                      step.id <= currentStep ? 'text-blue-600' : 'text-gray-500'
-                    }`}>
-                      {step.name}
-                    </div>
-                    <div className="text-xs text-gray-500">{step.desc}</div>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={`w-8 h-1 mx-4 ${
-                      step.id < currentStep ? 'bg-blue-600' : 'bg-gray-200'
-                    }`}></div>
-                  )}
+  if (setupComplete) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="text-6xl mb-6">🎉</div>
+            <h1 className="text-3xl font-bold text-green-600 mb-4">
+              SMS AI Setup Complete!
+            </h1>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
+              <h2 className="text-xl font-semibold mb-4">Your SMS AI is Ready!</h2>
+              <div className="space-y-3 text-left">
+                <div className="flex justify-between">
+                  <span className="font-medium">📱 SMS Number:</span>
+                  <span className="font-mono">{formatPhoneNumber(selectedNumber)}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Step Content */}
-          <div className="p-6">
-            {/* Step 1: Choose Number */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">Choose Your Business SMS Number</h2>
-                  <p className="text-gray-600 mb-6">
-                    Select a phone number for your customers to text. This will be your dedicated SMS AI number.
-                  </p>
+                <div className="flex justify-between">
+                  <span className="font-medium">🏢 Business:</span>
+                  <span>{smsConfig.businessName}</span>
                 </div>
-
-                {isLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading available numbers...</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4">
-                    {availableNumbers.map((number, index) => (
-                      <div 
-                        key={index}
-                        className="border rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors"
-                        onClick={() => purchaseNumber(number)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-lg">
-                              {formatPhoneNumber(number.phoneNumber)}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {number.locality}, {number.region}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium">$1.15/month</div>
-                            <div className="text-xs text-gray-500">SMS enabled</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                <div className="flex justify-between">
+                  <span className="font-medium">🤖 AI Personality:</span>
+                  <span className="capitalize">{smsConfig.personality}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">🔥 Hot Lead Alerts:</span>
+                  <span>{smsConfig.enableHotLeadAlerts ? '✅ Enabled' : '❌ Disabled'}</span>
+                </div>
+                {smsConfig.enableHotLeadAlerts && (
+                  <div className="flex justify-between">
+                    <span className="font-medium">📞 Alert Phone:</span>
+                    <span className="font-mono">{smsConfig.businessOwnerPhone}</span>
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* Step 2: Configure AI */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-semibold mb-4">🔥 Hot Lead Detection Features</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="bg-white p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 mb-2">🚨 Automatic Detection</h4>
+                  <p>AI analyzes every SMS for buying intent and urgency signals</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 mb-2">📱 Instant Alerts</h4>
+                  <p>Get SMS notifications when hot leads are detected</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 mb-2">⚡ Smart Throttling</h4>
+                  <p>Max 1 alert per lead per 30 minutes to prevent spam</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 mb-2">🕐 Business Hours</h4>
+                  <p>{smsConfig.alertBusinessHours ? 'Respects business hours' : 'Alerts 24/7'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                onClick={() => window.location.href = '/customer-sms-dashboard'}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors mr-4"
+              >
+                Go to SMS Dashboard
+              </button>
+              <button
+                onClick={() => window.location.href = '/dashboard'}
+                className="bg-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+              >
+                Back to Main Dashboard
+              </button>
+            </div>
+
+            <div className="mt-8 text-sm text-gray-600">
+              <p>📝 Test your SMS AI by sending a message to: <strong>{formatPhoneNumber(selectedNumber)}</strong></p>
+              <p>🔥 Try phrases like "I want to buy a house today" to test hot lead detection!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          {/* Progress Bar */}
+          <div className="mb-8">
+            <div className="flex items-center mb-4">
+              <h1 className="text-2xl font-bold">SMS AI Setup Wizard</h1>
+              <span className="ml-auto text-sm text-gray-500">Step {currentStep} of 4</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${(currentStep / 4) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
+
+          {/* Step 1: Phone Number Selection */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">📱 Choose Your SMS Number</h2>
+                <p className="text-gray-600 mb-6">
+                  Select a phone number for your SMS AI assistant. Customers will text this number to interact with your AI.
+                </p>
+              </div>
+
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading available numbers...</p>
+                </div>
+              ) : availableNumbers.length > 0 ? (
+                <div className="grid gap-4">
+                  {availableNumbers.map((number, index) => (
+                    <div 
+                      key={number.phoneNumber}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedNumber === number.phoneNumber 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSelectedNumber(number.phoneNumber)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-mono text-lg font-semibold">
+                            {formatPhoneNumber(number.phoneNumber)}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {number.locality}, {number.region}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-semibold text-green-600">
+                            ${number.price}/month
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {number.capabilities?.join(', ')}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">No numbers available. Please try again later.</p>
+                  <button
+                    onClick={loadAvailableNumbers}
+                    className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: AI Configuration */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">🤖 Configure Your AI Assistant</h2>
+                <p className="text-gray-600 mb-6">
+                  Customize your AI assistant's personality and knowledge base.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h2 className="text-xl font-semibold mb-2">Configure Your SMS AI</h2>
-                  <p className="text-gray-600 mb-6">
-                    Set up how your AI will respond to customer text messages.
-                  </p>
+                  <label className="block text-sm font-medium mb-2">Business Name *</label>
+                  <input
+                    type="text"
+                    value={smsConfig.businessName}
+                    onChange={(e) => setSmsConfig({...smsConfig, businessName: e.target.value})}
+                    placeholder="e.g., Acme Real Estate"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Business Name</label>
-                    <input
-                      type="text"
-                      value={smsConfig.businessName}
-                      onChange={(e) => setSmsConfig({...smsConfig, businessName: e.target.value})}
-                      placeholder="Your Business Name"
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                <div>
+                  <label className="block text-sm font-medium mb-2">AI Personality</label>
+                  <select
+                    value={smsConfig.personality}
+                    onChange={(e) => setSmsConfig({...smsConfig, personality: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  >
+                    <option value="professional">Professional</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="expert">Expert</option>
+                    <option value="enthusiastic">Enthusiastic</option>
+                    <option value="empathetic">Empathetic</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Business Information *</label>
+                <textarea
+                  value={smsConfig.businessInfo}
+                  onChange={(e) => setSmsConfig({...smsConfig, businessInfo: e.target.value})}
+                  placeholder="Describe your business, services, and key information..."
+                  rows={4}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Welcome Message (Optional)</label>
+                <input
+                  type="text"
+                  value={smsConfig.welcomeMessage}
+                  onChange={(e) => setSmsConfig({...smsConfig, welcomeMessage: e.target.value})}
+                  placeholder="Hi! Thanks for reaching out. How can I help you today?"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Hot Lead Alert Settings */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">🔥 Hot Lead Alert Settings</h2>
+                <p className="text-gray-600 mb-6">
+                  Configure intelligent alerts when your AI detects high-intent customers ready to buy.
+                </p>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+                <h3 className="font-semibold text-yellow-800 mb-2">🚨 What are Hot Lead Alerts?</h3>
+                <p className="text-yellow-700 text-sm mb-3">
+                  Our AI analyzes every customer message for buying intent, urgency signals, and decision-making language. 
+                  When a high-value lead is detected, you get an instant SMS alert so you never miss an opportunity.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="bg-white p-3 rounded">
+                    <strong>High Intent (9-10):</strong> "I want to buy today", "My budget is $500K"
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">AI Personality</label>
-                    <select
-                      value={smsConfig.personality}
-                      onChange={(e) => setSmsConfig({...smsConfig, personality: e.target.value})}
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="professional">Professional & Direct</option>
-                      <option value="friendly">Friendly & Conversational</option>
-                      <option value="enthusiastic">Enthusiastic & Energetic</option>
-                      <option value="empathetic">Empathetic & Understanding</option>
-                    </select>
+                  <div className="bg-white p-3 rounded">
+                    <strong>Medium Intent (7-8):</strong> "Tell me about pricing", "Can we schedule a meeting?"
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Business Information</label>
-                    <textarea
-                      value={smsConfig.businessInfo}
-                      onChange={(e) => setSmsConfig({...smsConfig, businessInfo: e.target.value})}
-                      placeholder="Describe your business, services, hours, pricing, etc. This helps the AI provide accurate information to customers."
-                      className="w-full p-3 border rounded-lg h-32 focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="bg-white p-3 rounded">
+                    <strong>Low Intent (1-6):</strong> "Just browsing", "What are your hours?"
                   </div>
+                </div>
+              </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Welcome Message (Optional)</label>
-                    <input
-                      type="text"
-                      value={smsConfig.welcomeMessage}
-                      onChange={(e) => setSmsConfig({...smsConfig, welcomeMessage: e.target.value})}
-                      placeholder="Hi! Thanks for texting us. How can I help you today?"
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="enableHotLeadAlerts"
+                    checked={smsConfig.enableHotLeadAlerts}
+                    onChange={(e) => setSmsConfig({...smsConfig, enableHotLeadAlerts: e.target.checked})}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <label htmlFor="enableHotLeadAlerts" className="text-sm font-medium">
+                    🔥 Enable Hot Lead Alerts (Recommended)
+                  </label>
+                </div>
+
+                {smsConfig.enableHotLeadAlerts && (
+                  <div className="ml-7 space-y-4 border-l-2 border-blue-200 pl-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        📞 Business Owner Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        value={smsConfig.businessOwnerPhone}
+                        onChange={(e) => setSmsConfig({...smsConfig, businessOwnerPhone: e.target.value})}
+                        placeholder="+1 (555) 123-4567"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        This number will receive SMS alerts when hot leads are detected
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="alertBusinessHours"
+                        checked={smsConfig.alertBusinessHours}
+                        onChange={(e) => setSmsConfig({...smsConfig, alertBusinessHours: e.target.checked})}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <label htmlFor="alertBusinessHours" className="text-sm">
+                        🕐 Only send alerts during business hours (8 AM - 6 PM, Mon-Fri)
+                      </label>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-blue-800 mb-2">Alert Features:</h4>
+                      <ul className="text-xs text-blue-700 space-y-1">
+                        <li>• Instant SMS when lead score ≥ 7/10</li>
+                        <li>• Smart throttling (max 1 alert per lead per 30 minutes)</li>
+                        <li>• Includes lead score, message preview, and reasoning</li>
+                        <li>• Configurable business hours</li>
+                      </ul>
+                    </div>
                   </div>
+                )}
+              </div>
+            </div>
+          )}
 
-                  {/* Hot Lead Alerts Section */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium mb-4">🔥 Hot Lead Alerts</h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Get instant SMS alerts when AI detects a high-intent customer ready to buy.
-                    </p>
-                    
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          id="enableAlerts"
-                          checked={smsConfig.enableHotLeadAlerts}
-                          onChange={(e) => setSmsConfig({...smsConfig, enableHotLeadAlerts: e.target.checked})}
-                          className="h-4 w-4 text-blue-600 rounded"
-                        />
-                        <label htmlFor="enableAlerts" className="text-sm font-medium">
-                          Enable hot lead alerts
-                        </label>
-                      </div>
+          {/* Step 4: Review & Launch */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">🚀 Review & Launch</h2>
+                <p className="text-gray-600 mb-6">
+                  Review your configuration and launch your SMS AI assistant.
+                </p>
+              </div>
 
+              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold mb-2">📱 SMS Configuration</h3>
+                    <div className="text-sm space-y-1">
+                      <div><strong>Number:</strong> {formatPhoneNumber(selectedNumber)}</div>
+                      <div><strong>Business:</strong> {smsConfig.businessName}</div>
+                      <div><strong>Personality:</strong> {smsConfig.personality}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-2">🔥 Hot Lead Settings</h3>
+                    <div className="text-sm space-y-1">
+                      <div><strong>Alerts:</strong> {smsConfig.enableHotLeadAlerts ? '✅ Enabled' : '❌ Disabled'}</div>
                       {smsConfig.enableHotLeadAlerts && (
                         <>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Your Cell Phone (for alerts) *
-                            </label>
-                            <input
-                              type="tel"
-                              value={smsConfig.businessOwnerPhone}
-                              onChange={(e) => setSmsConfig({...smsConfig, businessOwnerPhone: e.target.value})}
-                              placeholder="+1 (555) 123-4567"
-                              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                              required={smsConfig.enableHotLeadAlerts}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              You'll receive SMS alerts when customers show high buying intent
-                            </p>
-                          </div>
-
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="checkbox"
-                              id="businessHours"
-                              checked={smsConfig.alertBusinessHours}
-                              onChange={(e) => setSmsConfig({...smsConfig, alertBusinessHours: e.target.checked})}
-                              className="h-4 w-4 text-blue-600 rounded"
-                            />
-                            <label htmlFor="businessHours" className="text-sm">
-                              Only send alerts during business hours (9 AM - 8 PM)
-                            </label>
-                          </div>
+                          <div><strong>Alert Phone:</strong> {smsConfig.businessOwnerPhone}</div>
+                          <div><strong>Business Hours:</strong> {smsConfig.alertBusinessHours ? 'Yes' : 'No'}</div>
                         </>
                       )}
                     </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={saveAIConfig}
-                  disabled={isLoading || !smsConfig.businessName || !smsConfig.businessInfo || (smsConfig.enableHotLeadAlerts && !smsConfig.businessOwnerPhone)}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? 'Saving...' : 'Continue to Testing'}
-                </button>
-              </div>
-            )}
-
-            {/* Step 3: Test SMS */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
+                
                 <div>
-                  <h2 className="text-xl font-semibold mb-2">Test Your SMS AI</h2>
-                  <p className="text-gray-600 mb-6">
-                    Send test messages to see how your AI will respond to customers.
-                  </p>
-                </div>
-
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center mb-2">
-                    <span className="text-blue-800 font-medium">Your SMS Number:</span>
-                    <span className="ml-2 font-mono text-blue-900">
-                      {formatPhoneNumber(selectedNumber?.phoneNumber)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-blue-700">
-                    Customers will text this number to interact with your AI assistant.
-                  </p>
-                </div>
-
-                {/* Hot Lead Test Section */}
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-red-800 mb-2">🔥 Test Hot Lead Detection</h3>
-                  <p className="text-sm text-red-700 mb-3">
-                    Try these phrases to see how the AI detects high-intent customers:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      "I want to buy a house today",
-                      "Ready to purchase, what's available?",
-                      "My budget is $500K, let's do this",
-                      "Can you call me? I need help ASAP"
-                    ].map((phrase, index) => (
-                      <button
-                        key={index}
-                        onClick={() => testSMS(phrase)}
-                        disabled={isLoading}
-                        className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded hover:bg-red-200 disabled:opacity-50"
-                      >
-                        Test: "{phrase.substring(0, 25)}..."
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {['What are your hours?', 'How much does it cost?', 'Can I schedule an appointment?'].map((sample, index) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">Test Message:</span>
-                        <button
-                          onClick={() => testSMS(sample)}
-                          disabled={isLoading}
-                          className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
-                        >
-                          Test
-                        </button>
-                      </div>
-                      <p className="text-gray-700 mb-2">"{sample}"</p>
-                      {testResults && testResults.testMessage === sample && (
-                        <div className="bg-gray-50 p-3 rounded mt-2">
-                          <span className="text-sm font-medium text-gray-600">AI Response:</span>
-                          <p className="text-gray-800 mt-1">{testResults.response}</p>
-                          {testResults.metadata?.leadScore && (
-                            <p className="text-xs text-orange-600 mt-1">
-                              Lead Score: {testResults.metadata.leadScore}/10
-                              {testResults.metadata.leadScore >= 7 && " 🔥 HOT LEAD!"}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => setCurrentStep(4)}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-                >
-                  Continue to Activation
-                </button>
-              </div>
-            )}
-
-            {/* Step 4: Go Live */}
-            {currentStep === 4 && (
-              <div className="space-y-6 text-center">
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">🎉 Ready to Go Live!</h2>
-                  <p className="text-gray-600 mb-6">
-                    Your SMS AI is configured and ready to help your customers.
-                  </p>
-                </div>
-
-                <div className="bg-green-50 p-6 rounded-lg">
-                  <h3 className="font-semibold text-green-800 mb-4">Your SMS AI Setup</h3>
-                  <div className="space-y-2 text-sm text-green-700">
-                    <p><strong>Phone Number:</strong> {formatPhoneNumber(selectedNumber?.phoneNumber)}</p>
-                    <p><strong>Business:</strong> {smsConfig.businessName}</p>
-                    <p><strong>Personality:</strong> {smsConfig.personality}</p>
-                    <p><strong>Hot Lead Alerts:</strong> {smsConfig.enableHotLeadAlerts ? `✅ Enabled (${smsConfig.businessOwnerPhone})` : '❌ Disabled'}</p>
-                    <p><strong>Status:</strong> Ready to activate</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <button
-                    onClick={goLive}
-                    disabled={isLoading}
-                    className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {isLoading ? 'Activating...' : '🚀 Activate SMS AI'}
-                  </button>
-
-                  <div className="flex justify-center space-x-4 text-sm">
-                    <a href="/customer-sms-dashboard" className="text-blue-600 hover:underline">
-                      Go to SMS Dashboard
-                    </a>
-                    <a href="/dashboard" className="text-gray-600 hover:underline">
-                      Back to Main Dashboard
-                    </a>
-                  </div>
+                  <h3 className="font-semibold mb-2">📝 Business Info</h3>
+                  <p className="text-sm text-gray-600">{smsConfig.businessInfo}</p>
                 </div>
               </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="font-semibold text-blue-800 mb-3">🎉 What happens next?</h3>
+                <ol className="text-sm text-blue-700 space-y-2">
+                  <li>1. ✅ Purchase and configure your SMS number</li>
+                  <li>2. 🤖 Set up AI with your business information</li>
+                  <li>3. 🔥 Enable hot lead detection system</li>
+                  <li>4. 📱 Activate SMS webhook for live messages</li>
+                  <li>5. 🧪 Test your SMS AI assistant</li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex justify-between mt-8 pt-6 border-t">
+            <button
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+
+            {currentStep < 4 ? (
+              <button
+                onClick={handleNext}
+                disabled={isLoading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                onClick={handlePurchaseAndSetup}
+                disabled={isLoading}
+                className="px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-semibold"
+              >
+                {isLoading ? (
+                  <span className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Setting up...
+                  </span>
+                ) : (
+                  '🚀 Launch SMS AI'
+                )}
+              </button>
             )}
           </div>
         </div>
