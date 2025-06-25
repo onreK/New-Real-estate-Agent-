@@ -11,7 +11,10 @@ export default function SMSOnboarding() {
     personality: 'professional',
     businessName: '',
     businessInfo: '',
-    welcomeMessage: ''
+    welcomeMessage: '',
+    businessOwnerPhone: '',
+    enableHotLeadAlerts: true,
+    alertBusinessHours: true
   });
   const [testResults, setTestResults] = useState(null);
 
