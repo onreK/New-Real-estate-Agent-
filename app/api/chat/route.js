@@ -17,7 +17,7 @@ console.log('🔍 OpenAI Connection Status:', {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { message, conversationHistory = [], smsMode = false, customConfig = null } = body;
+    const { message, conversationHistory = [], smsMode = false, customConfig = null, enableHotLeadDetection = false, customerId = null } = body;
     
     console.log('💬 Incoming Chat Request:', {
       message: message?.substring(0, 50) + '...',
@@ -154,12 +154,64 @@ export async function POST(request) {
       smsMode: smsMode
     });
 
+    // Hot Lead Detection for Web Chat
+    let hotLeadAnalysis = null;
+    if (enableHotLeadDetection && !smsMode && customerId) {
+      try {
+        // Build full conversation including new response
+        const fullConversation = [
+          ...conversationHistory,
+          { role: 'user', content: message },
+          { role: 'assistant', content: aiResponse }
+        ];
+
+        // Analyze for hot lead
+        const hotLeadResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/hot-lead-detection`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation: fullConversation,
+            source: 'website',
+            businessContext: aiConfig.businessInfo || aiConfig.knowledgeBase || '',
+            customerId: customerId,
+            businessPhone: aiConfig.businessName || 'Business'
+          })
+        });
+
+        if (hotLeadResponse.ok) {
+          const leadData = await hotLeadResponse.json();
+          hotLeadAnalysis = leadData;
+
+          // Send business owner alert if hot lead detected
+          if (leadData.isHotLead && customConfig?.businessOwnerPhone) {
+            const alertResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/business-owner-alerts`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                leadAnalysis: leadData,
+                businessOwnerPhone: customConfig.businessOwnerPhone,
+                customerId: customerId,
+                alertConfig: customConfig.alertConfig || {}
+              })
+            });
+
+            if (alertResponse.ok) {
+              console.log('🔥 Hot lead alert sent for web chat lead');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Hot lead detection error:', error);
+      }
+    }
+
     return NextResponse.json({
       response: aiResponse,
       isAI: true,
       model: aiConfig.model,
       usage: completion.usage,
       smsMode: smsMode,
+      hotLeadAnalysis: hotLeadAnalysis,
       timestamp: new Date().toISOString()
     });
 
