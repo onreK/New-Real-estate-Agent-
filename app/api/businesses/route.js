@@ -15,6 +15,17 @@ let businesses = [
     targetAudience: 'Home buyers and sellers',
     isPrimary: true,
     onboardingCompleted: true,
+    
+    // AI Configuration fields
+    openaiApiKey: process.env.OPENAI_API_KEY || '',
+    aiPersonality: 'professional',
+    aiTone: 'helpful',
+    customInstructions: '',
+    knowledgeBase: '',
+    model: 'gpt-4',
+    maxTokens: 200,
+    temperature: 0.7,
+    
     createdAt: '2025-06-24T08:03:46.624Z',
     updatedAt: '2025-06-24T08:03:46.624Z',
     // Legacy fields for compatibility
