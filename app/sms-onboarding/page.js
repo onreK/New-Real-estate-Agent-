@@ -280,11 +280,68 @@ export default function SMSOnboarding() {
                       className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+
+                  {/* Hot Lead Alerts Section */}
+                  <div className="border-t pt-6">
+                    <h3 className="text-lg font-medium mb-4">🔥 Hot Lead Alerts</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Get instant SMS alerts when AI detects a high-intent customer ready to buy.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="enableAlerts"
+                          checked={smsConfig.enableHotLeadAlerts}
+                          onChange={(e) => setSmsConfig({...smsConfig, enableHotLeadAlerts: e.target.checked})}
+                          className="h-4 w-4 text-blue-600 rounded"
+                        />
+                        <label htmlFor="enableAlerts" className="text-sm font-medium">
+                          Enable hot lead alerts
+                        </label>
+                      </div>
+
+                      {smsConfig.enableHotLeadAlerts && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">
+                              Your Cell Phone (for alerts) *
+                            </label>
+                            <input
+                              type="tel"
+                              value={smsConfig.businessOwnerPhone}
+                              onChange={(e) => setSmsConfig({...smsConfig, businessOwnerPhone: e.target.value})}
+                              placeholder="+1 (555) 123-4567"
+                              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required={smsConfig.enableHotLeadAlerts}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              You'll receive SMS alerts when customers show high buying intent
+                            </p>
+                          </div>
+
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              id="businessHours"
+                              checked={smsConfig.alertBusinessHours}
+                              onChange={(e) => setSmsConfig({...smsConfig, alertBusinessHours: e.target.checked})}
+                              className="h-4 w-4 text-blue-600 rounded"
+                            />
+                            <label htmlFor="businessHours" className="text-sm">
+                              Only send alerts during business hours (9 AM - 8 PM)
+                            </label>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <button
                   onClick={saveAIConfig}
-                  disabled={isLoading || !smsConfig.businessName || !smsConfig.businessInfo}
+                  disabled={isLoading || !smsConfig.businessName || !smsConfig.businessInfo || (smsConfig.enableHotLeadAlerts && !smsConfig.businessOwnerPhone)}
                   className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Saving...' : 'Continue to Testing'}
