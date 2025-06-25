@@ -62,6 +62,10 @@ export default function DemoPage() {
                     <span className="text-green-500 mr-2">✓</span>
                     Integrate with your existing CRM and tools
                   </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">🤖</span>
+                    Powered by real OpenAI GPT-4 (configurable)
+                  </li>
                 </ul>
               </div>
             </div>
