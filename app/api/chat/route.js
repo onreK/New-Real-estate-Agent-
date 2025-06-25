@@ -17,11 +17,12 @@ console.log('🔍 OpenAI Connection Status:', {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { message, conversationHistory = [] } = body;
+    const { message, conversationHistory = [], smsMode = false } = body;
     
     console.log('💬 Incoming Chat Request:', {
       message: message?.substring(0, 50) + '...',
       historyLength: conversationHistory.length,
+      smsMode: smsMode,
       timestamp: new Date().toISOString()
     });
 
@@ -37,8 +38,12 @@ export async function POST(request) {
     // Check if OpenAI is available
     if (!openai) {
       console.log('⚠️ No OpenAI API key - using fallback');
+      const fallbackMessage = smsMode 
+        ? "Demo mode active. Add OpenAI API key for full AI features!"
+        : "I'm currently in demo mode. To enable full AI capabilities, please add your OpenAI API key to the environment variables. I can still help with basic information about your business!";
+      
       return NextResponse.json({
-        response: "I'm currently in demo mode. To enable full AI capabilities, please add your OpenAI API key to the environment variables. I can still help with basic information about your business!",
+        response: fallbackMessage,
         isAI: false,
         timestamp: new Date().toISOString()
       });
@@ -77,6 +82,13 @@ export async function POST(request) {
       systemPrompt += `\n\nBusiness Knowledge Base:\n${aiConfig.knowledgeBase}`;
     }
 
+    // SMS-specific adjustments
+    if (smsMode) {
+      systemPrompt += '\n\nIMPORTANT: This is an SMS conversation. Keep responses under 160 characters when possible. Be concise and helpful.';
+      // Reduce max tokens for SMS
+      aiConfig.maxTokens = Math.min(aiConfig.maxTokens, 150);
+    }
+
     // Build messages array - FIXED MESSAGE FORMATTING
     const messages = [
       { role: 'system', content: systemPrompt }
@@ -110,6 +122,7 @@ export async function POST(request) {
       messageCount: messages.length,
       temperature: aiConfig.creativity,
       maxTokens: aiConfig.maxTokens,
+      smsMode: smsMode,
       validatedMessages: messages.map(m => ({ role: m.role, contentLength: m.content.length }))
     });
 
@@ -126,7 +139,8 @@ export async function POST(request) {
     console.log('✅ OpenAI Response Received:', {
       responseLength: aiResponse.length,
       usage: completion.usage,
-      model: completion.model
+      model: completion.model,
+      smsMode: smsMode
     });
 
     return NextResponse.json({
@@ -134,6 +148,7 @@ export async function POST(request) {
       isAI: true,
       model: aiConfig.model,
       usage: completion.usage,
+      smsMode: smsMode,
       timestamp: new Date().toISOString()
     });
 
@@ -162,8 +177,13 @@ export async function POST(request) {
       }, { status: 402 });
     }
 
+    // SMS-friendly error message
+    const errorMessage = smsMode 
+      ? "Sorry, technical difficulties. Please try again."
+      : `I apologize, but I'm experiencing technical difficulties. Error: ${error.message}`;
+
     return NextResponse.json({
-      response: `I apologize, but I'm experiencing technical difficulties. Error: ${error.message}`,
+      response: errorMessage,
       isAI: false,
       error: error.message
     }, { status: 500 });
