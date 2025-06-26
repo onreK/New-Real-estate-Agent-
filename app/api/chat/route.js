@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { 
+  getDbClient, 
+  createConversation, 
+  getConversationByKey, 
+  createMessage, 
+  getConversationMessages,
+  createHotLeadAlert,
+  getCustomerById,
+  getCustomerByClerkId 
+} from '../../../lib/database.js';
 
 // Initialize OpenAI with debugging
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -14,12 +24,10 @@ console.log('🤖 OpenAI Connection Status:', {
   timestamp: new Date().toISOString()
 });
 
-// In-memory storage for configurations and conversations
-const aiConfigs = new Map();
-const conversations = new Map();
-
-// Default AI configuration
+// Default AI configuration (fallback)
 const defaultConfig = {
+  id: 'default',
+  customer_id: 1, // Default demo customer
   businessName: 'Test Real Estate Co',
   personality: 'professional',
   businessInfo: `We are a full-service real estate company specializing in:
@@ -34,11 +42,54 @@ Our experienced agents help clients navigate the real estate market with persona
   creativity: 0.7,
   responseLength: 'medium',
   knowledgeBase: 'Our office is located in Chester, Virginia. We serve the Richmond metro area and surrounding counties. Contact us at (804) 555-0123 or visit our website for more information.',
-  welcomeMessage: 'Hi! I\'m the AI assistant for Test Real Estate Co. How can I help you with your real estate needs today?'
+  welcomeMessage: 'Hi! I\'m the AI assistant for Test Real Estate Co. How can I help you with your real estate needs today?',
+  enableHotLeadAlerts: true,
+  businessOwnerPhone: null,
+  alertBusinessHours: true
 };
 
-// Store default config
-aiConfigs.set('default', defaultConfig);
+// Get AI configuration from database or default
+async function getAIConfig(configId = 'default', customerId = 1) {
+  try {
+    if (configId === 'default') {
+      return defaultConfig;
+    }
+
+    const client = await getDbClient();
+    const result = await client.query(`
+      SELECT ac.*, c.business_name as customer_business_name 
+      FROM ai_configs ac
+      LEFT JOIN customers c ON ac.customer_id = c.id
+      WHERE ac.id = $1 OR ac.customer_id = $2
+      ORDER BY ac.created_at DESC
+      LIMIT 1
+    `, [configId, customerId]);
+
+    if (result.rows.length > 0) {
+      const config = result.rows[0];
+      return {
+        id: config.id,
+        customer_id: config.customer_id,
+        businessName: config.business_name || config.customer_business_name || 'Your Business',
+        personality: config.personality || 'professional',
+        businessInfo: config.business_info || defaultConfig.businessInfo,
+        model: config.model || 'gpt-4o-mini',
+        creativity: parseFloat(config.creativity) || 0.7,
+        responseLength: config.response_length || 'medium',
+        knowledgeBase: config.knowledge_base || defaultConfig.knowledgeBase,
+        welcomeMessage: config.welcome_message || defaultConfig.welcomeMessage,
+        enableHotLeadAlerts: config.enable_hot_lead_alerts !== false,
+        businessOwnerPhone: config.business_owner_phone,
+        alertBusinessHours: config.alert_business_hours !== false
+      };
+    }
+
+    return defaultConfig;
+  } catch (error) {
+    console.error('Error getting AI config:', error);
+    return defaultConfig;
+  }
+}
 
 // Hot lead detection function
 async function analyzeHotLead(message, conversationHistory = []) {
@@ -79,7 +130,7 @@ async function analyzeHotLead(message, conversationHistory = []) {
 }
 
 // Send business owner alert for hot leads
-async function sendHotLeadAlert(leadAnalysis, message, customerConfig) {
+async function sendHotLeadAlert(leadAnalysis, message, customerConfig, conversationId, messageId) {
   if (!leadAnalysis.isHotLead || !customerConfig.businessOwnerPhone) {
     return false;
   }
@@ -112,6 +163,28 @@ async function sendHotLeadAlert(leadAnalysis, message, customerConfig) {
 
     const result = await response.json();
     console.log('📱 Hot lead alert result:', result);
+    
+    // Store hot lead alert in database
+    if (result.success && result.alertSent) {
+      try {
+        await createHotLeadAlert({
+          customer_id: customerConfig.customer_id,
+          conversation_id: conversationId,
+          message_id: messageId,
+          business_owner_phone: customerConfig.businessOwnerPhone,
+          lead_score: leadAnalysis.score,
+          lead_phone: 'Web Visitor',
+          message_content: message,
+          ai_reasoning: leadAnalysis.reasoning,
+          next_action: leadAnalysis.nextAction,
+          urgency: leadAnalysis.urgency,
+          source: 'web_chat'
+        });
+      } catch (dbError) {
+        console.error('Error storing hot lead alert:', dbError);
+      }
+    }
+    
     return result.success && result.alertSent;
 
   } catch (error) {
@@ -121,14 +194,17 @@ async function sendHotLeadAlert(leadAnalysis, message, customerConfig) {
 }
 
 export async function POST(request) {
+  const startTime = Date.now();
+  
   try {
     console.log('💬 Chat API called at:', new Date().toISOString());
     
     const body = await request.json();
     const { 
       message, 
-      conversationId = 'default', 
+      conversationId = 'web_chat_' + Date.now(), 
       configId = 'default',
+      customerId = 1, // Default to demo customer
       smsMode = false,
       testMode = false 
     } = body;
@@ -137,6 +213,7 @@ export async function POST(request) {
       messageLength: message?.length || 0,
       conversationId,
       configId,
+      customerId,
       smsMode,
       testMode,
       messagePreview: message?.slice(0, 50) + '...'
@@ -151,11 +228,12 @@ export async function POST(request) {
     }
 
     // Get AI configuration
-    const aiConfig = aiConfigs.get(configId) || defaultConfig;
+    const aiConfig = await getAIConfig(configId, customerId);
     console.log('⚙️ Using AI config:', {
       businessName: aiConfig.businessName,
       personality: aiConfig.personality,
-      model: aiConfig.model
+      model: aiConfig.model,
+      customerId: aiConfig.customer_id
     });
 
     // OpenAI availability check
@@ -172,23 +250,43 @@ export async function POST(request) {
       });
     }
 
-    // Get or create conversation
-    let conversation = conversations.get(conversationId) || {
-      id: conversationId,
-      messages: [],
-      createdAt: new Date().toISOString(),
-      leadCaptured: false
-    };
+    // Get or create conversation in database
+    let conversation = await getConversationByKey(conversationId);
+    
+    if (!conversation) {
+      // Create new conversation
+      conversation = await createConversation({
+        customer_id: aiConfig.customer_id,
+        conversation_key: conversationId,
+        source: 'web_chat',
+        visitor_info: {
+          userAgent: request.headers.get('user-agent'),
+          timestamp: new Date().toISOString()
+        }
+      });
+      console.log('📝 Created new conversation:', conversation.id);
+    }
 
-    // Add user message to conversation history
-    conversation.messages.push({
-      role: 'user',
+    // Get recent conversation history from database
+    const recentMessages = await getConversationMessages(conversation.id, 6);
+    
+    // Create user message in database
+    const userMessage = await createMessage({
+      conversation_id: conversation.id,
+      customer_id: aiConfig.customer_id,
       content: message,
-      timestamp: new Date().toISOString()
+      sender_type: 'user',
+      processing_time_ms: Date.now() - startTime
     });
 
-    // Prepare conversation history for AI (last 6 messages)
-    const recentHistory = conversation.messages.slice(-6);
+    // Prepare conversation history for AI (including new user message)
+    const conversationHistory = [
+      ...recentMessages.map(msg => ({
+        role: msg.sender_type === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      })),
+      { role: 'user', content: message }
+    ];
 
     // Build system prompt based on configuration
     let systemPrompt = `You are an AI assistant for ${aiConfig.businessName} with a ${aiConfig.personality} personality.
@@ -218,26 +316,20 @@ ${aiConfig.responseLength === 'short' ? 'Keep responses concise and to the point
       model: aiConfig.model,
       messages: [
         { role: 'system', content: systemPrompt },
-        ...recentHistory
+        ...conversationHistory
       ],
       max_tokens: smsMode ? 100 : (aiConfig.responseLength === 'short' ? 150 : aiConfig.responseLength === 'long' ? 500 : 300),
       temperature: aiConfig.creativity || 0.7
     });
 
     const aiResponse = completion.choices[0].message.content.trim();
+    const processingTime = Date.now() - startTime;
 
     console.log('✅ AI response generated:', {
       length: aiResponse.length,
       model: aiConfig.model,
-      usage: completion.usage
-    });
-
-    // Add AI response to conversation
-    conversation.messages.push({
-      role: 'assistant',
-      content: aiResponse,
-      timestamp: new Date().toISOString(),
-      model: aiConfig.model
+      usage: completion.usage,
+      processingTime: processingTime + 'ms'
     });
 
     // Analyze for hot lead (only for non-test messages)
@@ -248,30 +340,55 @@ ${aiConfig.responseLength === 'short' ? 'Keep responses concise and to the point
       console.log('🔥 Starting hot lead analysis...');
       
       // Prepare conversation history for hot lead analysis
-      const conversationForAnalysis = recentHistory.map(msg => ({
+      const conversationForAnalysis = conversationHistory.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
       hotLeadAnalysis = await analyzeHotLead(message, conversationForAnalysis);
+    }
 
-      // Send alert if hot lead detected
-      if (hotLeadAnalysis.isHotLead) {
-        console.log('🚨 Hot lead detected! Attempting to send alert...');
-        alertSent = await sendHotLeadAlert(hotLeadAnalysis, message, aiConfig);
+    // Create AI response message in database
+    const aiMessage = await createMessage({
+      conversation_id: conversation.id,
+      customer_id: aiConfig.customer_id,
+      content: aiResponse,
+      sender_type: 'ai',
+      model_used: aiConfig.model,
+      hot_lead_score: hotLeadAnalysis?.score || 0,
+      processing_time_ms: processingTime
+    });
+
+    // Send alert if hot lead detected
+    if (hotLeadAnalysis?.isHotLead && !testMode) {
+      console.log('🚨 Hot lead detected! Attempting to send alert...');
+      alertSent = await sendHotLeadAlert(
+        hotLeadAnalysis, 
+        message, 
+        aiConfig, 
+        conversation.id,
+        aiMessage.id
+      );
+    }
+
+    // Update conversation to mark lead as captured if not already done and not in test mode
+    if (!conversation.lead_captured && !testMode) {
+      try {
+        const client = await getDbClient();
+        await client.query(`
+          UPDATE conversations 
+          SET lead_captured = true, 
+              lead_source = 'web_chat', 
+              hot_lead_score = $1,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [hotLeadAnalysis?.score || 0, conversation.id]);
+        
+        console.log('📝 Lead captured for conversation:', conversation.id);
+      } catch (updateError) {
+        console.error('Error updating conversation lead status:', updateError);
       }
     }
-
-    // Capture lead if not already done and not in test mode
-    if (!conversation.leadCaptured && !testMode) {
-      console.log('📝 New lead captured from web chat');
-      conversation.leadCaptured = true;
-      conversation.leadSource = 'web_chat';
-      conversation.hotLeadScore = hotLeadAnalysis?.score || 0;
-    }
-
-    // Update conversation in storage
-    conversations.set(conversationId, conversation);
 
     // Return response with hot lead analysis
     return NextResponse.json({
@@ -283,6 +400,7 @@ ${aiConfig.responseLength === 'short' ? 'Keep responses concise and to the point
       hotLeadAnalysis: hotLeadAnalysis,
       alertSent: alertSent,
       conversationId: conversationId,
+      processingTime: processingTime,
       timestamp: new Date().toISOString()
     });
 
@@ -311,11 +429,12 @@ ${aiConfig.responseLength === 'short' ? 'Keep responses concise and to the point
   }
 }
 
-// GET endpoint for retrieving AI configuration
+// GET endpoint for retrieving AI configuration and conversation statistics
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const configId = searchParams.get('config') || 'default';
+    const customerId = parseInt(searchParams.get('customerId')) || 1;
     const action = searchParams.get('action');
 
     if (action === 'test-connection') {
@@ -351,26 +470,67 @@ export async function GET(request) {
     }
 
     if (action === 'conversations') {
-      // Return conversation statistics
-      const conversationArray = Array.from(conversations.values());
-      return NextResponse.json({
-        totalConversations: conversationArray.length,
-        totalMessages: conversationArray.reduce((total, conv) => total + conv.messages.length, 0),
-        leadsGenerated: conversationArray.filter(conv => conv.leadCaptured).length,
-        conversations: conversationArray.slice(0, 10) // Return last 10 for preview
-      });
+      // Return conversation statistics from database
+      try {
+        const client = await getDbClient();
+        
+        // Get conversation stats
+        const conversationStats = await client.query(`
+          SELECT COUNT(*) as total_conversations,
+                 COUNT(CASE WHEN lead_captured = true THEN 1 END) as leads_generated
+          FROM conversations 
+          WHERE customer_id = $1 AND source = 'web_chat'
+        `, [customerId]);
+
+        // Get message stats
+        const messageStats = await client.query(`
+          SELECT COUNT(*) as total_messages,
+                 AVG(hot_lead_score) as avg_lead_score
+          FROM messages 
+          WHERE customer_id = $1 AND sender_type = 'ai'
+        `, [customerId]);
+
+        // Get recent conversations
+        const recentConversations = await client.query(`
+          SELECT c.*, 
+                 (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
+          FROM conversations c
+          WHERE c.customer_id = $1 AND c.source = 'web_chat'
+          ORDER BY c.created_at DESC 
+          LIMIT 10
+        `, [customerId]);
+
+        return NextResponse.json({
+          totalConversations: parseInt(conversationStats.rows[0].total_conversations) || 0,
+          totalMessages: parseInt(messageStats.rows[0].total_messages) || 0,
+          leadsGenerated: parseInt(conversationStats.rows[0].leads_generated) || 0,
+          avgLeadScore: parseFloat(messageStats.rows[0].avg_lead_score) || 0,
+          conversations: recentConversations.rows
+        });
+      } catch (dbError) {
+        console.error('Database query error:', dbError);
+        return NextResponse.json({
+          totalConversations: 0,
+          totalMessages: 0,
+          leadsGenerated: 0,
+          conversations: []
+        });
+      }
     }
 
     // Return current AI configuration
-    const config = aiConfigs.get(configId) || defaultConfig;
+    const config = await getAIConfig(configId, customerId);
     
     return NextResponse.json({
       success: true,
       config: config,
-      availableConfigs: Array.from(aiConfigs.keys()),
       openaiStatus: {
         connected: !!openai,
         hasApiKey: !!process.env.OPENAI_API_KEY
+      },
+      databaseStatus: {
+        connected: true,
+        timestamp: new Date().toISOString()
       }
     });
 
