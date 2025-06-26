@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { initializeDatabase } from '../../../lib/database.js';
+import { 
+  getDbClient,
+  createConversation,
+  getConversationByKey,
+  createMessage,
+  createHotLeadAlert,
+  getConversationMessages
+} from '../../../lib/database.js';
 
 // Initialize OpenAI
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -32,64 +39,92 @@ Our experienced agents help clients navigate the real estate market with persona
   enableHotLeadAlerts: true
 };
 
-// Test database connection using same pattern as setup-database
+// Test database connection using proper method
 async function testDatabaseConnection() {
   try {
     console.log('🗄️ Testing database connection...');
-    const result = await initializeDatabase();
-    console.log('✅ Database connection successful:', result.message);
-    return { success: true, client: result.client };
+    const client = await getDbClient();
+    console.log('✅ Database connection successful');
+    return { success: true };
   } catch (error) {
     console.error('❌ Database connection failed:', error);
     return { success: false, error: error.message };
   }
 }
 
-// Store conversation in database or memory
+// Store conversation using proper database functions
 async function storeConversation(conversationId, message, response, isHotLead, hotLeadScore) {
-  const dbResult = await testDatabaseConnection();
+  const dbStatus = await testDatabaseConnection();
   
-  if (dbResult.success) {
+  if (dbStatus.success) {
     try {
-      const client = dbResult.client;
+      console.log('💾 Storing conversation in database...');
       
-      // Store in database
-      await client.query(`
-        INSERT INTO conversations (customer_id, conversation_key, source, lead_captured, hot_lead_score)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (conversation_key) DO UPDATE SET
-          hot_lead_score = GREATEST(conversations.hot_lead_score, $5),
-          lead_captured = conversations.lead_captured OR $4,
-          updated_at = CURRENT_TIMESTAMP
-      `, [1, conversationId, 'web_chat', isHotLead, hotLeadScore]);
-
-      // Get conversation ID
-      const convResult = await client.query(`
-        SELECT id FROM conversations WHERE conversation_key = $1
-      `, [conversationId]);
+      // Get or create conversation using helper function
+      let conversation = await getConversationByKey(conversationId);
       
-      const convId = convResult.rows[0]?.id;
+      if (!conversation) {
+        // Create new conversation
+        conversation = await createConversation({
+          customer_id: 1, // Default demo customer
+          conversation_key: conversationId,
+          source: 'web_chat',
+          visitor_info: {
+            userAgent: 'Web Chat User',
+            timestamp: new Date().toISOString()
+          }
+        });
+        console.log('📝 Created new conversation:', conversation.id);
+      }
 
-      if (convId) {
-        // Store user message
+      // Create user message
+      const userMessage = await createMessage({
+        conversation_id: conversation.id,
+        customer_id: 1,
+        content: message,
+        sender_type: 'user',
+        hot_lead_score: hotLeadScore
+      });
+
+      // Create AI response message
+      const aiMessage = await createMessage({
+        conversation_id: conversation.id,
+        customer_id: 1,
+        content: response,
+        sender_type: 'ai',
+        model_used: defaultConfig.model,
+        hot_lead_score: hotLeadScore
+      });
+
+      // Create hot lead alert if applicable
+      if (isHotLead) {
+        await createHotLeadAlert({
+          customer_id: 1,
+          conversation_id: conversation.id,
+          message_id: aiMessage.id,
+          business_owner_phone: 'Web Visitor',
+          lead_score: hotLeadScore,
+          lead_phone: 'Web Visitor',
+          message_content: message,
+          ai_reasoning: `High interest detected with score: ${hotLeadScore}`,
+          next_action: 'Contact customer immediately',
+          urgency: hotLeadScore >= 80 ? 'high' : 'medium',
+          source: 'web_chat'
+        });
+        console.log('🔥 Hot lead alert created successfully');
+      }
+
+      // Update conversation to mark lead as captured
+      if (isHotLead) {
+        const client = await getDbClient();
         await client.query(`
-          INSERT INTO messages (conversation_id, customer_id, content, sender_type, hot_lead_score)
-          VALUES ($1, $2, $3, $4, $5)
-        `, [convId, 1, message, 'user', hotLeadScore]);
-
-        // Store AI response
-        await client.query(`
-          INSERT INTO messages (conversation_id, customer_id, content, sender_type, model_used, hot_lead_score)
-          VALUES ($1, $2, $3, $4, $5, $6)
-        `, [convId, 1, response, 'ai', defaultConfig.model, hotLeadScore]);
-
-        // Store hot lead alert if applicable
-        if (isHotLead) {
-          await client.query(`
-            INSERT INTO hot_lead_alerts (customer_id, conversation_id, lead_score, lead_phone, message_content, source)
-            VALUES ($1, $2, $3, $4, $5, $6)
-          `, [1, convId, hotLeadScore, 'Web Visitor', message, 'web_chat']);
-        }
+          UPDATE conversations 
+          SET lead_captured = true, 
+              lead_source = 'web_chat', 
+              hot_lead_score = GREATEST(hot_lead_score, $1),
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [hotLeadScore, conversation.id]);
       }
 
       console.log('✅ Successfully stored conversation in database');
@@ -360,7 +395,7 @@ export async function GET(request) {
       
       if (dbStatus.success) {
         try {
-          const client = dbStatus.client;
+          const client = await getDbClient();
           
           // Get conversation stats
           const conversationStats = await client.query(`
@@ -487,7 +522,7 @@ export async function GET(request) {
     
     if (dbStatus.success) {
       try {
-        const client = dbStatus.client;
+        const client = await getDbClient();
         
         const stats = await client.query(`
           SELECT 
