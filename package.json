@@ -15,7 +15,8 @@
     "twilio": "^4.19.0",
     "@clerk/nextjs": "^4.29.1",
     "openai": "^4.57.0",
-    "pg": "^8.11.0"
+    "pg": "^8.11.0",
+    "svix": "^1.15.0"
   },
   "devDependencies": {
     "eslint": "^8",
