@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { SignOutButton, useUser } from '@clerk/nextjs';
 
 export default function MainDashboard() {
+  const { user, isLoaded } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -153,19 +155,44 @@ export default function MainDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">🚀 AI Business Dashboard</h1>
               <p className="text-gray-600 mt-1">Complete AI customer engagement platform</p>
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={loadDashboardData}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-              >
-                🔄 Refresh
-              </button>
-              <button
-                onClick={() => window.location.href = '/demo'}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
-              >
-                🧪 Test AI
-              </button>
+            <div className="flex items-center space-x-4">
+              {/* User Profile & Logout */}
+              {isLoaded && user && (
+                <div className="flex items-center space-x-3 bg-white rounded-lg px-4 py-2 shadow-sm border">
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-gray-900">
+                      {user.firstName} {user.lastName}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {user.primaryEmailAddress?.emailAddress}
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    {user.firstName?.charAt(0) || user.primaryEmailAddress?.emailAddress.charAt(0) || '?'}
+                  </div>
+                  <SignOutButton>
+                    <button className="text-red-600 hover:text-red-700 text-sm font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors">
+                      Sign Out
+                    </button>
+                  </SignOutButton>
+                </div>
+              )}
+              
+              {/* Action Buttons */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={loadDashboardData}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  🔄 Refresh
+                </button>
+                <button
+                  onClick={() => window.location.href = '/demo'}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
+                >
+                  🧪 Test AI
+                </button>
+              </div>
             </div>
           </div>
         </div>
