@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { auth } from '@clerk/nextjs/server';
 import { 
   getDbClient,
   createConversation,
   getConversationByKey,
   createMessage,
   createHotLeadAlert,
-  getConversationMessages
+  getConversationMessages,
+  getCustomerByClerkId
 } from '../../../lib/database.js';
 
 // Initialize OpenAI
@@ -39,6 +41,32 @@ Our experienced agents help clients navigate the real estate market with persona
   enableHotLeadAlerts: true
 };
 
+// Get current customer from Clerk auth
+async function getCurrentCustomer() {
+  try {
+    const { userId } = auth();
+    
+    if (!userId) {
+      console.log('⚠️ No authenticated user, using demo customer');
+      return { id: 1, clerk_user_id: 'demo_user_123', business_name: 'Test Real Estate Co' };
+    }
+
+    console.log('👤 Getting customer for Clerk user:', userId);
+    const customer = await getCustomerByClerkId(userId);
+    
+    if (!customer) {
+      console.log('⚠️ No customer record found for user, using demo customer');
+      return { id: 1, clerk_user_id: 'demo_user_123', business_name: 'Test Real Estate Co' };
+    }
+
+    console.log('✅ Found customer:', customer.id, customer.business_name);
+    return customer;
+  } catch (error) {
+    console.error('❌ Error getting current customer:', error);
+    return { id: 1, clerk_user_id: 'demo_user_123', business_name: 'Test Real Estate Co' };
+  }
+}
+
 // Test database connection using proper method
 async function testDatabaseConnection() {
   try {
@@ -53,12 +81,12 @@ async function testDatabaseConnection() {
 }
 
 // Store conversation using proper database functions
-async function storeConversation(conversationId, message, response, isHotLead, hotLeadScore) {
+async function storeConversation(conversationId, message, response, isHotLead, hotLeadScore, customer) {
   const dbStatus = await testDatabaseConnection();
   
   if (dbStatus.success) {
     try {
-      console.log('💾 Storing conversation in database...');
+      console.log('💾 Storing conversation in database for customer:', customer.id);
       
       // Get or create conversation using helper function
       let conversation = await getConversationByKey(conversationId);
@@ -66,12 +94,13 @@ async function storeConversation(conversationId, message, response, isHotLead, h
       if (!conversation) {
         // Create new conversation
         conversation = await createConversation({
-          customer_id: 1, // Default demo customer
+          customer_id: customer.id,
           conversation_key: conversationId,
           source: 'web_chat',
           visitor_info: {
             userAgent: 'Web Chat User',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            customerName: customer.business_name
           }
         });
         console.log('📝 Created new conversation:', conversation.id);
@@ -80,7 +109,7 @@ async function storeConversation(conversationId, message, response, isHotLead, h
       // Create user message
       const userMessage = await createMessage({
         conversation_id: conversation.id,
-        customer_id: 1,
+        customer_id: customer.id,
         content: message,
         sender_type: 'user',
         hot_lead_score: hotLeadScore
@@ -89,7 +118,7 @@ async function storeConversation(conversationId, message, response, isHotLead, h
       // Create AI response message
       const aiMessage = await createMessage({
         conversation_id: conversation.id,
-        customer_id: 1,
+        customer_id: customer.id,
         content: response,
         sender_type: 'ai',
         model_used: defaultConfig.model,
@@ -99,7 +128,7 @@ async function storeConversation(conversationId, message, response, isHotLead, h
       // Create hot lead alert if applicable
       if (isHotLead) {
         await createHotLeadAlert({
-          customer_id: 1,
+          customer_id: customer.id,
           conversation_id: conversation.id,
           message_id: aiMessage.id,
           business_owner_phone: 'Web Visitor',
@@ -139,6 +168,7 @@ async function storeConversation(conversationId, message, response, isHotLead, h
   try {
     const conversation = {
       id: conversationId,
+      customer_id: customer.id,
       messages: [
         { role: 'user', content: message, timestamp: new Date() },
         { role: 'assistant', content: response, timestamp: new Date() }
@@ -153,6 +183,7 @@ async function storeConversation(conversationId, message, response, isHotLead, h
     if (isHotLead) {
       memoryStorage.hotLeads.push({
         conversationId,
+        customerId: customer.id,
         message,
         score: hotLeadScore,
         timestamp: new Date()
@@ -251,6 +282,10 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
+    // Get current customer
+    const customer = await getCurrentCustomer();
+    console.log('👤 Using customer:', customer.id, customer.business_name);
+
     // Test database connection
     const dbStatus = await testDatabaseConnection();
     console.log('🗄️ Database status:', dbStatus.success ? 'Connected' : 'Using memory fallback');
@@ -269,8 +304,8 @@ export async function POST(request) {
     const hotLeadAnalysis = detectHotLead(message);
     console.log('🔥 Hot lead analysis:', hotLeadAnalysis);
 
-    // Build system prompt
-    const systemPrompt = `You are an AI assistant for ${defaultConfig.businessName} with a ${defaultConfig.personality} personality.
+    // Build system prompt with customer's business name
+    const systemPrompt = `You are an AI assistant for ${customer.business_name} with a ${defaultConfig.personality} personality.
 
 Business Information:
 ${defaultConfig.businessInfo}
@@ -313,7 +348,8 @@ Keep responses conversational and helpful.`;
         message, 
         aiResponse, 
         hotLeadAnalysis.isHotLead, 
-        hotLeadAnalysis.score
+        hotLeadAnalysis.score,
+        customer
       );
       console.log('💾 Storage result:', storageResult);
     }
@@ -328,6 +364,10 @@ Keep responses conversational and helpful.`;
       processingTime: processingTime,
       databaseConnected: dbStatus.success,
       storageUsed: dbStatus.success ? 'database' : 'memory',
+      customer: {
+        id: customer.id,
+        businessName: customer.business_name
+      },
       timestamp: new Date().toISOString()
     });
 
@@ -343,13 +383,17 @@ Keep responses conversational and helpful.`;
   }
 }
 
-// GET endpoint for dashboard data
+// GET endpoint for dashboard data - now user-specific
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
     console.log('📊 Dashboard API called with action:', action);
+
+    // Get current customer
+    const customer = await getCurrentCustomer();
+    console.log('👤 Getting data for customer:', customer.id);
 
     // Handle test-connection action
     if (action === 'test-connection') {
@@ -387,9 +431,9 @@ export async function GET(request) {
       }
     }
 
-    // Handle conversations action
+    // Handle conversations action - now filtered by customer
     if (action === 'conversations') {
-      console.log('📋 Getting conversation data...');
+      console.log('📋 Getting conversation data for customer:', customer.id);
       
       const dbStatus = await testDatabaseConnection();
       
@@ -397,7 +441,7 @@ export async function GET(request) {
         try {
           const client = await getDbClient();
           
-          // Get conversation stats
+          // Get conversation stats for this customer only
           const conversationStats = await client.query(`
             SELECT 
               COUNT(DISTINCT c.id) as total_conversations,
@@ -407,13 +451,13 @@ export async function GET(request) {
             LEFT JOIN (
               SELECT conversation_id, COUNT(*) as msg_count 
               FROM messages 
-              WHERE customer_id = 1 
+              WHERE customer_id = $1 
               GROUP BY conversation_id
             ) message_counts ON c.id = message_counts.conversation_id
-            WHERE c.customer_id = 1 AND c.source = 'web_chat'
-          `);
+            WHERE c.customer_id = $1 AND c.source = 'web_chat'
+          `, [customer.id]);
 
-          // Get recent conversations with details
+          // Get recent conversations for this customer
           const recentConversations = await client.query(`
             SELECT 
               c.id,
@@ -427,27 +471,27 @@ export async function GET(request) {
               MAX(m.created_at) as last_message_at
             FROM conversations c
             LEFT JOIN messages m ON c.id = m.conversation_id
-            WHERE c.customer_id = 1 AND c.source = 'web_chat'
+            WHERE c.customer_id = $1 AND c.source = 'web_chat'
             GROUP BY c.id, c.conversation_key, c.source, c.lead_captured, c.hot_lead_score, c.created_at, c.updated_at
             ORDER BY c.updated_at DESC
             LIMIT 10
-          `);
+          `, [customer.id]);
 
-          // Get hot lead alerts
+          // Get hot lead alerts for this customer
           const hotLeadAlerts = await client.query(`
             SELECT 
               h.*,
               c.conversation_key
             FROM hot_lead_alerts h
             LEFT JOIN conversations c ON h.conversation_id = c.id
-            WHERE h.customer_id = 1
+            WHERE h.customer_id = $1
             ORDER BY h.created_at DESC
             LIMIT 10
-          `);
+          `, [customer.id]);
 
           const stats = conversationStats.rows[0];
           
-          console.log('✅ Database conversation data retrieved:', {
+          console.log('✅ Database conversation data retrieved for customer:', customer.id, {
             totalConversations: stats.total_conversations,
             totalMessages: stats.total_messages,
             leadsGenerated: stats.leads_generated,
@@ -479,6 +523,10 @@ export async function GET(request) {
               urgency: alert.urgency,
               createdAt: alert.created_at
             })),
+            customer: {
+              id: customer.id,
+              businessName: customer.business_name
+            },
             databaseConnected: true
           });
 
@@ -488,14 +536,18 @@ export async function GET(request) {
         }
       }
 
-      // Fallback to memory storage
-      console.log('📝 Using memory storage fallback');
+      // Fallback to memory storage - filtered by customer
+      console.log('📝 Using memory storage fallback for customer:', customer.id);
+      const customerConversations = Array.from(memoryStorage.conversations.entries())
+        .filter(([key, conv]) => conv.customer_id === customer.id);
+      
+      const customerHotLeads = memoryStorage.hotLeads.filter(lead => lead.customerId === customer.id);
+
       return NextResponse.json({
-        totalConversations: memoryStorage.conversations.size,
-        totalMessages: Array.from(memoryStorage.conversations.values())
-          .reduce((total, conv) => total + conv.messages.length, 0),
-        leadsGenerated: memoryStorage.hotLeads.length,
-        conversations: Array.from(memoryStorage.conversations.entries()).map(([key, conv]) => ({
+        totalConversations: customerConversations.length,
+        totalMessages: customerConversations.reduce((total, [key, conv]) => total + conv.messages.length, 0),
+        leadsGenerated: customerHotLeads.length,
+        conversations: customerConversations.map(([key, conv]) => ({
           id: key,
           conversationKey: key,
           source: 'web_chat',
@@ -505,19 +557,23 @@ export async function GET(request) {
           createdAt: conv.timestamp,
           updatedAt: conv.timestamp
         })),
-        hotLeadAlerts: memoryStorage.hotLeads.map((lead, index) => ({
+        hotLeadAlerts: customerHotLeads.map((lead, index) => ({
           id: index,
           conversationId: lead.conversationId,
           leadScore: lead.score,
           messageContent: lead.message,
           createdAt: lead.timestamp
         })),
+        customer: {
+          id: customer.id,
+          businessName: customer.business_name
+        },
         databaseConnected: false
       });
     }
 
-    // Default action - return basic stats
-    console.log('📊 Getting basic stats...');
+    // Default action - return basic stats for this customer
+    console.log('📊 Getting basic stats for customer:', customer.id);
     const dbStatus = await testDatabaseConnection();
     
     if (dbStatus.success) {
@@ -533,17 +589,17 @@ export async function GET(request) {
           LEFT JOIN (
             SELECT conversation_id, COUNT(*) as msg_count 
             FROM messages 
-            WHERE customer_id = 1 
+            WHERE customer_id = $1 
             GROUP BY conversation_id
           ) message_counts ON c.id = message_counts.conversation_id
-          WHERE c.customer_id = 1
-        `);
+          WHERE c.customer_id = $1
+        `, [customer.id]);
 
         const hotLeads = await client.query(`
           SELECT COUNT(*) as hot_leads_count
           FROM hot_lead_alerts 
-          WHERE customer_id = 1
-        `);
+          WHERE customer_id = $1
+        `, [customer.id]);
 
         return NextResponse.json({
           success: true,
@@ -551,22 +607,33 @@ export async function GET(request) {
           totalConversations: parseInt(stats.rows[0]?.total_conversations) || 0,
           leadsGenerated: parseInt(stats.rows[0]?.leads_generated) || 0,
           totalMessages: parseInt(stats.rows[0]?.total_messages) || 0,
-          hotLeads: parseInt(hotLeads.rows[0]?.hot_leads_count) || 0
+          hotLeads: parseInt(hotLeads.rows[0]?.hot_leads_count) || 0,
+          customer: {
+            id: customer.id,
+            businessName: customer.business_name
+          }
         });
       } catch (dbError) {
         console.error('Database basic stats error:', dbError);
       }
     }
 
-    // Fallback to memory stats
+    // Fallback to memory stats for this customer
+    const customerConversations = Array.from(memoryStorage.conversations.values())
+      .filter(conv => conv.customer_id === customer.id);
+    const customerHotLeads = memoryStorage.hotLeads.filter(lead => lead.customerId === customer.id);
+
     return NextResponse.json({
       success: true,
       databaseConnected: false,
-      totalConversations: memoryStorage.conversations.size,
-      leadsGenerated: memoryStorage.hotLeads.length,
-      totalMessages: Array.from(memoryStorage.conversations.values())
-        .reduce((total, conv) => total + conv.messages.length, 0),
-      hotLeads: memoryStorage.hotLeads.length
+      totalConversations: customerConversations.length,
+      leadsGenerated: customerHotLeads.length,
+      totalMessages: customerConversations.reduce((total, conv) => total + conv.messages.length, 0),
+      hotLeads: customerHotLeads.length,
+      customer: {
+        id: customer.id,
+        businessName: customer.business_name
+      }
     });
 
   } catch (error) {
