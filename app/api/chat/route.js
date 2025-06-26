@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+
+// Fixed import path - same pattern as setup-database route
 import { 
   getDbClient, 
   createConversation, 
@@ -227,6 +229,24 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
+    // Test database connection first
+    try {
+      console.log('🗄️ Testing database connection...');
+      const client = await getDbClient();
+      console.log('✅ Database connection successful');
+    } catch (dbError) {
+      console.error('❌ Database connection failed:', dbError);
+      return NextResponse.json({
+        response: "I'm experiencing database connectivity issues. Please try again in a moment.",
+        isAI: false,
+        error: 'Database connection failed',
+        debug: {
+          dbError: dbError.message,
+          timestamp: new Date().toISOString()
+        }
+      }, { status: 500 });
+    }
+
     // Get AI configuration
     const aiConfig = await getAIConfig(configId, customerId);
     console.log('⚙️ Using AI config:', {
@@ -251,33 +271,59 @@ export async function POST(request) {
     }
 
     // Get or create conversation in database
-    let conversation = await getConversationByKey(conversationId);
-    
-    if (!conversation) {
-      // Create new conversation
-      conversation = await createConversation({
-        customer_id: aiConfig.customer_id,
-        conversation_key: conversationId,
-        source: 'web_chat',
-        visitor_info: {
-          userAgent: request.headers.get('user-agent'),
+    let conversation;
+    try {
+      conversation = await getConversationByKey(conversationId);
+      
+      if (!conversation) {
+        // Create new conversation
+        conversation = await createConversation({
+          customer_id: aiConfig.customer_id,
+          conversation_key: conversationId,
+          source: 'web_chat',
+          visitor_info: {
+            userAgent: request.headers.get('user-agent'),
+            timestamp: new Date().toISOString()
+          }
+        });
+        console.log('📝 Created new conversation:', conversation.id);
+      }
+    } catch (dbError) {
+      console.error('❌ Database conversation error:', dbError);
+      return NextResponse.json({
+        response: "I'm experiencing database issues. Please try again in a moment.",
+        isAI: false,
+        error: 'Database conversation error',
+        debug: {
+          dbError: dbError.message,
           timestamp: new Date().toISOString()
         }
-      });
-      console.log('📝 Created new conversation:', conversation.id);
+      }, { status: 500 });
     }
 
     // Get recent conversation history from database
-    const recentMessages = await getConversationMessages(conversation.id, 6);
+    let recentMessages = [];
+    try {
+      recentMessages = await getConversationMessages(conversation.id, 6);
+    } catch (dbError) {
+      console.error('Error getting conversation messages:', dbError);
+      // Continue with empty history if this fails
+    }
     
     // Create user message in database
-    const userMessage = await createMessage({
-      conversation_id: conversation.id,
-      customer_id: aiConfig.customer_id,
-      content: message,
-      sender_type: 'user',
-      processing_time_ms: Date.now() - startTime
-    });
+    let userMessage;
+    try {
+      userMessage = await createMessage({
+        conversation_id: conversation.id,
+        customer_id: aiConfig.customer_id,
+        content: message,
+        sender_type: 'user',
+        processing_time_ms: Date.now() - startTime
+      });
+    } catch (dbError) {
+      console.error('Error creating user message:', dbError);
+      // Continue without storing message if this fails
+    }
 
     // Prepare conversation history for AI (including new user message)
     const conversationHistory = [
@@ -349,18 +395,24 @@ ${aiConfig.responseLength === 'short' ? 'Keep responses concise and to the point
     }
 
     // Create AI response message in database
-    const aiMessage = await createMessage({
-      conversation_id: conversation.id,
-      customer_id: aiConfig.customer_id,
-      content: aiResponse,
-      sender_type: 'ai',
-      model_used: aiConfig.model,
-      hot_lead_score: hotLeadAnalysis?.score || 0,
-      processing_time_ms: processingTime
-    });
+    let aiMessage;
+    try {
+      aiMessage = await createMessage({
+        conversation_id: conversation.id,
+        customer_id: aiConfig.customer_id,
+        content: aiResponse,
+        sender_type: 'ai',
+        model_used: aiConfig.model,
+        hot_lead_score: hotLeadAnalysis?.score || 0,
+        processing_time_ms: processingTime
+      });
+    } catch (dbError) {
+      console.error('Error creating AI message:', dbError);
+      // Continue without storing message if this fails
+    }
 
     // Send alert if hot lead detected
-    if (hotLeadAnalysis?.isHotLead && !testMode) {
+    if (hotLeadAnalysis?.isHotLead && !testMode && aiMessage) {
       console.log('🚨 Hot lead detected! Attempting to send alert...');
       alertSent = await sendHotLeadAlert(
         hotLeadAnalysis, 
