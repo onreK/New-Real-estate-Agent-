@@ -14,8 +14,10 @@ export async function GET(request) {
       }, { status: 500 });
     }
 
+    console.log('🔗 Database URL found, connecting...');
+
     // Initialize the database
-    const result = await initializeDatabase();
+    await initializeDatabase();
     
     console.log('✅ Database initialization completed successfully');
     
@@ -25,32 +27,28 @@ export async function GET(request) {
       details: {
         tables_created: [
           'customers',
-          'phone_numbers', 
-          'ai_configs',
-          'conversations',
+          'conversations', 
           'messages',
-          'hot_lead_alerts',
-          'leads',
-          'usage_logs'
-        ],
-        indexes_created: [
-          'Performance indexes for all major queries'
+          'hot_leads',
+          'sms_conversations',
+          'sms_messages'
         ],
         features_ready: [
           '✅ Multi-tenant customer isolation',
-          '✅ Web chat & SMS conversations',
+          '✅ Web chat conversations',
           '✅ Hot lead detection & alerts',
-          '✅ Lead tracking & analytics',
-          '✅ Usage-based billing support',
-          '✅ AI configuration per customer'
+          '✅ SMS messaging support',
+          '✅ Customer analytics',
+          '✅ Message history tracking'
         ]
       },
       next_steps: [
         '1. Test your web chat at /demo',
-        '2. Test SMS functionality',
-        '3. Set up Stripe integration',
-        '4. Start onboarding customers!'
-      ]
+        '2. Send message: "I want to buy a house today"',
+        '3. Check for hot lead detection',
+        '4. Verify messages save to database'
+      ],
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
@@ -61,8 +59,15 @@ export async function GET(request) {
       error: error.message,
       details: {
         error_type: error.code || 'unknown',
-        suggestion: 'Check your DATABASE_URL and database connection'
-      }
+        error_detail: error.detail || 'No additional details',
+        suggestion: 'Check your DATABASE_URL and database connection',
+        debug_info: {
+          has_database_url: !!process.env.DATABASE_URL,
+          error_code: error.code,
+          error_position: error.position
+        }
+      },
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 }
