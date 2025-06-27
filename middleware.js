@@ -4,27 +4,21 @@ export default authMiddleware({
   // Routes that can be accessed while signed out
   publicRoutes: [
     "/",
-    "/demo",
+    "/amanda(.*)",
+    "/demo(.*)",
     "/sign-in(.*)",
     "/sign-up(.*)",
     "/api/webhooks/clerk",
+    "/api/contact",
     "/api/smtp/test"
   ],
   
-  // Routes that require authentication
-  protectedRoutes: [
-    "/dashboard(.*)",
-    "/profile(.*)",
-    "/settings(.*)"
-  ],
-
-  // Don't protect API routes by default unless specified
+  // Routes that are completely ignored by Clerk (no auth checks)
   ignoredRoutes: [
     "/api/public(.*)",
     "/_next/static(.*)",
     "/_next/image(.*)",
-    "/favicon.ico",
-    "/api/smtp/test"
+    "/favicon.ico"
   ]
 });
 
