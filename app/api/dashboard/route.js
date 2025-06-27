@@ -8,6 +8,9 @@ import {
   createCustomer
 } from '../../../lib/database.js';
 
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const { userId } = auth();
@@ -26,21 +29,22 @@ export async function GET() {
       
       // Create customer if they don't exist (fallback for existing users)
       const customerData = {
-        id: Date.now(),
-        name: 'Customer', // Will be updated when they provide info
-        email: '', // Will be updated from Clerk user data if needed
-        phone: '',
         clerk_user_id: userId,
-        created_at: new Date().toISOString(),
-        subscription_tier: 'basic',
-        subscription_status: 'trial'
+        email: '', // Will be updated from Clerk user data if needed
+        business_name: 'My Business', // Default business name
+        plan: 'basic' // Using 'plan' field from Postgres schema
       };
       
       customer = await createCustomer(customerData);
       console.log('✅ Created new customer for existing Clerk user:', customer.id);
     }
 
-    console.log('👤 Found customer:', { id: customer.id, name: customer.name, email: customer.email });
+    console.log('👤 Found customer:', { 
+      id: customer.id, 
+      business_name: customer.business_name, 
+      email: customer.email,
+      plan: customer.plan 
+    });
 
     // Get user-specific stats
     const stats = await getCustomerStats(customer.id);
@@ -57,10 +61,10 @@ export async function GET() {
       success: true,
       customer: {
         id: customer.id,
-        name: customer.name,
+        name: customer.business_name || 'My Business', // Map business_name to name for frontend
         email: customer.email,
-        subscription_tier: customer.subscription_tier,
-        subscription_status: customer.subscription_status
+        subscription_tier: customer.plan || 'basic', // Map plan to subscription_tier for frontend
+        subscription_status: 'active' // Default to active
       },
       stats,
       conversations,
@@ -69,10 +73,19 @@ export async function GET() {
 
   } catch (error) {
     console.error('❌ Dashboard API Error:', error);
+    
+    // More detailed error logging for debugging
+    if (error.code) {
+      console.error('Database Error Code:', error.code);
+    }
+    if (error.detail) {
+      console.error('Database Error Detail:', error.detail);
+    }
+    
     return NextResponse.json(
       { 
         error: 'Failed to load dashboard data',
-        details: error.message 
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       },
       { status: 500 }
     );
