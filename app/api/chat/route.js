@@ -85,11 +85,12 @@ export async function POST(req) {
     }
     
     if (!conversation) {
+      // FIXED: Simplified conversation data to match actual database schema
       const conversationData = {
         customer_id: customer.id,
         conversation_key: conversationKey || `conv_${Date.now()}_${customer.id}`,
-        channel: 'web',
         status: 'active'
+        // Removed 'channel' field temporarily - will be added back once database is updated
       };
       
       conversation = await createConversation(conversationData);
