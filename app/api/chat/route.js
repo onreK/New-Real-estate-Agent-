@@ -85,11 +85,12 @@ export async function POST(req) {
     }
     
     if (!conversation) {
-      // FIXED: Only use fields that exist in the database
+      // FIXED: Include all required fields for the database
       const conversationData = {
         customer_id: customer.id,
-        conversation_key: conversationKey || `conv_${Date.now()}_${customer.id}`
-        // Removed status and channel fields - not in actual database table
+        conversation_key: conversationKey || `conv_${Date.now()}_${customer.id}`,
+        source: 'web',   // Required field
+        status: 'active' // Required field
       };
       
       conversation = await createConversation(conversationData);
