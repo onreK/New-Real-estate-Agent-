@@ -85,12 +85,11 @@ export async function POST(req) {
     }
     
     if (!conversation) {
-      // FIXED: Include all required fields for the database
+      // FIXED: Match exact database schema - only use required fields
       const conversationData = {
         customer_id: customer.id,
         conversation_key: conversationKey || `conv_${Date.now()}_${customer.id}`,
-        source: 'web',   // Required field
-        status: 'active' // Required field
+        source: 'web'  // Required field in actual database
       };
       
       conversation = await createConversation(conversationData);
