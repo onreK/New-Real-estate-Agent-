@@ -1,35 +1,28 @@
-import { NextResponse } from 'next/server';
+import { authMiddleware } from "@clerk/nextjs";
 
-export function middleware(request) {
-  const { pathname } = request.nextUrl;
-  
-  console.log('Middleware triggered for:', pathname);
-  
-  // Only protect dashboard routes
-  if (pathname.startsWith('/dashboard')) {
-    // For now, let's disable auth check completely to test
-    console.log('Dashboard access - allowing for testing');
-    return NextResponse.next();
-    
-    /* 
-    // Re-enable this later when auth is working:
-    const token = request.cookies.get('__session') || request.cookies.get('__clerk_db_jwt');
-    
-    if (!token) {
-      console.log('No auth token, redirecting to sign-in');
-      return NextResponse.redirect(new URL('/sign-in', request.url));
-    }
-    */
-  }
-  
-  // All other routes are public
-  console.log('Public route, allowing access');
-  return NextResponse.next();
-}
+export default authMiddleware({
+  // Routes that can be accessed while signed out
+  publicRoutes: [
+    "/",
+    "/api/webhooks/clerk",
+    "/api/sms/webhook", 
+    "/demo",
+    "/sign-in",
+    "/sign-up"
+  ],
+  // Routes that can always be accessed, and have
+  // no authentication information
+  ignoredRoutes: [
+    "/api/webhooks/clerk",
+    "/api/sms/webhook"
+  ],
+  // Enable debug mode to see what's happening
+  debug: true,
+});
 
 export const config = {
-  matcher: [
-    // Only run on dashboard routes - main page is now public
-    '/dashboard/:path*'
-  ]
+  // Protects all routes, including api/trpc.
+  // See https://clerk.com/docs/references/nextjs/auth-middleware
+  // for more information about configuring your Middleware
+  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
 };
