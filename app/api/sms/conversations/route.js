@@ -1,113 +1,84 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { 
+  getCustomerByClerkId,
+  getSmsConversationsByCustomer,
+  getSmsMessagesByCustomer,
+  createCustomer
+} from '../../../../lib/database.js';
 
-// Import conversation functions from webhook
-async function getSMSData() {
-  try {
-    // Import the functions from the webhook route
-    const webhookModule = await import('../webhook/route.js');
-    const conversations = webhookModule.getSMSConversations();
-    const smsLeads = webhookModule.getSMSLeads();
-    
-    return { conversations, smsLeads };
-  } catch (error) {
-    console.error('Error getting SMS data:', error);
-    return { conversations: [], smsLeads: [] };
-  }
-}
-
-function calculateStats(conversations, smsLeads) {
-  const now = new Date();
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  
-  const totalMessages = conversations.reduce((total, conv) => total + conv.messages.length, 0);
-  
-  const activeConversations = conversations.filter(conv => 
-    new Date(conv.lastActivity) > twentyFourHoursAgo
-  ).length;
-
-  return {
-    totalConversations: conversations.length,
-    totalMessages,
-    activeConversations,
-    smsLeads: smsLeads.length
-  };
-}
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const { conversations, smsLeads } = await getSMSData();
+    const { userId } = auth();
     
-    // Sort conversations by last activity (most recent first)
-    const sortedConversations = conversations.sort((a, b) => 
-      new Date(b.lastActivity) - new Date(a.lastActivity)
-    );
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const stats = calculateStats(conversations, smsLeads);
+    console.log('📱 SMS API called for user:', userId);
 
-    console.log('📊 SMS Dashboard Data:', {
+    // Get or create customer record for this Clerk user
+    let customer = await getCustomerByClerkId(userId);
+    
+    if (!customer) {
+      console.log('👤 Creating customer record for SMS user:', userId);
+      
+      // Use Postgres-compatible customer data structure
+      const customerData = {
+        clerk_user_id: userId,
+        email: '',
+        business_name: 'My Business',
+        plan: 'basic'
+      };
+      
+      customer = await createCustomer(customerData);
+      console.log('✅ Created new customer for SMS user:', customer.id);
+    }
+
+    // Get user-specific SMS data
+    const conversations = await getSmsConversationsByCustomer(customer.id);
+    const messages = await getSmsMessagesByCustomer(customer.id);
+
+    console.log('📱 SMS Dashboard Data:', {
       conversations: conversations.length,
-      totalMessages: stats.totalMessages,
-      activeConversations: stats.activeConversations,
-      leads: smsLeads.length
+      totalMessages: messages.length,
+      activeConversations: conversations.filter(c => c.status === 'active').length,
+      leads: conversations.filter(c => c.leadCaptured).length
     });
 
     return NextResponse.json({
       success: true,
-      conversations: sortedConversations,
-      leads: smsLeads,
-      stats,
-      timestamp: new Date().toISOString()
+      conversations: conversations,
+      totalConversations: conversations.length,
+      totalMessages: messages.length,
+      activeConversations: conversations.filter(c => c.status === 'active').length,
+      leads: conversations.filter(c => c.leadCaptured).length,
+      customer: {
+        id: customer.id,
+        name: customer.business_name || 'My Business'
+      }
     });
 
   } catch (error) {
-    console.error('❌ SMS Conversations API Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-      conversations: [],
-      leads: [],
-      stats: {
-        totalConversations: 0,
-        totalMessages: 0,
-        activeConversations: 0,
-        smsLeads: 0
-      }
-    }, { status: 500 });
-  }
-}
-
-export async function POST(request) {
-  try {
-    const { action, conversationId, message } = await request.json();
-
-    if (action === 'send_message') {
-      // Send manual SMS message
-      // This would integrate with Twilio to send messages
-      // For now, return success
-      return NextResponse.json({
-        success: true,
-        message: 'Message sent successfully'
-      });
+    console.error('❌ SMS API Error:', error);
+    
+    // More detailed error logging for debugging
+    if (error.code) {
+      console.error('Database Error Code:', error.code);
     }
-
-    if (action === 'mark_read') {
-      // Mark conversation as read
-      return NextResponse.json({
-        success: true,
-        message: 'Conversation marked as read'
-      });
+    if (error.detail) {
+      console.error('Database Error Detail:', error.detail);
     }
-
-    return NextResponse.json({
-      success: false,
-      error: 'Invalid action'
-    }, { status: 400 });
-
-  } catch (error) {
-    console.error('❌ SMS Action Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+    
+    return NextResponse.json(
+      { 
+        error: 'Failed to load SMS data',
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      },
+      { status: 500 }
+    );
   }
 }
