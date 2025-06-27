@@ -13,6 +13,9 @@ import {
   getCustomerStats
 } from '../../../lib/database.js';
 
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -57,17 +60,14 @@ export async function POST(req) {
     let customer = await getCustomerByClerkId(userId);
     
     if (!customer) {
-      console.log('👤 Creating new customer for user:', userId);
+      console.log('👤 Creating new customer for chat user:', userId);
       
+      // Use Postgres-compatible customer data structure
       const customerData = {
-        id: Date.now(),
-        name: 'Customer',
-        email: '',
-        phone: '',
         clerk_user_id: userId,
-        created_at: new Date().toISOString(),
-        subscription_tier: 'basic',
-        subscription_status: 'trial'
+        email: '', // Will be updated from Clerk user data if needed
+        business_name: 'My Business', // Default business name
+        plan: 'basic' // Using 'plan' field from Postgres schema
       };
       
       customer = await createCustomer(customerData);
@@ -89,9 +89,7 @@ export async function POST(req) {
         customer_id: customer.id,
         conversation_key: conversationKey || `conv_${Date.now()}_${customer.id}`,
         channel: 'web',
-        status: 'active',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        status: 'active'
       };
       
       conversation = await createConversation(conversationData);
@@ -151,8 +149,7 @@ Guidelines:
       await createMessage({
         conversation_id: conversation.id,
         sender: 'user',
-        content: userMessage.content,
-        created_at: new Date().toISOString()
+        content: userMessage.content
       });
 
       console.log('💾 Saved user message');
@@ -169,7 +166,6 @@ Guidelines:
           customer_id: customer.id,
           trigger_message: userMessage.content,
           keywords_matched: matchedKeywords,
-          created_at: new Date().toISOString(),
           status: 'new'
         });
         
@@ -181,8 +177,7 @@ Guidelines:
     await createMessage({
       conversation_id: conversation.id,
       sender: 'assistant',
-      content: aiResponse,
-      created_at: new Date().toISOString()
+      content: aiResponse
     });
 
     console.log('💾 Saved AI response');
@@ -195,8 +190,20 @@ Guidelines:
 
   } catch (error) {
     console.error('❌ Chat API Error:', error);
+    
+    // More detailed error logging for debugging
+    if (error.code) {
+      console.error('Database Error Code:', error.code);
+    }
+    if (error.detail) {
+      console.error('Database Error Detail:', error.detail);
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to process chat message', details: error.message },
+      { 
+        error: 'Failed to process chat message', 
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      },
       { status: 500 }
     );
   }
@@ -269,8 +276,17 @@ export async function GET(req) {
 
   } catch (error) {
     console.error('❌ Chat GET API Error:', error);
+    
+    // More detailed error logging for debugging
+    if (error.code) {
+      console.error('Database Error Code:', error.code);
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to process request', details: error.message },
+      { 
+        error: 'Failed to process request', 
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      },
       { status: 500 }
     );
   }
