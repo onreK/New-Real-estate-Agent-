@@ -143,12 +143,12 @@ Guidelines:
     const aiResponse = completion.choices[0].message.content;
     console.log('✅ Got AI response:', aiResponse.substring(0, 100) + '...');
 
-    // Save user message
+    // Save user message (FIXED: use sender_type instead of sender)
     const userMessage = messages[messages.length - 1];
     if (userMessage && userMessage.role === 'user') {
       await createMessage({
         conversation_id: conversation.id,
-        sender: 'user',
+        sender_type: 'user',  // FIXED: changed from 'sender' to 'sender_type'
         content: userMessage.content
       });
 
@@ -173,10 +173,10 @@ Guidelines:
       }
     }
 
-    // Save AI response
+    // Save AI response (FIXED: use sender_type instead of sender)
     await createMessage({
       conversation_id: conversation.id,
-      sender: 'assistant',
+      sender_type: 'assistant',  // FIXED: changed from 'sender' to 'sender_type'
       content: aiResponse
     });
 
