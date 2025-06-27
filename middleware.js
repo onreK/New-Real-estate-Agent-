@@ -4,25 +4,33 @@ export default authMiddleware({
   // Routes that can be accessed while signed out
   publicRoutes: [
     "/",
-    "/api/webhooks/clerk",
-    "/api/sms/webhook", 
     "/demo",
-    "/sign-in",
-    "/sign-up"
+    "/sign-in(.*)",
+    "/sign-up(.*)",
+    "/api/webhooks/clerk",
+    "/api/sms/webhook",
+    "/api/setup-database",
+    "/api/inspect-database",
+    "/api/inspect-messages"
   ],
-  // Routes that can always be accessed, and have
-  // no authentication information
+  // Routes that can always be accessed, and have no authentication information
   ignoredRoutes: [
     "/api/webhooks/clerk",
-    "/api/sms/webhook"
+    "/api/sms/webhook",
+    "/api/setup-database",
+    "/api/inspect-database", 
+    "/api/inspect-messages"
   ],
-  // Enable debug mode to see what's happening
-  debug: true,
+  // After sign in, redirect to dashboard
+  afterSignInUrl: "/dashboard",
+  // After sign up, redirect to onboarding  
+  afterSignUpUrl: "/onboarding",
+  // Enable debug mode in development
+  debug: process.env.NODE_ENV === 'development',
 });
 
 export const config = {
   // Protects all routes, including api/trpc.
   // See https://clerk.com/docs/references/nextjs/auth-middleware
-  // for more information about configuring your Middleware
   matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
 };
