@@ -3,6 +3,9 @@ import { headers } from 'next/headers';
 import { Webhook } from 'svix';
 import { createCustomer } from '../../../../lib/database.js';
 
+// Force dynamic rendering for webhook processing
+export const dynamic = 'force-dynamic';
+
 export async function POST(req) {
   // Get the headers
   const headerPayload = headers();
@@ -61,24 +64,20 @@ export async function POST(req) {
       const firstName = userData.first_name || '';
       const lastName = userData.last_name || '';
       const phone = userData.phone_numbers?.[0]?.phone_number || '';
-      const name = `${firstName} ${lastName}`.trim() || userData.username || 'New Customer';
+      const businessName = `${firstName} ${lastName}`.trim() || userData.username || 'My Business';
 
       console.log('👤 Creating customer for new user:', {
         clerkUserId: userData.id,
         email,
-        name
+        businessName
       });
 
-      // Create customer in database
+      // Create customer in database using Postgres schema
       const customerData = {
-        id: Date.now(), // Simple ID for now
-        name: name,
-        email: email,
-        phone: phone,
         clerk_user_id: userData.id, // Store Clerk user ID for linking
-        created_at: new Date().toISOString(),
-        subscription_tier: 'basic',
-        subscription_status: 'trial'
+        email: email,
+        business_name: businessName,
+        plan: 'basic' // Default plan for new users
       };
 
       const customer = await createCustomer(customerData);
@@ -91,17 +90,26 @@ export async function POST(req) {
         customer: {
           id: customer.id,
           email: customer.email,
-          name: customer.name
+          business_name: customer.business_name,
+          plan: customer.plan
         }
       });
 
     } catch (error) {
       console.error('❌ Error creating customer:', error);
       
+      // More detailed error logging for debugging
+      if (error.code) {
+        console.error('Database Error Code:', error.code);
+      }
+      if (error.detail) {
+        console.error('Database Error Detail:', error.detail);
+      }
+      
       return NextResponse.json({
         success: false,
         error: 'Failed to create customer',
-        details: error.message
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       }, { status: 500 });
     }
   }
