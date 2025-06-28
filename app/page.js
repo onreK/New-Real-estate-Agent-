@@ -41,12 +41,45 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // This will connect to SMTP later
-    console.log('Form submitted:', formData);
-    alert('Thank you! We\'ll be in touch soon to set up your AI business automation!');
-    setFormData({ name: '', email: '', phone: '', business: '', message: '' });
+    
+    // Show loading state
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    const originalText = submitButton.innerHTML;
+    submitButton.innerHTML = 'Sending... <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>';
+    submitButton.disabled = true;
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Success - show success message
+        alert('🎉 Thank you! We\'ve sent you a confirmation email and will be in touch within 24 hours to discuss how AI can transform your business!');
+        
+        // Clear form
+        setFormData({ name: '', email: '', phone: '', business: '', message: '' });
+      } else {
+        // Error from API
+        alert('❌ ' + (result.error || 'Something went wrong. Please try again or email us directly.'));
+      }
+    } catch (error) {
+      // Network or other error
+      console.error('Form submission error:', error);
+      alert('❌ Unable to send message. Please check your internet connection and try again.');
+    } finally {
+      // Reset button state
+      submitButton.innerHTML = originalText;
+      submitButton.disabled = false;
+    }
   };
 
   const features = [
