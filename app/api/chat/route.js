@@ -1,165 +1,87 @@
-import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
-import { auth } from '@clerk/nextjs/server';
-import { 
-  createConversation,
-  getConversationByKey,
-  createMessage,
-  createHotLeadAlert,
-  getConversationMessages,
-  getCustomerByClerkId,
-  createCustomer,
-  getConversationsByCustomer,
-  getCustomerStats
-} from '../../../lib/database.js';
+// MODIFICATION FOR YOUR EXISTING app/api/chat/route.js
+// Add this code to your existing file
 
-// Force dynamic rendering for authentication
-export const dynamic = 'force-dynamic';
+// 1. ADD THIS IMPORT at the top (after your existing imports):
+import { emailService } from '../../../lib/email-automation-service.js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// 2. ADD THIS FUNCTION after your existing HOT_LEAD_KEYWORDS array:
+function calculateLeadScore(message) {
+  const messageLC = message.toLowerCase();
+  let score = 20; // Base score
 
-// Hot lead keywords that trigger immediate alerts
-const HOT_LEAD_KEYWORDS = [
-  'ready to buy', 'want to purchase', 'looking to buy', 'interested in buying',
-  'need to buy', 'planning to buy', 'ready to make an offer', 'want to make an offer',
-  'cash buyer', 'pre-approved', 'preapproved', 'have financing', 'financing approved',
-  'want to sell', 'need to sell', 'ready to sell', 'thinking of selling',
-  'looking to sell', 'sell my house', 'sell my home', 'list my property',
-  'urgent', 'asap', 'immediately', 'right away', 'this week', 'this month',
-  'relocating', 'job transfer', 'moving soon', 'deadline', 'closing soon',
-  'cash offer', 'cash deal', 'no financing needed', 'funds available',
-  'down payment ready', 'approved mortgage', 'loan approved',
-  'schedule showing', 'book appointment', 'set up meeting', 'available today',
-  'available tomorrow', 'free this week', 'when can we meet'
-];
+  // Check for hot keywords (high intent)
+  const matchedKeywords = HOT_LEAD_KEYWORDS.filter(keyword => 
+    messageLC.includes(keyword.toLowerCase())
+  );
+  
+  if (matchedKeywords.length > 0) {
+    score += matchedKeywords.length * 25; // Each hot keyword adds 25 points
+  }
 
-export async function POST(req) {
+  // Additional scoring
+  if (messageLC.length > 100) score += 10; // Detailed messages
+  if (messageLC.includes('?')) score += 5; // Questions show engagement
+  if (messageLC.includes('budget') || messageLC.includes('price')) score += 15;
+  if (messageLC.includes('timeline') || messageLC.includes('when')) score += 10;
+
+  return Math.max(0, Math.min(100, score)); // Keep between 0-100
+}
+
+// 3. ADD THIS FUNCTION to extract lead info from conversation:
+async function extractLeadFromConversation(conversationId) {
   try {
-    console.log('💬 Chat POST request received');
-
-    const { userId } = auth();
+    // Get all messages from this conversation
+    const messages = await getConversationMessages(conversationId);
     
-    if (!userId) {
-      console.log('❌ No userId from auth');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (messages.length === 0) return null;
+
+    // Combine all messages to extract lead info
+    const fullConversation = messages.map(msg => msg.content).join(' ');
+    
+    // Extract email
+    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
+    const email = fullConversation.match(emailRegex)?.[0];
+    
+    if (!email) return null; // No lead if no email
+    
+    // Extract phone
+    const phoneRegex = /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/;
+    const phone = fullConversation.match(phoneRegex)?.[0];
+    
+    // Extract name (look for common patterns)
+    const namePatterns = [
+      /my name is (\w+(?:\s+\w+)?)/i,
+      /i'm (\w+(?:\s+\w+)?)/i,
+      /this is (\w+(?:\s+\w+)?)/i,
+      /call me (\w+(?:\s+\w+)?)/i,
+      /i am (\w+(?:\s+\w+)?)/i
+    ];
+    
+    let name = '';
+    for (const pattern of namePatterns) {
+      const match = fullConversation.match(pattern);
+      if (match) {
+        name = match[1].trim();
+        break;
+      }
     }
 
-    console.log('👤 Chat request from user:', userId);
-
-    const body = await req.json();
-    const { messages, conversationKey } = body;
-    
-    if (!messages || !Array.isArray(messages)) {
-      console.log('❌ Invalid messages format');
-      return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
-    }
-
-    // Get or create customer record for this Clerk user
-    let customer = await getCustomerByClerkId(userId);
-    
-    if (!customer) {
-      console.log('👤 Creating new customer for chat user:', userId);
-      
-      // Use Postgres-compatible customer data structure
-      const customerData = {
-        clerk_user_id: userId,
-        email: '', // Will be updated from Clerk user data if needed
-        business_name: 'My Business', // Default business name
-        plan: 'basic' // Using 'plan' field from Postgres schema
-      };
-      
-      customer = await createCustomer(customerData);
-      console.log('✅ Created customer:', customer.id);
-    }
-
-    console.log('💬 Processing chat for customer:', customer.id);
-
-    let conversation;
-    
-    // Get or create conversation
-    if (conversationKey) {
-      conversation = await getConversationByKey(conversationKey, customer.id);
-      console.log('🔍 Found existing conversation:', conversation?.id);
-    }
-    
-    if (!conversation) {
-      // FIXED: Match exact database schema - only use required fields
-      const conversationData = {
-        customer_id: customer.id,
-        conversation_key: conversationKey || `conv_${Date.now()}_${customer.id}`,
-        source: 'web'  // Required field in actual database
-      };
-      
-      conversation = await createConversation(conversationData);
-      console.log('✅ Created new conversation:', conversation.id);
-    }
-
-    // Get conversation history for context
-    const conversationHistory = await getConversationMessages(conversation.id);
-    console.log('📚 Conversation history:', conversationHistory.length, 'messages');
-
-    // Build messages for OpenAI
-    const systemMessage = {
-      role: 'system',
-      content: `You are a professional real estate AI assistant. You help potential clients with buying, selling, and real estate questions.
-
-Key Information:
-- You work for a professional real estate team
-- Always be helpful, professional, and knowledgeable
-- If someone seems ready to buy/sell or shows urgency, prioritize scheduling a consultation
-- Keep responses concise but informative
-- Ask qualifying questions to understand their needs better
-
-Guidelines:
-- For buying: Ask about budget, preferred areas, timeline, home preferences
-- For selling: Ask about property details, timeline, reason for selling
-- Always offer to schedule a consultation for serious inquiries
-- Be conversational but professional
-- If you don't know specific market data, recommend speaking with an agent`
+    return {
+      name: name || 'Lead',
+      email,
+      phone,
+      businessType: 'real estate' // You can modify this based on conversation context
     };
 
-    // Combine conversation history with new messages
-    const allMessages = [
-      systemMessage,
-      ...conversationHistory.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
-        content: msg.content
-      })),
-      ...messages
-    ];
+  } catch (error) {
+    console.error('Error extracting lead:', error);
+    return null;
+  }
+}
 
-    console.log('🤖 Calling OpenAI with', allMessages.length, 'messages');
+// 4. ADD THIS CODE in your existing POST function, right after you create the hot lead alert:
 
-    // Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: allMessages,
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-
-    const aiResponse = completion.choices[0].message.content;
-    console.log('✅ Got AI response:', aiResponse.substring(0, 100) + '...');
-
-    // Save user message (FIXED: use sender_type instead of sender)
-    const userMessage = messages[messages.length - 1];
-    if (userMessage && userMessage.role === 'user') {
-      await createMessage({
-        conversation_id: conversation.id,
-        sender_type: 'user',  // FIXED: changed from 'sender' to 'sender_type'
-        content: userMessage.content
-      });
-
-      console.log('💾 Saved user message');
-
-      // Check for hot lead indicators
-      const messageContent = userMessage.content.toLowerCase();
-      const matchedKeywords = HOT_LEAD_KEYWORDS.filter(keyword => 
-        messageContent.includes(keyword.toLowerCase())
-      );
-
+// FIND THIS SECTION in your existing code:
       if (matchedKeywords.length > 0) {
         await createHotLeadAlert({
           conversation_id: conversation.id,
@@ -170,124 +92,39 @@ Guidelines:
         });
         
         console.log('🔥 HOT LEAD DETECTED! Keywords:', matchedKeywords);
-      }
-    }
-
-    // Save AI response (FIXED: use sender_type instead of sender)
-    await createMessage({
-      conversation_id: conversation.id,
-      sender_type: 'assistant',  // FIXED: changed from 'sender' to 'sender_type'
-      content: aiResponse
-    });
-
-    console.log('💾 Saved AI response');
-
-    return NextResponse.json({
-      response: aiResponse,
-      conversationKey: conversation.conversation_key,
-      customerId: customer.id
-    });
-
-  } catch (error) {
-    console.error('❌ Chat API Error:', error);
-    
-    // More detailed error logging for debugging
-    if (error.code) {
-      console.error('Database Error Code:', error.code);
-    }
-    if (error.detail) {
-      console.error('Database Error Detail:', error.detail);
-    }
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to process chat message', 
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// Handle GET requests for testing and backwards compatibility
-export async function GET(req) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const action = searchParams.get('action');
-
-    console.log('💬 Chat GET request, action:', action);
-
-    if (action === 'test-connection') {
-      // Test OpenAI connection
-      try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: 'Test connection' }],
-          max_tokens: 10,
-        });
         
-        console.log('✅ OpenAI connection test successful');
-        return NextResponse.json({ 
-          connected: true, 
-          message: 'OpenAI Connected Successfully!' 
-        });
-      } catch (error) {
-        console.log('❌ OpenAI connection test failed:', error.message);
-        return NextResponse.json({ 
-          connected: false, 
-          error: error.message 
-        });
+        // 🆕 ADD THIS NEW EMAIL AUTOMATION CODE HERE:
+        try {
+          // Calculate lead score
+          const leadScore = calculateLeadScore(userMessage.content);
+          console.log('📊 Lead score calculated:', leadScore);
+          
+          // Extract lead information from conversation
+          const leadInfo = await extractLeadFromConversation(conversation.id);
+          
+          if (leadInfo && leadInfo.email) {
+            console.log('📧 Triggering email automation for:', leadInfo.email);
+            
+            // Trigger email automation
+            const emailResult = await emailService.handleChatbotLead({
+              name: leadInfo.name,
+              email: leadInfo.email,
+              phone: leadInfo.phone,
+              businessType: leadInfo.businessType,
+              message: userMessage.content,
+              userId: userId,
+              score: leadScore
+            });
+            
+            console.log('✅ Email automation result:', emailResult);
+          } else {
+            console.log('📧 No email found in conversation, skipping email automation');
+          }
+        } catch (emailError) {
+          console.error('❌ Email automation failed:', emailError);
+          // Don't break the chatbot if email fails
+        }
+        // 🆕 END OF NEW EMAIL AUTOMATION CODE
       }
-    }
 
-    if (action === 'conversations') {
-      // Get user-specific conversations
-      const { userId } = auth();
-      
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-
-      const customer = await getCustomerByClerkId(userId);
-      
-      if (!customer) {
-        return NextResponse.json({
-          conversations: [],
-          totalConversations: 0,
-          totalMessages: 0,
-          leadsGenerated: 0
-        });
-      }
-
-      const conversations = await getConversationsByCustomer(customer.id);
-      const stats = await getCustomerStats(customer.id);
-
-      console.log('📊 Returning conversations for customer:', customer.id);
-
-      return NextResponse.json({
-        conversations,
-        totalConversations: stats.total_conversations || 0,
-        totalMessages: stats.total_messages || 0,
-        leadsGenerated: stats.total_hot_leads || 0
-      });
-    }
-
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-
-  } catch (error) {
-    console.error('❌ Chat GET API Error:', error);
-    
-    // More detailed error logging for debugging
-    if (error.code) {
-      console.error('Database Error Code:', error.code);
-    }
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to process request', 
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      },
-      { status: 500 }
-    );
-  }
-}
+// That's it! The rest of your existing code stays exactly the same.
