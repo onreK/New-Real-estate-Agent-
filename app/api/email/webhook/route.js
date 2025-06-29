@@ -10,7 +10,7 @@ import {
   createEmailMessage,
   createHotLeadAlert,
   getEmailMessages
-} from '@/lib/database';
+} from '../../../lib/database';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
