@@ -140,6 +140,18 @@ export default function EmailDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <Link 
+                href="/email/settings"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                ⚙️ AI Settings
+              </Link>
+              <Link 
+                href="/email/setup"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                📧 Email Setup
+              </Link>
+              <Link 
                 href="/dashboard"
                 className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-gray-700 transition-colors"
               >
@@ -246,12 +258,32 @@ export default function EmailDashboard() {
                 <>
                   {/* Conversation Header */}
                   <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      {selectedConversation.customer_email}
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      Subject: {selectedConversation.subject}
-                    </p>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          {selectedConversation.customer_email}
+                        </h2>
+                        <p className="text-sm text-gray-600">
+                          Subject: {selectedConversation.subject}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          selectedConversation.status === 'active' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {selectedConversation.status}
+                        </span>
+                        {messages.some(msg => msg.sender === 'customer' && 
+                          ['urgent', 'asap', 'immediately', 'budget', 'ready'].some(keyword => 
+                            msg.content.toLowerCase().includes(keyword))) && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            🔥 Hot Lead
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Messages */}
@@ -261,18 +293,38 @@ export default function EmailDashboard() {
                         key={message.id}
                         className={`flex ${message.sender === 'customer' ? 'justify-start' : 'justify-end'}`}
                       >
-                        <div
-                          className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
-                            message.sender === 'customer'
-                              ? 'bg-gray-100 text-gray-900'
-                              : 'bg-blue-600 text-white'
-                          }`}
-                        >
-                          <div className="whitespace-pre-wrap">{message.content}</div>
-                          <div className={`text-xs mt-2 ${
-                            message.sender === 'customer' ? 'text-gray-500' : 'text-blue-100'
-                          }`}>
-                            {formatDate(message.created_at)}
+                        <div className="max-w-xs lg:max-w-md">
+                          {/* Message Header */}
+                          <div className={`text-xs mb-1 ${message.sender === 'customer' ? 'text-left' : 'text-right'}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              message.sender === 'customer' 
+                                ? 'bg-gray-200 text-gray-700'
+                                : message.sender === 'ai'
+                                ? 'bg-blue-200 text-blue-700'
+                                : 'bg-green-200 text-green-700'
+                            }`}>
+                              {message.sender === 'customer' ? '👤 Customer' : 
+                               message.sender === 'ai' ? '🤖 AI Assistant' : '👨‍💼 You'}
+                            </span>
+                          </div>
+                          
+                          {/* Message Content */}
+                          <div
+                            className={`px-4 py-3 rounded-lg ${
+                              message.sender === 'customer'
+                                ? 'bg-gray-100 text-gray-900'
+                                : message.sender === 'ai'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-green-600 text-white'
+                            }`}
+                          >
+                            <div className="whitespace-pre-wrap">{message.content}</div>
+                            <div className={`text-xs mt-2 ${
+                              message.sender === 'customer' ? 'text-gray-500' : 
+                              message.sender === 'ai' ? 'text-blue-100' : 'text-green-100'
+                            }`}>
+                              {formatDate(message.created_at)}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -281,25 +333,49 @@ export default function EmailDashboard() {
 
                   {/* Send Manual Email */}
                   <div className="p-6 border-t border-gray-100">
-                    <div className="flex space-x-4">
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-medium text-gray-700">Manual Response</h3>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500">AI Auto-Response:</span>
+                          <button className="relative inline-flex h-5 w-9 items-center rounded-full bg-green-500 transition-colors">
+                            <span className="inline-block h-3 w-3 transform rounded-full bg-white translate-x-5 transition-transform" />
+                          </button>
+                          <span className="text-xs text-green-600">On</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
                       <textarea
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type your email response..."
-                        className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        placeholder="Type your manual email response..."
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                         rows={3}
                       />
-                      <button
-                        onClick={sendManualEmail}
-                        disabled={sending || !newMessage.trim()}
-                        className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                      >
-                        {sending ? 'Sending...' : 'Send Email'}
-                      </button>
+                      
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-gray-500">
+                          This will send a manual email and temporarily disable AI for this conversation
+                        </p>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setNewMessage('')}
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                          >
+                            Clear
+                          </button>
+                          <button
+                            onClick={sendManualEmail}
+                            disabled={sending || !newMessage.trim()}
+                            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm"
+                          >
+                            {sending ? 'Sending...' : '📤 Send Manual Email'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      This will send a manual email response from your business email
-                    </p>
                   </div>
                 </>
               ) : (
