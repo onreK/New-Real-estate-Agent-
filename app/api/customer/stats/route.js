@@ -1,16 +1,12 @@
-// app/api/customer/send-email/route.js
+// app/api/customer/stats/route.js
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
-import { Resend } from 'resend';
 import { 
   getCustomerByClerkId, 
-  getEmailConversationsByCustomer,
-  createEmailMessage 
-} from '@/lib/database';
+  getCustomerStats 
+} from '../../../../lib/database';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-export async function POST(request) {
+export async function GET() {
   try {
     const user = await currentUser();
     
@@ -25,79 +21,26 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
-    const body = await request.json();
-    const { conversationId, message } = body;
+    // Get comprehensive stats for this customer (includes email stats)
+    const stats = await getCustomerStats(customer.id);
     
-    if (!conversationId || !message) {
-      return NextResponse.json({ 
-        error: 'Conversation ID and message are required' 
-      }, { status: 400 });
-    }
-
-    // Get all customer's email conversations to find the specific one
-    const conversations = await getEmailConversationsByCustomer(customer.id);
-    const conversation = conversations.find(conv => conv.id === parseInt(conversationId));
+    console.log(`✅ Retrieved stats for customer ${customer.business_name}:`, stats);
     
-    if (!conversation) {
-      return NextResponse.json({ 
-        error: 'Email conversation not found' 
-      }, { status: 404 });
-    }
-
-    // Convert message to HTML for email
-    const htmlMessage = message
-      .split('\n\n')
-      .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
-      .join('');
-
-    const emailHtml = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        ${htmlMessage}
-        <br>
-        <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 12px;">
-          Best regards,<br>
-          ${customer.business_name}
-        </p>
-      </div>
-    `;
-
-    // Send email via Resend
-    const emailResult = await resend.emails.send({
-      from: conversation.business_email || `noreply@${customer.business_name.toLowerCase().replace(/\s+/g, '')}.com`,
-      to: conversation.customer_email,
-      subject: `Re: ${conversation.subject}`,
-      text: message,
-      html: emailHtml,
-      headers: {
-        'References': conversation.thread_id,
-        'In-Reply-To': conversation.thread_id
+    return NextResponse.json({
+      success: true,
+      stats,
+      customer: {
+        id: customer.id,
+        business_name: customer.business_name,
+        email: customer.email,
+        plan: customer.plan
       }
     });
 
-    console.log('✅ Email sent via Resend:', emailResult);
-
-    // Save the sent message to database
-    const savedMessage = await createEmailMessage({
-      conversation_id: conversation.id,
-      sender: 'business',
-      content: message,
-      html_content: emailHtml,
-      message_id: emailResult.id
-    });
-
-    console.log('✅ Email message saved to database');
-
-    return NextResponse.json({
-      success: true,
-      message: 'Email sent successfully',
-      emailId: emailResult.id,
-      messageId: savedMessage.id
-    });
-
   } catch (error) {
-    console.error('❌ Error sending email:', error);
+    console.error('❌ Error getting customer stats:', error);
     return NextResponse.json({ 
-      error: 'Failed to send email',
+      error: 'Failed to get customer stats',
       details: error.message 
     }, { status: 500 });
   }
