@@ -13,9 +13,6 @@ import {
   getCustomerStats
 } from '../../../lib/database.js';
 
-// 🆕 ADD EMAIL AUTOMATION IMPORT
-import { emailService } from '../../../lib/email-automation-service.js';
-
 // Force dynamic rendering for authentication
 export const dynamic = 'force-dynamic';
 
@@ -37,80 +34,6 @@ const HOT_LEAD_KEYWORDS = [
   'schedule showing', 'book appointment', 'set up meeting', 'available today',
   'available tomorrow', 'free this week', 'when can we meet'
 ];
-
-// 🆕 EMAIL AUTOMATION FUNCTIONS
-function calculateLeadScore(message) {
-  const messageLC = message.toLowerCase();
-  let score = 20; // Base score
-
-  // Check for hot keywords (high intent)
-  const matchedKeywords = HOT_LEAD_KEYWORDS.filter(keyword => 
-    messageLC.includes(keyword.toLowerCase())
-  );
-  
-  if (matchedKeywords.length > 0) {
-    score += matchedKeywords.length * 25; // Each hot keyword adds 25 points
-  }
-
-  // Additional scoring
-  if (messageLC.length > 100) score += 10; // Detailed messages
-  if (messageLC.includes('?')) score += 5; // Questions show engagement
-  if (messageLC.includes('budget') || messageLC.includes('price')) score += 15;
-  if (messageLC.includes('timeline') || messageLC.includes('when')) score += 10;
-
-  return Math.max(0, Math.min(100, score)); // Keep between 0-100
-}
-
-async function extractLeadFromConversation(conversationId) {
-  try {
-    // Get all messages from this conversation
-    const messages = await getConversationMessages(conversationId);
-    
-    if (messages.length === 0) return null;
-
-    // Combine all messages to extract lead info
-    const fullConversation = messages.map(msg => msg.content).join(' ');
-    
-    // Extract email
-    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
-    const email = fullConversation.match(emailRegex)?.[0];
-    
-    if (!email) return null; // No lead if no email
-    
-    // Extract phone
-    const phoneRegex = /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/;
-    const phone = fullConversation.match(phoneRegex)?.[0];
-    
-    // Extract name (look for common patterns)
-    const namePatterns = [
-      /my name is (\w+(?:\s+\w+)?)/i,
-      /i'm (\w+(?:\s+\w+)?)/i,
-      /this is (\w+(?:\s+\w+)?)/i,
-      /call me (\w+(?:\s+\w+)?)/i,
-      /i am (\w+(?:\s+\w+)?)/i
-    ];
-    
-    let name = '';
-    for (const pattern of namePatterns) {
-      const match = fullConversation.match(pattern);
-      if (match) {
-        name = match[1].trim();
-        break;
-      }
-    }
-
-    return {
-      name: name || 'Lead',
-      email,
-      phone,
-      businessType: 'real estate' // You can modify this based on conversation context
-    };
-
-  } catch (error) {
-    console.error('Error extracting lead:', error);
-    return null;
-  }
-}
 
 export async function POST(req) {
   try {
@@ -247,38 +170,6 @@ Guidelines:
         });
         
         console.log('🔥 HOT LEAD DETECTED! Keywords:', matchedKeywords);
-        
-        // 🆕 EMAIL AUTOMATION CODE
-        try {
-          // Calculate lead score
-          const leadScore = calculateLeadScore(userMessage.content);
-          console.log('📊 Lead score calculated:', leadScore);
-          
-          // Extract lead information from conversation
-          const leadInfo = await extractLeadFromConversation(conversation.id);
-          
-          if (leadInfo && leadInfo.email) {
-            console.log('📧 Triggering email automation for:', leadInfo.email);
-            
-            // Trigger email automation
-            const emailResult = await emailService.handleChatbotLead({
-              name: leadInfo.name,
-              email: leadInfo.email,
-              phone: leadInfo.phone,
-              businessType: leadInfo.businessType,
-              message: userMessage.content,
-              userId: userId,
-              score: leadScore
-            });
-            
-            console.log('✅ Email automation result:', emailResult);
-          } else {
-            console.log('📧 No email found in conversation, skipping email automation');
-          }
-        } catch (emailError) {
-          console.error('❌ Email automation failed:', emailError);
-          // Don't break the chatbot if email fails
-        }
       }
     }
 
