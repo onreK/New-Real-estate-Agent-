@@ -1,12 +1,12 @@
-// app/api/customer/email-conversations/route.js
+// app/api/customer/email-messages/route.js
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
 import { 
   getCustomerByClerkId, 
-  getEmailConversationsByCustomer 
-} from '@/lib/database';
+  getEmailMessages 
+} from '../../../../lib/database';
 
-export async function GET() {
+export async function GET(request) {
   try {
     const user = await currentUser();
     
@@ -21,25 +21,29 @@ export async function GET() {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
-    // Get email conversations for this customer
-    const conversations = await getEmailConversationsByCustomer(customer.id);
+    // Get conversation ID from query parameters
+    const { searchParams } = new URL(request.url);
+    const conversationId = searchParams.get('conversationId');
     
-    console.log(`✅ Retrieved ${conversations.length} email conversations for customer ${customer.business_name}`);
+    if (!conversationId) {
+      return NextResponse.json({ error: 'Conversation ID is required' }, { status: 400 });
+    }
+
+    // Get messages for this email conversation
+    const messages = await getEmailMessages(parseInt(conversationId));
+    
+    console.log(`✅ Retrieved ${messages.length} email messages for conversation ${conversationId}`);
     
     return NextResponse.json({
       success: true,
-      conversations,
-      customer: {
-        id: customer.id,
-        business_name: customer.business_name,
-        email: customer.email
-      }
+      messages,
+      conversationId: parseInt(conversationId)
     });
 
   } catch (error) {
-    console.error('❌ Error getting email conversations:', error);
+    console.error('❌ Error getting email messages:', error);
     return NextResponse.json({ 
-      error: 'Failed to get email conversations',
+      error: 'Failed to get email messages',
       details: error.message 
     }, { status: 500 });
   }
