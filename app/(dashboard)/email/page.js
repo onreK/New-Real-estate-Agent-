@@ -140,6 +140,12 @@ export default function EmailDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <Link 
+                href="/email/templates"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                📝 Templates
+              </Link>
+              <Link 
                 href="/email/settings"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
