@@ -9,7 +9,7 @@ export async function POST() {
     console.log('🔧 Starting database updates...');
 
     // Add missing columns to email_settings table
-    const updates = [
+    const columnUpdates = [
       'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS tone VARCHAR(50) DEFAULT \'professional\'',
       'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS expertise VARCHAR(255)',
       'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS specialties VARCHAR(255)',
@@ -20,34 +20,56 @@ export async function POST() {
       'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS require_approval BOOLEAN DEFAULT false'
     ];
 
-    for (const update of updates) {
+    for (const update of columnUpdates) {
       try {
         await client.query(update);
-        console.log('✅ Database update successful:', update.split(' ')[5]); // Column name
+        console.log('✅ Column update successful:', update.split(' ')[5]);
       } catch (error) {
         if (error.message.includes('already exists')) {
           console.log('ℹ️ Column already exists:', update.split(' ')[5]);
         } else {
-          console.error('❌ Database update failed:', error);
+          console.error('❌ Column update failed:', error);
         }
       }
     }
 
-    // Verify table structure
-    const tableInfo = await client.query(`
-      SELECT column_name, data_type, is_nullable, column_default 
-      FROM information_schema.columns 
-      WHERE table_name = 'email_settings' 
-      ORDER BY ordinal_position
-    `);
+    // Create email_templates table
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS email_templates (
+          id SERIAL PRIMARY KEY,
+          customer_id INTEGER REFERENCES customers(id),
+          name VARCHAR(255) NOT NULL,
+          category VARCHAR(50) DEFAULT 'custom',
+          subject VARCHAR(500),
+          content TEXT NOT NULL,
+          variables TEXT[],
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Email templates table created');
+    } catch (error) {
+      console.error('❌ Email templates table creation failed:', error);
+    }
 
-    console.log('📊 Email settings table structure:', tableInfo.rows);
+    // Verify all tables exist
+    const tablesQuery = `
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name
+    `;
+    const tablesResult = await client.query(tablesQuery);
+    
+    console.log('📊 All database tables:', tablesResult.rows.map(r => r.table_name));
 
     return NextResponse.json({
       success: true,
       message: 'Database updated successfully',
-      columns: tableInfo.rows,
-      updatesRun: updates.length
+      tables: tablesResult.rows.map(r => r.table_name),
+      updatesRun: columnUpdates.length + 1
     });
 
   } catch (error) {
