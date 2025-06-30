@@ -242,28 +242,37 @@ Looking forward to meeting you!
     resetForm();
   };
 
+  // Fixed renderPreview function
   const renderPreview = () => {
     if (!formData.content) return 'No content to preview';
     
-    let preview = formData.content;
-    const commonVars = {
-      customer_name: 'John Smith',
-      business_name: 'IntelliHub AI',
-      agent_name: 'Sarah Johnson',
-      phone_number: '(555) 123-4567',
-      appointment_date: 'Friday, July 5th',
-      appointment_time: '2:00 PM',
-      meeting_location: 'Our Office',
-      duration: '30',
-      email_signature: 'Sarah Johnson - Senior AI Consultant - IntelliHub AI'
-    };
+    try {
+      let preview = formData.content;
+      
+      // Define sample variables with proper syntax
+      const sampleVariables = {
+        'customer_name': 'John Smith',
+        'business_name': 'IntelliHub AI',
+        'agent_name': 'Sarah Johnson',
+        'phone_number': '(555) 123-4567',
+        'appointment_date': 'Friday, July 5th',
+        'appointment_time': '2:00 PM',
+        'meeting_location': 'Our Office',
+        'duration': '30',
+        'email_signature': 'Sarah Johnson - Senior AI Consultant - IntelliHub AI'
+      };
 
-    Object.entries(commonVars).forEach(([key, value]) => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      preview = preview.replace(regex, value);
-    });
+      // Replace variables in the preview
+      Object.entries(sampleVariables).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        preview = preview.replace(regex, value);
+      });
 
-    return preview;
+      return preview;
+    } catch (error) {
+      console.error('Error rendering preview:', error);
+      return 'Error rendering preview. Please check your template content.';
+    }
   };
 
   if (loading) {
@@ -305,7 +314,7 @@ Looking forward to meeting you!
         </Button>
       </div>
 
-      {templates.length === 0 && (
+      {templates.length === 0 && !isEditing && (
         <Card className="mb-6 border-blue-200 bg-blue-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -350,11 +359,11 @@ Looking forward to meeting you!
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <h4 className="font-medium">{template.name}</h4>
                           <p className="text-sm text-gray-600 truncate">{template.subject}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 ml-2">
                           <Button
                             size="sm"
                             variant="outline"
@@ -384,7 +393,7 @@ Looking forward to meeting you!
             );
           })}
 
-          {templates.length === 0 && (
+          {templates.length === 0 && !isEditing && (
             <Card>
               <CardContent className="p-8 text-center">
                 <Mail className="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -468,7 +477,7 @@ Looking forward to meeting you!
                     <h4 className="font-medium mb-2">Preview</h4>
                     <div className="p-4 bg-gray-50 rounded border">
                       <div className="mb-4 pb-2 border-b">
-                        <strong>Subject:</strong> {formData.subject}
+                        <strong>Subject:</strong> {formData.subject || 'No subject'}
                       </div>
                       <div className="whitespace-pre-wrap font-sans text-sm">
                         {renderPreview()}
@@ -481,7 +490,7 @@ Looking forward to meeting you!
                   <Button variant="outline" onClick={cancelEditing}>
                     Cancel
                   </Button>
-                  <Button onClick={handleSave}>
+                  <Button onClick={handleSave} disabled={!formData.name || !formData.category || !formData.subject || !formData.content}>
                     <Save className="w-4 h-4 mr-2" />
                     {isCreating ? 'Create Template' : 'Save Changes'}
                   </Button>
