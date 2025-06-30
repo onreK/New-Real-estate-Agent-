@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2, Save, ArrowLeft, Mail, Sparkles, Eye } from 'lucide-react';
 
 export default function EmailTemplatesManager() {
@@ -248,15 +247,15 @@ Looking forward to meeting you!
     
     let preview = formData.content;
     const commonVars = {
-      'customer_name': 'John Smith',
-      'business_name': 'IntelliHub AI',
-      'agent_name': 'Sarah Johnson',
-      'phone_number': '(555) 123-4567',
-      'appointment_date': 'Friday, July 5th',
-      'appointment_time': '2:00 PM',
-      'meeting_location': 'Our Office',
-      'duration': '30',
-      'email_signature': 'Sarah Johnson - Senior AI Consultant - IntelliHub AI'
+      customer_name: 'John Smith',
+      business_name: 'IntelliHub AI',
+      agent_name: 'Sarah Johnson',
+      phone_number: '(555) 123-4567',
+      appointment_date: 'Friday, July 5th',
+      appointment_time: '2:00 PM',
+      meeting_location: 'Our Office',
+      duration: '30',
+      email_signature: 'Sarah Johnson - Senior AI Consultant - IntelliHub AI'
     };
 
     Object.entries(commonVars).forEach(([key, value]) => {
@@ -426,18 +425,18 @@ Looking forward to meeting you!
 
                     <div>
                       <Label htmlFor="category">Category</Label>
-                      <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map(cat => (
-                            <SelectItem key={cat.value} value={cat.value}>
-                              {cat.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => setFormData({...formData, category: e.target.value})}
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">Select category</option>
+                        {categories.map(cat => (
+                          <option key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
