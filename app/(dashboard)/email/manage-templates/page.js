@@ -28,13 +28,13 @@ export default function EmailTemplatesManager() {
   });
 
   const categories = [
-    { value: 'first_contact', label: '👋 First Contact', description: 'Welcome messages for new leads' },
-    { value: 'follow_up', label: '📞 Follow Up', description: 'Follow-up sequences' },
-    { value: 'appointment', label: '📅 Appointment', description: 'Scheduling and confirmations' },
-    { value: 'pricing', label: '💰 Pricing', description: 'Pricing and budget discussions' },
-    { value: 'hot_lead', label: '🔥 Hot Lead Response', description: 'Urgent customer responses' },
-    { value: 'thank_you', label: '🙏 Thank You', description: 'Thank you messages' },
-    { value: 'custom', label: '📝 Custom', description: 'Custom templates' }
+    { value: 'first_contact', label: '👋 First Contact' },
+    { value: 'follow_up', label: '📞 Follow Up' },
+    { value: 'appointment', label: '📅 Appointment' },
+    { value: 'pricing', label: '💰 Pricing' },
+    { value: 'hot_lead', label: '🔥 Hot Lead Response' },
+    { value: 'thank_you', label: '🙏 Thank You' },
+    { value: 'custom', label: '📝 Custom' }
   ];
 
   const defaultTemplates = [
@@ -46,7 +46,7 @@ export default function EmailTemplatesManager() {
 
 Thank you for reaching out to {{business_name}}! I am {{agent_name}}, and I am excited to help you with your inquiry.
 
-I received your message and wanted to personally reach out to let you know that I will be handling your request. Based on what you have shared, I believe I can provide exactly what you are looking for.
+I received your message and wanted to personally reach out to let you know that I will be handling your request.
 
 Here is what happens next:
 - I will review your requirements in detail
@@ -72,12 +72,6 @@ I hope this message finds you well! I wanted to follow up on our previous conver
 
 Have you had a chance to review everything? I am here to answer any questions you might have.
 
-Sometimes people like to discuss:
-- Pricing and payment options
-- Timeline for getting started
-- Specific features or customizations
-- How our solution compares to others
-
 I am available for a quick call this week if that would be helpful. What day works best for you?
 
 Looking forward to hearing from you!
@@ -85,39 +79,6 @@ Looking forward to hearing from you!
 {{agent_name}}
 {{business_name}}`,
       variables: ['customer_name', 'business_name', 'agent_name']
-    },
-    {
-      name: 'Appointment Confirmation',
-      category: 'appointment',
-      subject: 'Confirmed: Your appointment with {{business_name}} on {{appointment_date}}',
-      content: `Hi {{customer_name}},
-
-This confirms your appointment with {{business_name}}:
-
-Date: {{appointment_date}}
-Time: {{appointment_time}}
-Location: {{meeting_location}}
-With: {{agent_name}}
-
-What to expect:
-- We will review your specific needs
-- I will show you how our solutions work
-- We will discuss pricing and next steps
-- Duration: approximately {{duration}} minutes
-
-To prepare for our meeting, please bring:
-- Any relevant documents or information
-- List of your key requirements
-- Any questions you would like to discuss
-
-If you need to reschedule, please let me know at least 24 hours in advance.
-
-Looking forward to meeting you!
-
-{{agent_name}}
-{{business_name}}
-{{phone_number}}`,
-      variables: ['customer_name', 'business_name', 'appointment_date', 'appointment_time', 'meeting_location', 'agent_name', 'duration', 'phone_number']
     }
   ];
 
@@ -242,37 +203,19 @@ Looking forward to meeting you!
     resetForm();
   };
 
-  // Fixed renderPreview function
-  const renderPreview = () => {
+  // Simplified preview function
+  const getPreviewText = () => {
     if (!formData.content) return 'No content to preview';
     
-    try {
-      let preview = formData.content;
-      
-      // Define sample variables with proper syntax
-      const sampleVariables = {
-        'customer_name': 'John Smith',
-        'business_name': 'IntelliHub AI',
-        'agent_name': 'Sarah Johnson',
-        'phone_number': '(555) 123-4567',
-        'appointment_date': 'Friday, July 5th',
-        'appointment_time': '2:00 PM',
-        'meeting_location': 'Our Office',
-        'duration': '30',
-        'email_signature': 'Sarah Johnson - Senior AI Consultant - IntelliHub AI'
-      };
-
-      // Replace variables in the preview
-      Object.entries(sampleVariables).forEach(([key, value]) => {
-        const regex = new RegExp(`{{${key}}}`, 'g');
-        preview = preview.replace(regex, value);
-      });
-
-      return preview;
-    } catch (error) {
-      console.error('Error rendering preview:', error);
-      return 'Error rendering preview. Please check your template content.';
-    }
+    let text = formData.content;
+    text = text.replace(/{{customer_name}}/g, 'John Smith');
+    text = text.replace(/{{business_name}}/g, 'IntelliHub AI');
+    text = text.replace(/{{agent_name}}/g, 'Sarah Johnson');
+    text = text.replace(/{{phone_number}}/g, '(555) 123-4567');
+    text = text.replace(/{{appointment_date}}/g, 'Friday, July 5th');
+    text = text.replace(/{{appointment_time}}/g, '2:00 PM');
+    
+    return text;
   };
 
   if (loading) {
@@ -322,7 +265,7 @@ Looking forward to meeting you!
               Get Started with Default Templates
             </CardTitle>
             <CardDescription>
-              Install 3 professional email templates to get started immediately
+              Install 2 professional email templates to get started immediately
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -337,63 +280,54 @@ Looking forward to meeting you!
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Your Templates ({templates.length})</h2>
           
-          {categories.map(category => {
-            const categoryTemplates = templates.filter(t => t.category === category.value);
-            if (categoryTemplates.length === 0) return null;
-
-            return (
-              <div key={category.value} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-medium text-sm">{category.label}</h3>
-                  <Badge variant="outline">{categoryTemplates.length}</Badge>
-                </div>
-                
-                {categoryTemplates.map(template => (
-                  <Card 
-                    key={template.id} 
-                    className={`cursor-pointer transition-colors ${
-                      selectedTemplate?.id === template.id 
-                        ? 'ring-2 ring-blue-500' : ''
-                    }`}
-                    onClick={() => setSelectedTemplate(template)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium">{template.name}</h4>
-                          <p className="text-sm text-gray-600 truncate">{template.subject}</p>
-                        </div>
-                        <div className="flex items-center gap-2 ml-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditing(template);
-                            }}
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(template.id);
-                            }}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
+          {templates.length > 0 ? (
+            <div className="space-y-2">
+              {templates.map(template => (
+                <Card 
+                  key={template.id} 
+                  className={`cursor-pointer transition-colors ${
+                    selectedTemplate?.id === template.id 
+                      ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                  onClick={() => setSelectedTemplate(template)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium">{template.name}</h4>
+                        <p className="text-sm text-gray-600 truncate">{template.subject}</p>
+                        <Badge variant="outline" className="mt-1">
+                          {categories.find(c => c.value === template.category)?.label || template.category}
+                        </Badge>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            );
-          })}
-
-          {templates.length === 0 && !isEditing && (
+                      <div className="flex items-center gap-2 ml-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditing(template);
+                          }}
+                        >
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(template.id);
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
             <Card>
               <CardContent className="p-8 text-center">
                 <Mail className="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -480,7 +414,7 @@ Looking forward to meeting you!
                         <strong>Subject:</strong> {formData.subject || 'No subject'}
                       </div>
                       <div className="whitespace-pre-wrap font-sans text-sm">
-                        {renderPreview()}
+                        {getPreviewText()}
                       </div>
                     </div>
                   </div>
