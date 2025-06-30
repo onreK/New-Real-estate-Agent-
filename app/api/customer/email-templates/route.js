@@ -1,177 +1,139 @@
-// app/api/customer/email-templates/route.js
-import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
-import { 
-  getCustomerByClerkId, 
-  getDbClient 
-} from '../../../../lib/database';
+import { auth } from '@clerk/nextjs';
+import { query } from '@/lib/database.js';
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const user = await currentUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId } = auth();
+    if (!userId) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
-    }
+    const { searchParams } = new URL(request.url);
+    const templateId = searchParams.get('id');
 
-    // Get templates for this customer
-    const client = await getDbClient().connect();
-    try {
-      const query = 'SELECT * FROM email_templates WHERE customer_id = $1 ORDER BY category, name';
-      const result = await client.query(query, [customer.id]);
+    if (templateId) {
+      const result = await query(
+        'SELECT * FROM email_templates WHERE id = $1 AND user_id = $2',
+        [templateId, userId]
+      );
       
-      console.log(`✅ Retrieved ${result.rows.length} email templates for customer: ${customer.business_name}`);
-      
-      return NextResponse.json({
-        success: true,
-        templates: result.rows,
-        customer: {
-          id: customer.id,
-          business_name: customer.business_name,
-          email: customer.email
-        }
-      });
-    } finally {
-      client.release();
-    }
+      if (result.rows.length === 0) {
+        return Response.json({ error: 'Template not found' }, { status: 404 });
+      }
 
+      return Response.json({ template: result.rows[0] });
+    } else {
+      const result = await query(
+        'SELECT * FROM email_templates WHERE user_id = $1 ORDER BY category, name',
+        [userId]
+      );
+
+      return Response.json({ templates: result.rows });
+    }
   } catch (error) {
-    console.error('❌ Error getting email templates:', error);
-    return NextResponse.json({ 
-      error: 'Failed to get email templates',
-      details: error.message 
-    }, { status: 500 });
+    console.error('Error fetching email templates:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
-    const user = await currentUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId } = auth();
+    if (!userId) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
-    }
-
-    const body = await request.json();
-    const { id, name, category, subject, content, variables } = body;
+    const { name, category, subject, content, variables } = await request.json();
 
     if (!name || !category || !subject || !content) {
-      return NextResponse.json({ 
-        error: 'Name, category, subject, and content are required' 
-      }, { status: 400 });
+      return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const client = await getDbClient().connect();
-    try {
-      let query, values, result;
-      
-      if (id) {
-        // Update existing template
-        query = `
-          UPDATE email_templates 
-          SET name = $1, category = $2, subject = $3, content = $4, variables = $5, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $6 AND customer_id = $7
-          RETURNING *
-        `;
-        values = [name, category, subject, content, variables || [], id, customer.id];
-      } else {
-        // Create new template
-        query = `
-          INSERT INTO email_templates (customer_id, name, category, subject, content, variables)
-          VALUES ($1, $2, $3, $4, $5, $6)
-          RETURNING *
-        `;
-        values = [customer.id, name, category, subject, content, variables || []];
-      }
-      
-      result = await client.query(query, values);
-      
-      console.log('✅ Email template saved for customer:', customer.business_name);
-      
-      return NextResponse.json({
-        success: true,
-        template: result.rows[0],
-        message: id ? 'Template updated successfully' : 'Template created successfully'
-      });
+    const result = await query(
+      `INSERT INTO email_templates (user_id, name, category, subject, content, variables, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, NOW()) 
+       RETURNING *`,
+      [userId, name, category, subject, content, variables || '[]']
+    );
 
-    } finally {
-      client.release();
-    }
-
+    return Response.json({ 
+      message: 'Template created successfully',
+      template: result.rows[0]
+    });
   } catch (error) {
-    console.error('❌ Error saving email template:', error);
-    return NextResponse.json({ 
-      error: 'Failed to save email template',
-      details: error.message 
-    }, { status: 500 });
+    console.error('Error creating email template:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(request) {
+  try {
+    const { userId } = auth();
+    if (!userId) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const templateId = searchParams.get('id');
+
+    if (!templateId) {
+      return Response.json({ error: 'Template ID required' }, { status: 400 });
+    }
+
+    const { name, category, subject, content, variables } = await request.json();
+
+    if (!name || !category || !subject || !content) {
+      return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const result = await query(
+      `UPDATE email_templates 
+       SET name = $1, category = $2, subject = $3, content = $4, variables = $5, updated_at = NOW()
+       WHERE id = $6 AND user_id = $7 
+       RETURNING *`,
+      [name, category, subject, content, variables || '[]', templateId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return Response.json({ error: 'Template not found or unauthorized' }, { status: 404 });
+    }
+
+    return Response.json({ 
+      message: 'Template updated successfully',
+      template: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating email template:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function DELETE(request) {
   try {
-    const user = await currentUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId } = auth();
+    if (!userId) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
-    }
-
-    const body = await request.json();
-    const { templateId } = body;
+    const { searchParams } = new URL(request.url);
+    const templateId = searchParams.get('id');
 
     if (!templateId) {
-      return NextResponse.json({ 
-        error: 'Template ID is required' 
-      }, { status: 400 });
+      return Response.json({ error: 'Template ID required' }, { status: 400 });
     }
 
-    const client = await getDbClient().connect();
-    try {
-      const query = 'DELETE FROM email_templates WHERE id = $1 AND customer_id = $2 RETURNING *';
-      const result = await client.query(query, [templateId, customer.id]);
-      
-      if (result.rows.length === 0) {
-        return NextResponse.json({ 
-          error: 'Template not found or unauthorized' 
-        }, { status: 404 });
-      }
-      
-      console.log('✅ Email template deleted for customer:', customer.business_name);
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Template deleted successfully'
-      });
+    const result = await query(
+      'DELETE FROM email_templates WHERE id = $1 AND user_id = $2 RETURNING *',
+      [templateId, userId]
+    );
 
-    } finally {
-      client.release();
+    if (result.rows.length === 0) {
+      return Response.json({ error: 'Template not found or unauthorized' }, { status: 404 });
     }
 
+    return Response.json({ message: 'Template deleted successfully' });
   } catch (error) {
-    console.error('❌ Error deleting email template:', error);
-    return NextResponse.json({ 
-      error: 'Failed to delete email template',
-      details: error.message 
-    }, { status: 500 });
+    console.error('Error deleting email template:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
