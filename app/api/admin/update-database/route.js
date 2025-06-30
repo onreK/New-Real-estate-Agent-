@@ -1,92 +1,136 @@
-// app/api/admin/update-database/route.js
-import { NextResponse } from 'next/server';
-import { getDbClient } from '../../../../lib/database';
+import { query } from '@/lib/database.js';
 
 export async function POST() {
-  const client = await getDbClient().connect();
-  
   try {
-    console.log('🔧 Starting database updates...');
+    console.log('Starting database update...');
 
-    // Add missing columns to email_settings table
-    const columnUpdates = [
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS tone VARCHAR(50) DEFAULT \'professional\'',
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS expertise VARCHAR(255)',
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS specialties VARCHAR(255)',
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS response_style TEXT',
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS alert_hot_leads BOOLEAN DEFAULT true',
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS include_availability BOOLEAN DEFAULT true',
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS ask_qualifying_questions BOOLEAN DEFAULT true',
-      'ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS require_approval BOOLEAN DEFAULT false'
+    const emailSettingsUpdates = [
+      { name: 'ai_enabled', type: 'BOOLEAN DEFAULT false' },
+      { name: 'ai_model', type: 'VARCHAR(100) DEFAULT \'gpt-4o-mini\'' },
+      { name: 'ai_temperature', type: 'DECIMAL(3,2) DEFAULT 0.7' },
+      { name: 'ai_system_prompt', type: 'TEXT' },
     ];
 
-    for (const update of columnUpdates) {
+    console.log('Adding missing columns to email_settings...');
+    for (const column of emailSettingsUpdates) {
       try {
-        await client.query(update);
-        console.log('✅ Column update successful:', update.split(' ')[5]);
+        await query(`ALTER TABLE email_settings ADD COLUMN IF NOT EXISTS ${column.name} ${column.type}`);
+        console.log(`✅ Added column ${column.name} to email_settings`);
       } catch (error) {
-        if (error.message.includes('already exists')) {
-          console.log('ℹ️ Column already exists:', update.split(' ')[5]);
-        } else {
-          console.error('❌ Column update failed:', error);
-        }
+        console.log(`⚠️ Column ${column.name} might already exist in email_settings:`, error.message);
       }
     }
 
-    // Create email_templates table
-    try {
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS email_templates (
-          id SERIAL PRIMARY KEY,
-          customer_id INTEGER REFERENCES customers(id),
-          name VARCHAR(255) NOT NULL,
-          category VARCHAR(50) DEFAULT 'custom',
-          subject VARCHAR(500),
-          content TEXT NOT NULL,
-          variables TEXT[],
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('✅ Email templates table created');
-    } catch (error) {
-      console.error('❌ Email templates table creation failed:', error);
+    console.log('Creating email_templates table...');
+    await query(`
+      CREATE TABLE IF NOT EXISTS email_templates (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        subject VARCHAR(500) NOT NULL,
+        content TEXT NOT NULL,
+        variables TEXT DEFAULT '[]',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ email_templates table created/verified');
+
+    console.log('Creating email_conversations table...');
+    await query(`
+      CREATE TABLE IF NOT EXISTS email_conversations (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL,
+        customer_email VARCHAR(255) NOT NULL,
+        customer_name VARCHAR(255),
+        subject VARCHAR(500),
+        status VARCHAR(50) DEFAULT 'active',
+        last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ email_conversations table created/verified');
+
+    console.log('Creating email_messages table...');
+    await query(`
+      CREATE TABLE IF NOT EXISTS email_messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER REFERENCES email_conversations(id),
+        sender_type VARCHAR(50) NOT NULL,
+        subject VARCHAR(500),
+        content TEXT NOT NULL,
+        content_type VARCHAR(50) DEFAULT 'text/plain',
+        message_id VARCHAR(255),
+        in_reply_to VARCHAR(255),
+        attachments JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ email_messages table created/verified');
+
+    console.log('Creating indexes...');
+    const indexes = [
+      'CREATE INDEX IF NOT EXISTS idx_email_templates_user_id ON email_templates(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_email_templates_category ON email_templates(category)',
+      'CREATE INDEX IF NOT EXISTS idx_email_conversations_user_id ON email_conversations(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_email_messages_conversation_id ON email_messages(conversation_id)'
+    ];
+
+    for (const indexQuery of indexes) {
+      try {
+        await query(indexQuery);
+        console.log('✅ Index created/verified');
+      } catch (error) {
+        console.log('⚠️ Index might already exist:', error.message);
+      }
     }
 
-    // Verify all tables exist
-    const tablesQuery = `
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      ORDER BY table_name
-    `;
-    const tablesResult = await client.query(tablesQuery);
-    
-    console.log('📊 All database tables:', tablesResult.rows.map(r => r.table_name));
+    console.log('Verifying table existence...');
+    const tablesToCheck = [
+      'customers',
+      'conversations', 
+      'messages',
+      'hot_leads',
+      'sms_conversations',
+      'sms_messages',
+      'email_settings',
+      'email_conversations',
+      'email_messages',
+      'email_templates',
+      'ai_configs',
+      'business_profiles'
+    ];
 
-    return NextResponse.json({
-      success: true,
+    const existingTables = [];
+    for (const tableName of tablesToCheck) {
+      try {
+        const result = await query(`SELECT 1 FROM ${tableName} LIMIT 1`);
+        existingTables.push(tableName);
+        console.log(`✅ Table ${tableName} exists and accessible`);
+      } catch (error) {
+        console.log(`❌ Table ${tableName} missing or inaccessible:`, error.message);
+      }
+    }
+
+    console.log('Database update completed successfully!');
+
+    return Response.json({ 
+      success: true, 
       message: 'Database updated successfully',
-      tables: tablesResult.rows.map(r => r.table_name),
-      updatesRun: columnUpdates.length + 1
+      details: {
+        tablesVerified: existingTables.length,
+        totalTables: tablesToCheck.length,
+        existingTables
+      }
     });
 
   } catch (error) {
-    console.error('❌ Database update error:', error);
-    return NextResponse.json({
-      success: false,
+    console.error('Database update failed:', error);
+    return Response.json({ 
+      success: false, 
       error: 'Database update failed',
-      details: error.message
+      details: error.message 
     }, { status: 500 });
-  } finally {
-    client.release();
   }
-}
-
-export async function GET() {
-  return NextResponse.json({
-    message: 'Database update endpoint - use POST to run updates',
-    timestamp: new Date().toISOString()
-  });
 }
