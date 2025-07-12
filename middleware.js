@@ -10,7 +10,9 @@ export default authMiddleware({
     "/sign-up(.*)",
     "/api/webhooks/clerk",
     "/api/contact",
-    "/api/smtp/test"
+    "/api/smtp/test",
+    "/api/facebook/webhook",  // Facebook Messenger webhook
+    "/api/sms/webhook"        // SMS webhook (if not already working)
   ],
   
   // Routes that are completely ignored by Clerk (no auth checks)
