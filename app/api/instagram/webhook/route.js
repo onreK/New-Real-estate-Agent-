@@ -2,7 +2,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import OpenAI from 'openai';
-import { getInstagramConfigByPageId } from '../configure/route.js';
+import { getInstagramConfigByPageId } from '../../../../lib/instagram-config.js';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 
 // Initialize OpenAI
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -11,19 +14,24 @@ const openai = process.env.OPENAI_API_KEY ? new OpenAI({
 
 // Webhook verification for Instagram
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const mode = searchParams.get('hub.mode');
-  const token = searchParams.get('hub.verify_token');
-  const challenge = searchParams.get('hub.challenge');
+  try {
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get('hub.mode');
+    const token = searchParams.get('hub.verify_token');
+    const challenge = searchParams.get('hub.challenge');
 
-  console.log('📸 Instagram webhook verification:', { mode, token });
+    console.log('📸 Instagram webhook verification:', { mode, token });
 
-  if (mode === 'subscribe' && token === 'verify_bizzy_bot_ai') {
-    console.log('✅ Instagram webhook verified');
-    return new Response(challenge, { status: 200 });
-  } else {
-    console.log('❌ Instagram webhook verification failed');
-    return new Response('Forbidden', { status: 403 });
+    if (mode === 'subscribe' && token === 'verify_bizzy_bot_ai') {
+      console.log('✅ Instagram webhook verified');
+      return new Response(challenge, { status: 200 });
+    } else {
+      console.log('❌ Instagram webhook verification failed');
+      return new Response('Forbidden', { status: 403 });
+    }
+  } catch (error) {
+    console.error('❌ Instagram webhook verification error:', error);
+    return new Response('Internal Server Error', { status: 500 });
   }
 }
 
@@ -32,13 +40,18 @@ export async function POST(request) {
   try {
     console.log('📸 Instagram webhook received');
 
-    // Verify webhook signature
-    const signature = request.headers.get('x-hub-signature-256');
+    // Get the body as text for signature verification
     const body = await request.text();
     
-    if (!verifySignature(body, signature)) {
-      console.log('❌ Invalid Instagram webhook signature');
-      return new Response('Unauthorized', { status: 401 });
+    // Verify webhook signature if Instagram app secret is configured
+    if (process.env.INSTAGRAM_APP_SECRET) {
+      const signature = request.headers.get('x-hub-signature-256');
+      if (!verifySignature(body, signature)) {
+        console.log('❌ Invalid Instagram webhook signature');
+        return new Response('Unauthorized', { status: 401 });
+      }
+    } else {
+      console.log('⚠️ Instagram app secret not configured, skipping signature verification');
     }
 
     const webhookData = JSON.parse(body);
@@ -95,9 +108,13 @@ async function processInstagramMessage(messagingEvent) {
     }
 
     // Send response back to Instagram
-    await sendInstagramMessage(sender.id, aiResponse, pageConfig.accessToken);
-
-    console.log('✅ Instagram message processed successfully');
+    const sendResult = await sendInstagramMessage(sender.id, aiResponse, pageConfig.accessToken);
+    
+    if (sendResult) {
+      console.log('✅ Instagram message processed successfully');
+    } else {
+      console.log('❌ Failed to send Instagram response');
+    }
 
   } catch (error) {
     console.error('❌ Error processing Instagram message:', error);
@@ -176,13 +193,18 @@ function verifySignature(body, signature) {
     return false;
   }
 
-  const expectedSignature = 'sha256=' + crypto
-    .createHmac('sha256', process.env.INSTAGRAM_APP_SECRET)
-    .update(body)
-    .digest('hex');
+  try {
+    const expectedSignature = 'sha256=' + crypto
+      .createHmac('sha256', process.env.INSTAGRAM_APP_SECRET)
+      .update(body)
+      .digest('hex');
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch (error) {
+    console.error('❌ Signature verification error:', error);
+    return false;
+  }
 }
