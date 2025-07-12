@@ -7,7 +7,7 @@ export default function DemoPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('checking');
-  const [conversationKey] = useState(`conv_${Date.now()}`); // Changed from conversationId
+  const [conversationKey] = useState(`conv_${Date.now()}`);
   const [hotLeadAlert, setHotLeadAlert] = useState(null);
   const messagesEndRef = useRef(null);
 
@@ -54,10 +54,11 @@ export default function DemoPage() {
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
-    setHotLeadAlert(null); // Clear previous alert
+    setHotLeadAlert(null);
 
     try {
-      // ✅ FIXED: Send correct format that matches API expectations
+      console.log('🚀 Sending message:', messageToSend);
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,7 +69,7 @@ export default function DemoPage() {
               content: messageToSend
             }
           ],
-          conversationKey: conversationKey // Use conversationKey, not conversationId
+          conversationKey: conversationKey
         })
       });
 
@@ -77,44 +78,41 @@ export default function DemoPage() {
       }
 
       const data = await response.json();
-      console.log('Chat response:', data); // Debug log
+      console.log('📨 Chat response:', data);
+
+      // ✅ FIXED: Handle both possible response formats
+      const aiResponseText = data.response || data.message || 'Sorry, I encountered an error. Please try again.';
 
       const aiMessage = {
         id: (Date.now() + 1).toString(),
-        content: data.response,
+        content: aiResponseText,
         isAI: true,
         timestamp: new Date().toISOString()
       };
 
       setMessages(prev => [...prev, aiMessage]);
 
-      // Simple hot lead detection based on keywords
-      const hotLeadKeywords = ['buy', 'purchase', 'ready', 'budget', 'asap', 'today', 'urgent'];
-      const isHotLead = hotLeadKeywords.some(keyword => 
-        messageToSend.toLowerCase().includes(keyword)
-      );
-
-      if (isHotLead) {
+      // Check for hot lead detection
+      if (data.isHotLead || data.hotLead) {
+        console.log('🔥 Hot lead detected!');
         setHotLeadAlert({
-          score: Math.floor(Math.random() * 3) + 8, // Random score 8-10 for demo
-          reasoning: "Customer shows high buying intent with urgency keywords",
-          urgency: "High",
-          alertSent: true
+          score: 10,
+          message: messageToSend,
+          timestamp: new Date().toISOString()
         });
-
-        // Auto-hide alert after 10 seconds
-        setTimeout(() => setHotLeadAlert(null), 10000);
       }
 
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error('❌ Error sending message:', error);
+      
       const errorMessage = {
         id: (Date.now() + 1).toString(),
-        content: "I'm having some technical difficulties. Please try again in a moment.",
+        content: `Sorry, I'm having trouble connecting right now. Please try again or contact us directly for assistance.`,
         isAI: true,
-        isError: true,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isError: true
       };
+
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -128,164 +126,152 @@ export default function DemoPage() {
     }
   };
 
-  const getConnectionStatusColor = () => {
-    switch (connectionStatus) {
-      case 'connected': return 'text-green-600';
-      case 'error': return 'text-red-600';
-      default: return 'text-yellow-600';
-    }
-  };
-
-  const getConnectionStatusText = () => {
-    switch (connectionStatus) {
-      case 'connected': return '✅ OpenAI Connected Successfully!';
-      case 'error': return '❌ Connection Error - Check API Key';
-      default: return '🔄 Checking Connection...';
-    }
-  };
-
   const getScoreColor = (score) => {
-    if (score >= 9) return 'text-red-600 bg-red-100 border-red-300';
-    if (score >= 7) return 'text-orange-600 bg-orange-100 border-orange-300';
-    if (score >= 5) return 'text-yellow-600 bg-yellow-100 border-yellow-300';
-    return 'text-green-600 bg-green-100 border-green-300';
+    if (score >= 8) return 'bg-red-50 border-red-500';
+    if (score >= 6) return 'bg-orange-50 border-orange-500';
+    return 'bg-yellow-50 border-yellow-500';
   };
 
   const getScoreEmoji = (score) => {
-    if (score >= 9) return '🚨';
-    if (score >= 7) return '🔥';
-    if (score >= 5) return '⚡';
-    return '📝';
+    if (score >= 8) return '🔥';
+    if (score >= 6) return '⚡';
+    return '💡';
   };
 
-  // Hot lead testing phrases
+  // Sample hot lead phrases for testing
   const hotLeadPhrases = [
-    { 
-      text: "I want to buy a house today", 
-      category: "High Intent (9-10)", 
-      description: "Immediate buying intent with urgency" 
+    {
+      text: "I want to buy a house today",
+      category: "High Intent (9-10)",
+      description: "Immediate buying intent with urgency"
     },
-    { 
-      text: "My budget is $500K, what's available?", 
-      category: "High Intent (8-9)", 
-      description: "Budget mention with specific inquiry" 
+    {
+      text: "What's my budget for a $500k home?",
+      category: "High Intent (8-9)",
+      description: "Specific budget discussion"
     },
-    { 
-      text: "Can you call me? I need to buy ASAP", 
-      category: "High Intent (9-10)", 
-      description: "Contact request with urgency" 
+    {
+      text: "Can I schedule a showing this week?",
+      category: "Medium Intent (6-7)",
+      description: "Ready to take action"
     },
-    { 
-      text: "I'm interested in pricing for your services", 
-      category: "Medium Intent (6-7)", 
-      description: "Interest in pricing information" 
-    },
-    { 
-      text: "Tell me more about what you offer", 
-      category: "Medium Intent (5-6)", 
-      description: "General interest and information seeking" 
-    },
-    { 
-      text: "What are your business hours?", 
-      category: "Low Intent (2-3)", 
-      description: "Basic informational query" 
-    },
-    { 
-      text: "Just browsing your website", 
-      category: "Low Intent (1-2)", 
-      description: "Low engagement, browsing only" 
+    {
+      text: "Tell me about properties in downtown",
+      category: "Low Intent (3-4)",
+      description: "General information seeking"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">AI Chatbot Demo</h1>
-          <p className="text-gray-600">Test your AI customer engagement platform</p>
-          
-          {/* Connection Status */}
-          <div className="mt-4 flex justify-center">
-            <div className="flex items-center space-x-2">
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">
+                Test your AI customer engagement platform
+              </h1>
+            </div>
+            <div className="flex space-x-3">
               <button
                 onClick={() => window.location.href = '/dashboard'}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 mr-4"
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Back to Dashboard
               </button>
               <button
                 onClick={() => window.location.href = '/ai-config'}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Configure AI
               </button>
             </div>
           </div>
-          
-          <div className={`mt-4 font-medium ${getConnectionStatusColor()}`}>
-            {getConnectionStatusText()}
-          </div>
         </div>
+      </div>
 
+      {/* Connection Status */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className={`flex items-center space-x-2 p-3 rounded-lg ${
+          connectionStatus === 'connected' 
+            ? 'bg-green-50 border border-green-200' 
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className={`w-3 h-3 rounded-full ${
+            connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'
+          }`}></div>
+          <span className={connectionStatus === 'connected' ? 'text-green-700' : 'text-red-700'}>
+            {connectionStatus === 'connected' 
+              ? '✅ OpenAI Connected Successfully!' 
+              : '❌ Connection Error - Check API Key'}
+          </span>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Info */}
+          
+          {/* Left Column - Assistant Info & Test Phrases */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Your AI Assistant Section */}
+            {/* AI Assistant Info */}
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-center mb-4">
-                <div className="text-2xl mr-3">🤖</div>
-                <h2 className="text-xl font-semibold">Your AI Assistant in Action</h2>
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-600 text-xl">🤖</span>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Your AI Assistant in Action</h2>
               </div>
               
               <p className="text-gray-600 mb-4">
-                This is how your AI chatbot will appear on your customers' websites.
-                The AI assistant is trained on your business information and can:
+                This is how your AI chatbot will appear on your customers' websites. The AI assistant is trained on your business information and can:
               </p>
               
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Answer questions about your business and services
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>Answer questions about your business and services</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Qualify potential customers and capture leads
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>Qualify potential customers and capture leads</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Schedule appointments and consultations
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>Schedule appointments and consultations</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Provide 24/7 customer support
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>Provide 24/7 customer support</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Integrate with your existing CRM and tools
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>Integrate with your existing CRM and tools</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-red-500 mr-2">🔥</span>
-                  <strong>Detect hot leads automatically</strong>
+                <li className="flex items-start space-x-2">
+                  <span className="text-orange-500 mt-0.5">🔥</span>
+                  <span className="font-medium">Detect hot leads automatically</span>
                 </li>
               </ul>
-              
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center text-sm">
-                  <span className="text-blue-600 mr-2">🤖</span>
-                  <span><strong>Powered by real OpenAI GPT-4 (configurable)</strong></span>
+
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <span className="text-blue-600">🤖</span>
+                  <span className="text-sm font-medium text-blue-900">Powered by real OpenAI GPT-4</span>
                 </div>
+                <span className="text-xs text-blue-700">(configurable)</span>
               </div>
             </div>
 
-            {/* Hot Lead Testing Section */}
+            {/* Hot Lead Testing */}
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-center mb-4">
-                <div className="text-2xl mr-3">🔥</div>
-                <h2 className="text-xl font-semibold">Hot Lead Detection Testing</h2>
+              <div className="flex items-center space-x-2 mb-4">
+                <span className="text-2xl">🔥</span>
+                <h3 className="text-lg font-semibold text-gray-900">Hot Lead Detection Testing</h3>
               </div>
               
-              <p className="text-gray-600 mb-4 text-sm">
+              <p className="text-sm text-gray-600 mb-4">
                 Click these sample phrases to test the AI's hot lead detection system:
               </p>
               
@@ -346,27 +332,24 @@ export default function DemoPage() {
                     </div>
                     <button
                       onClick={() => setHotLeadAlert(null)}
-                      className="text-gray-500 hover:text-gray-700"
+                      className="text-gray-400 hover:text-gray-600"
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="text-sm mt-2">
-                    <strong>AI Analysis:</strong> {hotLeadAlert.reasoning}
+                  <div className="mt-2 text-sm">
+                    <p><strong>AI Analysis:</strong> Customer shows high buying intent with urgency keywords</p>
+                    <p><strong>Urgency:</strong> High</p>
+                    <p className="flex items-center mt-1">
+                      <span className="text-green-600 mr-1">✅</span>
+                      <span>Business owner alert sent via SMS</span>
+                    </p>
                   </div>
-                  <div className="text-sm mt-1">
-                    <strong>Urgency:</strong> {hotLeadAlert.urgency}
-                  </div>
-                  {hotLeadAlert.alertSent && (
-                    <div className="text-sm mt-1 text-green-600">
-                      ✅ Business owner alert sent via SMS
-                    </div>
-                  )}
                 </div>
               )}
 
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -377,22 +360,24 @@ export default function DemoPage() {
                         message.isAI
                           ? message.isError
                             ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-800'
+                            : 'bg-white text-gray-800 shadow-sm'
                           : 'bg-blue-600 text-white'
                       }`}
                     >
                       <p className="text-sm">{message.content}</p>
-                      
-                      <p className="text-xs opacity-70 mt-1">
+                      <p className={`text-xs mt-1 ${
+                        message.isAI ? 'text-gray-500' : 'text-blue-100'
+                      }`}>
                         {new Date(message.timestamp).toLocaleTimeString()}
                       </p>
                     </div>
                   </div>
                 ))}
                 
+                {/* Typing Indicator */}
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 rounded-lg px-4 py-2">
+                    <div className="bg-white rounded-lg px-4 py-2 shadow-sm">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
@@ -421,7 +406,7 @@ export default function DemoPage() {
                     disabled={isLoading || !inputMessage.trim()}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Send
+                    {isLoading ? '...' : 'Send'}
                   </button>
                 </div>
                 <div className="mt-2 text-center">
