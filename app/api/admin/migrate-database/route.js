@@ -232,10 +232,10 @@ export async function POST() {
       message: 'Database migration completed successfully!',
       steps: migrationSteps,
       nextSteps: [
-        '1. Replace your lib/database.js file with the updated version',
-        '2. Restart your application',
-        '3. Test the dashboard functionality',
-        '4. Check if OpenAI connection works properly'
+        '1. Database schema updated',
+        '2. Test your APIs now',
+        '3. Check if dashboard loads properly',
+        '4. Verify OpenAI connection works'
       ]
     });
     
@@ -256,7 +256,7 @@ export async function GET() {
     message: 'Use POST method to run database migration',
     instructions: [
       '1. Send a POST request to this endpoint',
-      '2. Or create a simple form to trigger the migration',
+      '2. Or visit /test-fixes to run migration via UI',
       '3. Check the response for migration results'
     ]
   });
