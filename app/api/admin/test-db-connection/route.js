@@ -1,106 +1,91 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { currentUser } from '@clerk/nextjs';
-import { getCustomerByClerkId, createCustomer } from '../../../../lib/database.js';
+import { query, getDbClient } from '../../../../lib/database.js';
 
-export async function POST() {
+export async function GET() {
   try {
-    console.log('🧪 Creating test customer...');
+    console.log('🔍 Testing database connection...');
     
-    let userId = null;
-    let userEmail = '';
-    let userName = 'Test User';
-
-    // Try both auth methods to get user ID
-    try {
-      const authResult = auth();
-      userId = authResult?.userId;
-      console.log('Auth method 1 userId:', userId);
-    } catch (error) {
-      console.log('Auth method 1 failed, trying method 2...');
-    }
-
-    try {
-      const user = await currentUser();
-      if (user) {
-        userId = user.id;
-        userEmail = user.emailAddresses?.[0]?.emailAddress || '';
-        userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Test User';
-        console.log('Auth method 2 userId:', userId);
-      }
-    } catch (error) {
-      console.log('Auth method 2 also failed:', error.message);
-    }
-
-    if (!userId) {
-      return NextResponse.json({
-        success: false,
-        error: 'User not authenticated',
-        details: 'Could not get user ID from either auth method'
-      }, { status: 401 });
-    }
-
-    // Check if customer already exists
-    const existingCustomer = await getCustomerByClerkId(userId);
-    
-    if (existingCustomer) {
-      console.log('✅ Customer already exists:', existingCustomer.id);
-      return NextResponse.json({
-        success: true,
-        message: 'Customer already exists!',
-        customer: existingCustomer,
-        alreadyExisted: true
-      });
-    }
-
-    // Create new customer
-    const customerData = {
-      clerk_user_id: userId,
-      email: userEmail,
-      business_name: `${userName}'s Business` || 'My Business',
-      plan: 'basic'
+    const results = {
+      connection: false,
+      tables: {},
+      functions: {},
+      errors: []
     };
 
-    console.log('Creating customer with data:', customerData);
-    
-    const newCustomer = await createCustomer(customerData);
-    
-    if (!newCustomer) {
-      throw new Error('Customer creation returned null');
+    // Test basic connection
+    try {
+      const client = await getDbClient().connect();
+      client.release();
+      results.connection = true;
+      console.log('✅ Database connection successful');
+    } catch (error) {
+      results.errors.push(`Connection failed: ${error.message}`);
+      console.error('❌ Database connection failed:', error);
     }
 
-    console.log('✅ Test customer created successfully:', newCustomer.id);
+    // Test if customers table exists and has correct structure
+    try {
+      const customerTableCheck = await query(`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'customers' 
+        ORDER BY ordinal_position
+      `);
+      
+      results.tables.customers = {
+        exists: customerTableCheck.rows.length > 0,
+        columns: customerTableCheck.rows,
+        hasClerkUserId: customerTableCheck.rows.some(col => col.column_name === 'clerk_user_id')
+      };
+      
+      console.log('✅ Customers table structure:', results.tables.customers);
+    } catch (error) {
+      results.errors.push(`Customers table check failed: ${error.message}`);
+      results.tables.customers = { exists: false, error: error.message };
+    }
+
+    // Test if we can import the database functions
+    try {
+      const { getCustomerByClerkId, createCustomer, getCustomerStats } = await import('../../../../lib/database.js');
+      
+      results.functions = {
+        getCustomerByClerkId: typeof getCustomerByClerkId === 'function',
+        createCustomer: typeof createCustomer === 'function',
+        getCustomerStats: typeof getCustomerStats === 'function'
+      };
+      
+      console.log('✅ Database functions check:', results.functions);
+    } catch (error) {
+      results.errors.push(`Function import failed: ${error.message}`);
+      results.functions = { error: error.message };
+    }
+
+    // Test creating a simple query
+    try {
+      const testQuery = await query('SELECT NOW() as current_time');
+      results.queryTest = {
+        success: true,
+        currentTime: testQuery.rows[0]?.current_time
+      };
+      console.log('✅ Query test successful');
+    } catch (error) {
+      results.errors.push(`Query test failed: ${error.message}`);
+      results.queryTest = { success: false, error: error.message };
+    }
 
     return NextResponse.json({
-      success: true,
-      message: 'Test customer created successfully! 🎉',
-      customer: newCustomer,
-      next_steps: [
-        'Customer record created in database',
-        'You should now be able to access the dashboard',
-        'Try testing the APIs again'
-      ]
+      success: results.connection && results.errors.length === 0,
+      message: results.connection ? 'Database tests completed' : 'Database connection failed',
+      results
     });
 
   } catch (error) {
-    console.error('❌ Create test customer error:', error);
+    console.error('❌ Database test error:', error);
     
     return NextResponse.json({
       success: false,
-      error: 'Failed to create test customer',
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: 'Database test failed',
+      details: error.message
     }, { status: 500 });
   }
-}
-
-export async function GET() {
-  return NextResponse.json({
-    message: 'Use POST method to create test customer',
-    instructions: [
-      '1. Send a POST request to this endpoint',
-      '2. Make sure you are logged in with Clerk',
-      '3. This will create a customer record for your user'
-    ]
-  });
 }
