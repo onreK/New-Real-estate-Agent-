@@ -1,44 +1,40 @@
 // middleware.js
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { authMiddleware } from "@clerk/nextjs";
 
-// Define public routes that don't require authentication
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/amanda',
-  '/demo',
-  '/api/chat',
-  '/api/webhook',
-  '/api/sms/webhook',
-  '/api/facebook/webhook',        // Facebook webhook (public)
-  '/api/instagram/webhook',       // Instagram webhook (public) ← NEW
-  '/api/email/webhook',
-  '/api/widget/(.*)',
-  '/api/leads',
-  '/api/setup-database',
-  '/api/hot-lead-detection',
-  '/onboarding',
-  '/pricing',
-  '/privacy',
-  '/terms'
-]);
-
-export default clerkMiddleware((auth, req) => {
-  // Allow public routes without authentication
-  if (isPublicRoute(req)) {
-    return;
-  }
+export default authMiddleware({
+  // Routes that can be accessed while signed out
+  publicRoutes: [
+    "/",
+    "/amanda(.*)",
+    "/demo(.*)",
+    "/sign-in(.*)",
+    "/sign-up(.*)",
+    "/api/webhooks/clerk",
+    "/api/contact",
+    "/api/smtp/test",
+    "/api/sms/webhook",
+    "/api/facebook/webhook",
+    "/api/instagram/webhook",        // Instagram webhook (public)
+    "/api/email/webhook",
+    "/api/widget/(.*)",
+    "/api/leads",
+    "/api/setup-database",
+    "/api/hot-lead-detection",
+    "/onboarding",
+    "/pricing",
+    "/privacy",
+    "/terms"
+  ],
   
-  // Require authentication for all other routes
-  auth().protect();
+  // Routes that are completely ignored by Clerk (no auth checks)
+  ignoredRoutes: [
+    "/api/public(.*)",
+    "/_next/static(.*)",
+    "/_next/image(.*)",
+    "/favicon.ico"
+  ]
 });
 
 export const config = {
-  matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
-  ],
+  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
 };
