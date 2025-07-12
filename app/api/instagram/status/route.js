@@ -1,9 +1,7 @@
 // app/api/instagram/status/route.js
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
-
-// In-memory storage for Instagram configurations (replace with database in production)
-const instagramConfigs = new Map();
+import { getAllInstagramConfigs } from '../configure/route.js';
 
 export async function GET() {
   try {
@@ -15,8 +13,9 @@ export async function GET() {
 
     console.log('📸 Checking Instagram status for user:', user.id);
 
-    // Check if user has Instagram configuration
-    const userConfig = instagramConfigs.get(user.id);
+    // Get all Instagram configurations
+    const configs = getAllInstagramConfigs();
+    const userConfig = configs.find(([userId, config]) => userId === user.id)?.[1];
     
     if (!userConfig || !userConfig.accessToken || !userConfig.pageId) {
       return NextResponse.json({
@@ -89,16 +88,11 @@ export async function GET() {
 // Mock function to get today's conversations count
 function getConversationsToday(userId) {
   // In production, this would query your database for Instagram conversations from today
-  const userConfig = instagramConfigs.get(userId);
-  return userConfig?.conversationsToday || 0;
+  return 0;
 }
 
 // Mock function to calculate response rate
 function calculateResponseRate(userId) {
   // In production, this would calculate the actual AI response rate
-  const userConfig = instagramConfigs.get(userId);
-  return userConfig?.responseRate || 0;
+  return 0;
 }
-
-// Export the config map for use by other Instagram API routes
-export { instagramConfigs };
