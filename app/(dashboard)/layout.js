@@ -17,8 +17,8 @@ export default function DashboardLayout({ children }) {
   // Show loading while checking authentication
   if (!isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-400"></div>
       </div>
     );
   }
@@ -28,9 +28,6 @@ export default function DashboardLayout({ children }) {
     return null;
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {children}
-    </div>
-  );
+  // Don't add any background wrapper - let the dashboard component handle its own styling
+  return <>{children}</>;
 }
