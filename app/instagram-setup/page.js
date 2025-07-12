@@ -346,7 +346,7 @@ export default function InstagramSetupPage() {
 
           {/* Quick Links */}
           <div className="mt-6 grid md:grid-cols-2 gap-4">
-            <a
+            
               href="https://developers.facebook.com/apps/"
               target="_blank"
               rel="noopener noreferrer"
@@ -359,7 +359,7 @@ export default function InstagramSetupPage() {
               </div>
             </a>
 
-            <a
+            
               href="https://business.facebook.com/"
               target="_blank"
               rel="noopener noreferrer"
