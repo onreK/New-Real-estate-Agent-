@@ -2,14 +2,12 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import OpenAI from 'openai';
+import { getInstagramConfigByPageId } from '../configure/route.js';
 
 // Initialize OpenAI
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 }) : null;
-
-// Import Instagram configurations
-import { instagramConfigs } from '../configure/route.js';
 
 // Webhook verification for Instagram
 export async function GET(request) {
@@ -44,7 +42,7 @@ export async function POST(request) {
     }
 
     const webhookData = JSON.parse(body);
-    console.log('📸 Instagram webhook data:', JSON.stringify(webhookData, null, 2));
+    console.log('📸 Instagram webhook data received');
 
     // Process Instagram messages
     if (webhookData.object === 'instagram') {
@@ -81,7 +79,7 @@ async function processInstagramMessage(messagingEvent) {
     });
 
     // Find configuration for this Instagram page
-    const pageConfig = findConfigByPageId(recipient.id);
+    const pageConfig = getInstagramConfigByPageId(recipient.id);
     
     if (!pageConfig) {
       console.log('❌ No configuration found for Instagram page:', recipient.id);
@@ -171,15 +169,6 @@ async function sendInstagramMessage(recipientId, message, accessToken) {
     console.error('❌ Error sending Instagram message:', error);
     return false;
   }
-}
-
-function findConfigByPageId(pageId) {
-  for (const config of instagramConfigs.values()) {
-    if (config.pageId === pageId) {
-      return config;
-    }
-  }
-  return null;
 }
 
 function verifySignature(body, signature) {
