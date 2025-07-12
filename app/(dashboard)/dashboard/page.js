@@ -104,7 +104,7 @@ export default function MainDashboard() {
       const webChatData = await webChatResponse.json();
       
       // Check AI connection status
-      const aiStatusResponse = await fetch('/api/chat?action=test-connection');
+      const aiStatusResponse = await fetch('/api/chat?action=test');
       const aiStatusData = await aiStatusResponse.json();
       
       // Load SMS data
