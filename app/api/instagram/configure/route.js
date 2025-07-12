@@ -1,16 +1,30 @@
 // app/api/instagram/configure/route.js
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
-import { getCustomerByClerkId, createCustomer } from '../../../../lib/database.js';
+import { auth } from '@clerk/nextjs/server';
+import { setInstagramConfig, getInstagramConfig } from '../../../../lib/instagram-config.js';
 
-// In-memory storage for Instagram configurations (replace with database in production)
-const instagramConfigs = new Map();
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
+
+// Database import with fallback
+let dbAvailable = false;
+let db = {};
+
+try {
+  const database = await import('../../../../lib/database.js');
+  db = database;
+  dbAvailable = true;
+  console.log('✅ Database available for Instagram configure');
+} catch (error) {
+  console.log('⚠️ Database not available for Instagram configure:', error.message);
+  dbAvailable = false;
+}
 
 export async function POST(request) {
   try {
-    const user = await currentUser();
+    const { userId } = auth();
     
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -22,7 +36,7 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    console.log('📸 Configuring Instagram for user:', user.id);
+    console.log('📸 Configuring Instagram for user:', userId);
 
     // Test the Instagram access token
     try {
@@ -46,26 +60,31 @@ export async function POST(request) {
     // Get or create customer record
     let customer;
     try {
-      customer = await getCustomerByClerkId(user.id);
-      
-      if (!customer) {
-        console.log('👤 Creating customer record for Instagram user:', user.id);
+      if (dbAvailable && db.getCustomerByClerkId) {
+        customer = await db.getCustomerByClerkId(userId);
         
-        customer = await createCustomer({
-          clerk_user_id: user.id,
-          email: user.emailAddresses?.[0]?.emailAddress || '',
-          business_name: businessName || 'My Business',
-          plan: 'basic'
-        });
+        if (!customer && db.createCustomer) {
+          console.log('👤 Creating customer record for Instagram user:', userId);
+          
+          customer = await db.createCustomer({
+            clerk_user_id: userId,
+            email: '',
+            business_name: businessName || 'My Business',
+            plan: 'basic'
+          });
+        }
       }
     } catch (dbError) {
-      console.log('⚠️ Database not available, proceeding without customer record');
+      console.log('⚠️ Database error, proceeding without customer record:', dbError.message);
+    }
+
+    if (!customer) {
       customer = { id: 'temp_customer', business_name: businessName || 'My Business' };
     }
 
     // Store Instagram configuration
     const config = {
-      userId: user.id,
+      userId: userId,
       customerId: customer.id,
       accessToken,
       pageId,
@@ -77,9 +96,9 @@ export async function POST(request) {
       active: true
     };
 
-    instagramConfigs.set(user.id, config);
+    setInstagramConfig(userId, config);
 
-    console.log('✅ Instagram configuration saved for user:', user.id);
+    console.log('✅ Instagram configuration saved for user:', userId);
 
     return NextResponse.json({
       success: true,
@@ -97,20 +116,20 @@ export async function POST(request) {
     console.error('❌ Instagram configuration error:', error);
     return NextResponse.json({
       error: 'Failed to configure Instagram integration',
-      details: error.message
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     }, { status: 500 });
   }
 }
 
 export async function GET(request) {
   try {
-    const user = await currentUser();
+    const { userId } = auth();
     
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const config = instagramConfigs.get(user.id);
+    const config = getInstagramConfig(userId);
     
     if (!config) {
       return NextResponse.json({ 
@@ -134,22 +153,8 @@ export async function GET(request) {
   } catch (error) {
     console.error('❌ Get Instagram configuration error:', error);
     return NextResponse.json({
-      error: 'Failed to get Instagram configuration'
+      error: 'Failed to get Instagram configuration',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     }, { status: 500 });
   }
-}
-
-// Helper function to get config by page ID (for webhook use)
-export function getInstagramConfigByPageId(pageId) {
-  for (const config of instagramConfigs.values()) {
-    if (config.pageId === pageId) {
-      return config;
-    }
-  }
-  return null;
-}
-
-// Helper function to get all configs (for status checking)
-export function getAllInstagramConfigs() {
-  return Array.from(instagramConfigs.entries());
 }
