@@ -1,21 +1,27 @@
 // app/api/instagram/status/route.js
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
-import { getAllInstagramConfigs } from '../configure/route.js';
+import { auth } from '@clerk/nextjs/server';
+import { 
+  getInstagramConfig, 
+  getConversationsToday, 
+  calculateResponseRate 
+} from '../../../../lib/instagram-config.js';
+
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const user = await currentUser();
+    const { userId } = auth();
     
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('📸 Checking Instagram status for user:', user.id);
+    console.log('📸 Checking Instagram status for user:', userId);
 
-    // Get all Instagram configurations
-    const configs = getAllInstagramConfigs();
-    const userConfig = configs.find(([userId, config]) => userId === user.id)?.[1];
+    // Get Instagram configuration for this user
+    const userConfig = getInstagramConfig(userId);
     
     if (!userConfig || !userConfig.accessToken || !userConfig.pageId) {
       return NextResponse.json({
@@ -43,8 +49,8 @@ export async function GET() {
       }
 
       // Get conversation stats (mock data for now)
-      const conversationsToday = getConversationsToday(user.id);
-      const responseRate = calculateResponseRate(user.id);
+      const conversationsToday = getConversationsToday(userId);
+      const responseRate = calculateResponseRate(userId);
 
       console.log('✅ Instagram status check successful:', {
         configured: true,
@@ -83,16 +89,4 @@ export async function GET() {
       error: 'Internal server error'
     }, { status: 500 });
   }
-}
-
-// Mock function to get today's conversations count
-function getConversationsToday(userId) {
-  // In production, this would query your database for Instagram conversations from today
-  return 0;
-}
-
-// Mock function to calculate response rate
-function calculateResponseRate(userId) {
-  // In production, this would calculate the actual AI response rate
-  return 0;
 }
