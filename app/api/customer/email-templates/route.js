@@ -1,3 +1,4 @@
+// app/api/customer/email-templates/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
@@ -29,7 +30,10 @@ export async function GET(request) {
         return NextResponse.json({ error: 'Template not found' }, { status: 404 });
       }
 
-      return NextResponse.json({ template });
+      return NextResponse.json({ 
+        success: true,
+        template 
+      });
     } else {
       // Return all templates for user
       const sortedTemplates = userTemplates.sort((a, b) => {
@@ -39,11 +43,17 @@ export async function GET(request) {
         return a.name.localeCompare(b.name);
       });
 
-      return NextResponse.json({ templates: sortedTemplates });
+      return NextResponse.json({ 
+        success: true,
+        templates: sortedTemplates 
+      });
     }
   } catch (error) {
-    console.error('Error fetching email templates:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('❌ Error fetching email templates:', error);
+    return NextResponse.json({ 
+      error: 'Failed to fetch email templates',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    }, { status: 500 });
   }
 }
 
@@ -85,12 +95,16 @@ export async function POST(request) {
     console.log('✅ Template created successfully:', newTemplate.id);
 
     return NextResponse.json({ 
+      success: true,
       message: 'Template created successfully',
       template: newTemplate
     });
   } catch (error) {
-    console.error('Error creating email template:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('❌ Error creating email template:', error);
+    return NextResponse.json({ 
+      error: 'Failed to create email template',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    }, { status: 500 });
   }
 }
 
@@ -141,12 +155,16 @@ export async function PUT(request) {
     console.log('✅ Template updated successfully:', templateId);
 
     return NextResponse.json({ 
+      success: true,
       message: 'Template updated successfully',
       template: updatedTemplate
     });
   } catch (error) {
-    console.error('Error updating email template:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('❌ Error updating email template:', error);
+    return NextResponse.json({ 
+      error: 'Failed to update email template',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    }, { status: 500 });
   }
 }
 
@@ -181,11 +199,15 @@ export async function DELETE(request) {
     console.log('✅ Template deleted successfully:', templateId);
 
     return NextResponse.json({ 
+      success: true,
       message: 'Template deleted successfully',
       template: deletedTemplate
     });
   } catch (error) {
-    console.error('Error deleting email template:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('❌ Error deleting email template:', error);
+    return NextResponse.json({ 
+      error: 'Failed to delete email template',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    }, { status: 500 });
   }
 }
