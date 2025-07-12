@@ -52,21 +52,46 @@ export default function MainDashboard() {
       emailSettings: null,
       templates: []
     },
+    // Facebook Data
+    facebook: {
+      conversations: [],
+      totalConversations: 0,
+      totalMessages: 0,
+      leadsGenerated: 0,
+      postsManaged: 0,
+      aiResponseRate: 0,
+      pageConnected: false,
+      lastSync: null
+    },
+    // Instagram Data
+    instagram: {
+      conversations: [],
+      totalConversations: 0,
+      totalMessages: 0,
+      leadsGenerated: 0,
+      postsManaged: 0,
+      aiResponseRate: 0,
+      accountConnected: false,
+      lastSync: null
+    },
     // Combined Stats
     combined: {
       totalLeads: 0,
       totalConversations: 0,
       totalMessages: 0,
-      hotLeadsToday: 0
+      hotLeadsToday: 0,
+      totalSocialPosts: 0
     }
   });
 
-  // Tab configuration with email tab
+  // Tab configuration with social media tabs
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'webchat', label: 'Web Chat', icon: MessageCircle },
     { id: 'sms', label: 'SMS', icon: Phone },
     { id: 'email', label: 'Email AI', icon: Mail },
+    { id: 'facebook', label: 'Facebook', icon: Users },
+    { id: 'instagram', label: 'Instagram', icon: Star },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
@@ -146,7 +171,69 @@ export default function MainDashboard() {
       }).length;
       aiResponseRate = totalEmailsToday > 0 ? Math.round((emailHotLeadsToday / totalEmailsToday) * 100) : 0;
       
-      // 5. Structure the data
+      // 5. Load Facebook data (with error handling)
+      let facebookData = {
+        conversations: [],
+        totalConversations: 0,
+        totalMessages: 0,
+        leadsGenerated: 0,
+        postsManaged: 0,
+        aiResponseRate: 0,
+        pageConnected: false,
+        lastSync: null
+      };
+      
+      try {
+        const fbResponse = await fetch('/api/social/facebook/stats');
+        if (fbResponse.ok) {
+          const fbStats = await fbResponse.json();
+          facebookData = {
+            conversations: fbStats.conversations || [],
+            totalConversations: fbStats.totalConversations || 0,
+            totalMessages: fbStats.totalMessages || 0,
+            leadsGenerated: fbStats.leadsGenerated || 0,
+            postsManaged: fbStats.postsManaged || 0,
+            aiResponseRate: fbStats.aiResponseRate || 0,
+            pageConnected: fbStats.pageConnected || false,
+            lastSync: fbStats.lastSync
+          };
+        }
+      } catch (fbError) {
+        console.log('Facebook data not available:', fbError.message);
+      }
+      
+      // 6. Load Instagram data (with error handling)  
+      let instagramData = {
+        conversations: [],
+        totalConversations: 0,
+        totalMessages: 0,
+        leadsGenerated: 0,
+        postsManaged: 0,
+        aiResponseRate: 0,
+        accountConnected: false,
+        lastSync: null
+      };
+      
+      try {
+        const igResponse = await fetch('/api/social/instagram/stats');
+        if (igResponse.ok) {
+          const igStats = await igResponse.json();
+          instagramData = {
+            conversations: igStats.conversations || [],
+            totalConversations: igStats.totalConversations || 0,
+            totalMessages: igStats.totalMessages || 0,
+            leadsGenerated: igStats.leadsGenerated || 0,
+            postsManaged: igStats.postsManaged || 0,
+            aiResponseRate: igStats.aiResponseRate || 0,
+            accountConnected: igStats.accountConnected || false,
+            lastSync: igStats.lastSync
+          };
+        }
+      } catch (igError) {
+        console.log('Instagram data not available:', igError.message);
+      }
+      
+      // 7. Structure the data
       const webChat = {
         conversations: webChatData.conversations || [],
         totalConversations: webChatData.totalConversations || 0,
@@ -182,13 +269,14 @@ export default function MainDashboard() {
       };
 
       const combined = {
-        totalLeads: webChat.leadsGenerated + sms.leadsGenerated + email.leadsGenerated,
-        totalConversations: webChat.totalConversations + sms.totalConversations + email.totalConversations,
-        totalMessages: webChat.totalMessages + sms.totalMessages + email.totalMessages,
-        hotLeadsToday: sms.hotLeadStats.alertsLast24h + email.hotLeadsToday
+        totalLeads: webChat.leadsGenerated + sms.leadsGenerated + email.leadsGenerated + facebookData.leadsGenerated + instagramData.leadsGenerated,
+        totalConversations: webChat.totalConversations + sms.totalConversations + email.totalConversations + facebookData.totalConversations + instagramData.totalConversations,
+        totalMessages: webChat.totalMessages + sms.totalMessages + email.totalMessages + facebookData.totalMessages + instagramData.totalMessages,
+        hotLeadsToday: sms.hotLeadStats.alertsLast24h + email.hotLeadsToday,
+        totalSocialPosts: facebookData.postsManaged + instagramData.postsManaged
       };
 
-      setDashboardData({ webChat, sms, email, combined });
+      setDashboardData({ webChat, sms, email, facebook: facebookData, instagram: instagramData, combined });
       
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -232,6 +320,136 @@ export default function MainDashboard() {
             <span className="text-green-400 font-medium">+{trend}%</span>
           </div>
         )}
+
+        {/* Facebook Tab */}
+        {activeTab === 'facebook' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard
+                icon={Users}
+                title="Facebook Messages"
+                value={dashboardData.facebook.totalMessages}
+                color="blue"
+              />
+              <StatCard
+                icon={MessageCircle}
+                title="Conversations"
+                value={dashboardData.facebook.totalConversations}
+                color="green"
+              />
+              <StatCard
+                icon={Target}
+                title="Posts Managed"
+                value={dashboardData.facebook.postsManaged}
+                color="purple"
+              />
+              <StatCard
+                icon={Star}
+                title="Leads Generated"
+                value={dashboardData.facebook.leadsGenerated}
+                color="orange"
+              />
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Facebook AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-sm ${
+                    dashboardData.facebook.pageConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.facebook.pageConnected ? 'Facebook Page Connected' : 'Page Setup Required'}
+                  </div>
+                  {dashboardData.facebook.lastSync && (
+                    <span className="text-gray-400 text-sm">
+                      Last sync: {new Date(dashboardData.facebook.lastSync).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => window.location.href = '/social/facebook'}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Manage Facebook AI
+                  </button>
+                  <button
+                    onClick={() => window.location.href = '/social/facebook/setup'}
+                    className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg font-medium border border-blue-500/30 transition-colors"
+                  >
+                    Facebook Setup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Instagram Tab */}
+        {activeTab === 'instagram' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard
+                icon={Star}
+                title="Instagram Messages"
+                value={dashboardData.instagram.totalMessages}
+                color="purple"
+              />
+              <StatCard
+                icon={MessageCircle}
+                title="Conversations"
+                value={dashboardData.instagram.totalConversations}
+                color="blue"
+              />
+              <StatCard
+                icon={Target}
+                title="Posts Managed"
+                value={dashboardData.instagram.postsManaged}
+                color="orange"
+              />
+              <StatCard
+                icon={Users}
+                title="Leads Generated"
+                value={dashboardData.instagram.leadsGenerated}
+                color="green"
+              />
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Instagram AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-sm ${
+                    dashboardData.instagram.accountConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.instagram.accountConnected ? 'Instagram Account Connected' : 'Account Setup Required'}
+                  </div>
+                  {dashboardData.instagram.lastSync && (
+                    <span className="text-gray-400 text-sm">
+                      Last sync: {new Date(dashboardData.instagram.lastSync).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => window.location.href = '/social/instagram'}
+                    className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Manage Instagram AI
+                  </button>
+                  <button
+                    onClick={() => window.location.href = '/social/instagram/setup'}
+                    className="bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 px-6 py-3 rounded-lg font-medium border border-pink-500/30 transition-colors"
+                  >
+                    Instagram Setup
+                  </button>
+                </div>
+              </div>
+            </div>
       </div>
       <div className="mt-4">
         <p className="text-2xl font-bold text-white">{value?.toLocaleString() || 0}</p>
@@ -267,6 +485,80 @@ export default function MainDashboard() {
                   <h1 className="text-2xl font-bold text-white">Bizzy Bot AI</h1>
                   <p className="text-sm text-gray-300">Welcome back, {user?.firstName || 'User'}</p>
                 </div>
+              </div>
+
+              {/* Facebook Status */}
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Users className="w-6 h-6 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-white">Facebook AI</h3>
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    dashboardData.facebook.pageConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.facebook.pageConnected ? 'Connected' : 'Setup Needed'}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Messages</span>
+                    <span className="text-white font-medium">{dashboardData.facebook.totalMessages}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Posts Managed</span>
+                    <span className="text-blue-400 font-medium">{dashboardData.facebook.postsManaged}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Leads Generated</span>
+                    <span className="text-green-400 font-medium">{dashboardData.facebook.leadsGenerated}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/social/facebook'}
+                  className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Manage Facebook
+                </button>
+              </div>
+
+              {/* Instagram Status */}
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Star className="w-6 h-6 text-pink-400" />
+                    <h3 className="text-lg font-semibold text-white">Instagram AI</h3>
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    dashboardData.instagram.accountConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.instagram.accountConnected ? 'Connected' : 'Setup Needed'}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Messages</span>
+                    <span className="text-white font-medium">{dashboardData.instagram.totalMessages}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Posts Managed</span>
+                    <span className="text-pink-400 font-medium">{dashboardData.instagram.postsManaged}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Leads Generated</span>
+                    <span className="text-green-400 font-medium">{dashboardData.instagram.leadsGenerated}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/social/instagram'}
+                  className="w-full mt-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Manage Instagram
+                </button>
               </div>
             </div>
             
@@ -328,7 +620,7 @@ export default function MainDashboard() {
                 icon={Users}
                 title="Total Leads"
                 value={dashboardData.combined.totalLeads}
-                subtitle="Web + SMS + Email"
+                subtitle="All channels + Social"
                 trend={23}
                 color="blue"
               />
@@ -357,7 +649,7 @@ export default function MainDashboard() {
             </div>
 
             {/* Channel Status Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-6">
               {/* Web Chat Status */}
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -473,7 +765,7 @@ export default function MainDashboard() {
             {/* Quick Actions */}
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Quick Actions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <button
                   onClick={() => window.location.href = '/demo'}
                   className="flex flex-col items-center space-y-2 p-4 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 transition-colors"
@@ -496,6 +788,22 @@ export default function MainDashboard() {
                 >
                   <Bot className="w-6 h-6 text-orange-400" />
                   <span className="text-sm text-white">AI Config</span>
+                </button>
+                
+                <button
+                  onClick={() => window.location.href = '/social/facebook'}
+                  className="flex flex-col items-center space-y-2 p-4 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg border border-blue-600/30 transition-colors"
+                >
+                  <Users className="w-6 h-6 text-blue-400" />
+                  <span className="text-sm text-white">Facebook</span>
+                </button>
+                
+                <button
+                  onClick={() => window.location.href = '/social/instagram'}
+                  className="flex flex-col items-center space-y-2 p-4 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg border border-pink-500/30 transition-colors"
+                >
+                  <Star className="w-6 h-6 text-pink-400" />
+                  <span className="text-sm text-white">Instagram</span>
                 </button>
                 
                 <button
