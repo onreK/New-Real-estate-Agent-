@@ -86,6 +86,33 @@ export default function TestFixes() {
     setLoading(false);
   };
 
+  const createTestCustomer = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/create-test-customer', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      setTestResults({
+        ...testResults,
+        testCustomer: {
+          success: response.ok,
+          data: data,
+          message: response.ok ? 'Test customer created!' : 'Failed to create test customer'
+        }
+      });
+    } catch (error) {
+      setTestResults({
+        ...testResults,
+        testCustomer: {
+          success: false,
+          message: `Test customer error: ${error.message}`
+        }
+      });
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -215,6 +242,23 @@ export default function TestFixes() {
                 ))}
               </div>
 
+              {/* Create Customer Button if needed */}
+              {Object.values(testResults).some(r => !r.success && r.message.includes('Customer not found')) && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-medium text-blue-800 mb-2">Customer Not Found Issue:</h3>
+                  <p className="text-blue-700 text-sm mb-3">
+                    You need a customer record in the database. Let's create one:
+                  </p>
+                  <button
+                    onClick={createTestCustomer}
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded text-sm"
+                  >
+                    {loading ? '🔄 Creating...' : '👤 Create Customer Record'}
+                  </button>
+                </div>
+              )}
+
               {/* Final Status */}
               <div className={`p-6 rounded-lg text-center ${
                 Object.values(testResults).every(r => r.success)
@@ -258,10 +302,10 @@ export default function TestFixes() {
 
           {/* Instructions */}
           <div className="mt-8 p-4 bg-gray-100 rounded-lg">
-            <h3 className="font-medium text-gray-800 mb-2">💡 Remember:</h3>
+            <h3 className="font-medium text-gray-800 mb-2">💡 What This Does:</h3>
             <p className="text-sm text-gray-600">
-              After completing these steps, you should replace your <code>lib/database.js</code> file 
-              completely with the new version provided. Then restart your application before testing.
+              This tool runs a database migration to add missing tables and columns, 
+              then tests all your API endpoints to make sure they're working properly.
             </p>
           </div>
         </div>
