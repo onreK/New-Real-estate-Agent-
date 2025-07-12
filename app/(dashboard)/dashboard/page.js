@@ -16,7 +16,7 @@ export default function MainDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Enhanced state structure with email data
+  // Enhanced state structure with social media data
   const [dashboardData, setDashboardData] = useState({
     // Web Chat Data
     webChat: {
@@ -287,177 +287,61 @@ export default function MainDashboard() {
   };
 
   // Utility component for stat cards
-  const StatCard = ({ icon: Icon, title, value, subtitle, trend, color = 'blue' }) => (
-    <div className={`relative overflow-hidden rounded-2xl border border-white/20 p-6 backdrop-blur-lg bg-gradient-to-br ${
-      color === 'blue' ? 'from-blue-500/20 to-purple-500/20' :
-      color === 'green' ? 'from-green-500/20 to-emerald-500/20' :
-      color === 'orange' ? 'from-orange-500/20 to-red-500/20' :
-      color === 'purple' ? 'from-purple-500/20 to-pink-500/20' :
-      color === 'teal' ? 'from-teal-500/20 to-cyan-500/20' :
-      'from-gray-500/20 to-slate-500/20'
-    }`}>
-      <div className="flex items-start justify-between">
-        <div className={`p-3 rounded-xl bg-gradient-to-br ${
-          color === 'blue' ? 'from-blue-500/20 to-purple-500/20' :
-          color === 'green' ? 'from-green-500/20 to-emerald-500/20' :
-          color === 'orange' ? 'from-orange-500/20 to-red-500/20' :
-          color === 'purple' ? 'from-purple-500/20 to-pink-500/20' :
-          color === 'teal' ? 'from-teal-500/20 to-cyan-500/20' :
-          'from-gray-500/20 to-slate-500/20'
-        }`}>
-          <Icon className={`w-6 h-6 ${
-            color === 'blue' ? 'text-blue-400' :
-            color === 'green' ? 'text-green-400' :
-            color === 'orange' ? 'text-orange-400' :
-            color === 'purple' ? 'text-purple-400' :
-            color === 'teal' ? 'text-teal-400' :
-            'text-gray-400'
-          }`} />
+  const StatCard = ({ icon: Icon, title, value, subtitle, trend, color = 'blue' }) => {
+    const getColorClasses = (colorName) => {
+      const colors = {
+        blue: {
+          bg: 'from-blue-500/20 to-purple-500/20',
+          iconBg: 'from-blue-500/20 to-purple-500/20',
+          iconColor: 'text-blue-400'
+        },
+        green: {
+          bg: 'from-green-500/20 to-emerald-500/20',
+          iconBg: 'from-green-500/20 to-emerald-500/20',
+          iconColor: 'text-green-400'
+        },
+        orange: {
+          bg: 'from-orange-500/20 to-red-500/20',
+          iconBg: 'from-orange-500/20 to-red-500/20',
+          iconColor: 'text-orange-400'
+        },
+        purple: {
+          bg: 'from-purple-500/20 to-pink-500/20',
+          iconBg: 'from-purple-500/20 to-pink-500/20',
+          iconColor: 'text-purple-400'
+        },
+        teal: {
+          bg: 'from-teal-500/20 to-cyan-500/20',
+          iconBg: 'from-teal-500/20 to-cyan-500/20',
+          iconColor: 'text-teal-400'
+        }
+      };
+      return colors[colorName] || colors.blue;
+    };
+
+    const colorClasses = getColorClasses(color);
+
+    return (
+      <div className={`relative overflow-hidden rounded-2xl border border-white/20 p-6 backdrop-blur-lg bg-gradient-to-br ${colorClasses.bg}`}>
+        <div className="flex items-start justify-between">
+          <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClasses.iconBg}`}>
+            <Icon className={`w-6 h-6 ${colorClasses.iconColor}`} />
+          </div>
+          {trend && (
+            <div className="flex items-center space-x-1 text-sm">
+              <ArrowUpRight className="w-4 h-4 text-green-400" />
+              <span className="text-green-400 font-medium">+{trend}%</span>
+            </div>
+          )}
         </div>
-        {trend && (
-          <div className="flex items-center space-x-1 text-sm">
-            <ArrowUpRight className="w-4 h-4 text-green-400" />
-            <span className="text-green-400 font-medium">+{trend}%</span>
-          </div>
-        )}
-
-        {/* Facebook Tab */}
-        {activeTab === 'facebook' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard
-                icon={Users}
-                title="Facebook Messages"
-                value={dashboardData.facebook.totalMessages}
-                color="blue"
-              />
-              <StatCard
-                icon={MessageCircle}
-                title="Conversations"
-                value={dashboardData.facebook.totalConversations}
-                color="green"
-              />
-              <StatCard
-                icon={Target}
-                title="Posts Managed"
-                value={dashboardData.facebook.postsManaged}
-                color="purple"
-              />
-              <StatCard
-                icon={Star}
-                title="Leads Generated"
-                value={dashboardData.facebook.leadsGenerated}
-                color="orange"
-              />
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Facebook AI Management</h3>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className={`px-3 py-1 rounded-full text-sm ${
-                    dashboardData.facebook.pageConnected 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.facebook.pageConnected ? 'Facebook Page Connected' : 'Page Setup Required'}
-                  </div>
-                  {dashboardData.facebook.lastSync && (
-                    <span className="text-gray-400 text-sm">
-                      Last sync: {new Date(dashboardData.facebook.lastSync).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => window.location.href = '/social/facebook'}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                  >
-                    Manage Facebook AI
-                  </button>
-                  <button
-                    onClick={() => window.location.href = '/social/facebook/setup'}
-                    className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg font-medium border border-blue-500/30 transition-colors"
-                  >
-                    Facebook Setup
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Instagram Tab */}
-        {activeTab === 'instagram' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard
-                icon={Star}
-                title="Instagram Messages"
-                value={dashboardData.instagram.totalMessages}
-                color="purple"
-              />
-              <StatCard
-                icon={MessageCircle}
-                title="Conversations"
-                value={dashboardData.instagram.totalConversations}
-                color="blue"
-              />
-              <StatCard
-                icon={Target}
-                title="Posts Managed"
-                value={dashboardData.instagram.postsManaged}
-                color="orange"
-              />
-              <StatCard
-                icon={Users}
-                title="Leads Generated"
-                value={dashboardData.instagram.leadsGenerated}
-                color="green"
-              />
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Instagram AI Management</h3>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className={`px-3 py-1 rounded-full text-sm ${
-                    dashboardData.instagram.accountConnected 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.instagram.accountConnected ? 'Instagram Account Connected' : 'Account Setup Required'}
-                  </div>
-                  {dashboardData.instagram.lastSync && (
-                    <span className="text-gray-400 text-sm">
-                      Last sync: {new Date(dashboardData.instagram.lastSync).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => window.location.href = '/social/instagram'}
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                  >
-                    Manage Instagram AI
-                  </button>
-                  <button
-                    onClick={() => window.location.href = '/social/instagram/setup'}
-                    className="bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 px-6 py-3 rounded-lg font-medium border border-pink-500/30 transition-colors"
-                  >
-                    Instagram Setup
-                  </button>
-                </div>
-              </div>
-            </div>
+        <div className="mt-4">
+          <p className="text-2xl font-bold text-white">{value?.toLocaleString() || 0}</p>
+          <p className="text-sm text-gray-300 font-medium">{title}</p>
+          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+        </div>
       </div>
-      <div className="mt-4">
-        <p className="text-2xl font-bold text-white">{value?.toLocaleString() || 0}</p>
-        <p className="text-sm text-gray-300 font-medium">{title}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-      </div>
-    </div>
-  );
+    );
+  };
 
   if (!isLoaded || loading) {
     return (
@@ -485,80 +369,6 @@ export default function MainDashboard() {
                   <h1 className="text-2xl font-bold text-white">Bizzy Bot AI</h1>
                   <p className="text-sm text-gray-300">Welcome back, {user?.firstName || 'User'}</p>
                 </div>
-              </div>
-
-              {/* Facebook Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Users className="w-6 h-6 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-white">Facebook AI</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.facebook.pageConnected 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.facebook.pageConnected ? 'Connected' : 'Setup Needed'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Messages</span>
-                    <span className="text-white font-medium">{dashboardData.facebook.totalMessages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Posts Managed</span>
-                    <span className="text-blue-400 font-medium">{dashboardData.facebook.postsManaged}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Leads Generated</span>
-                    <span className="text-green-400 font-medium">{dashboardData.facebook.leadsGenerated}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/social/facebook'}
-                  className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Facebook
-                </button>
-              </div>
-
-              {/* Instagram Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Star className="w-6 h-6 text-pink-400" />
-                    <h3 className="text-lg font-semibold text-white">Instagram AI</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.instagram.accountConnected 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.instagram.accountConnected ? 'Connected' : 'Setup Needed'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Messages</span>
-                    <span className="text-white font-medium">{dashboardData.instagram.totalMessages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Posts Managed</span>
-                    <span className="text-pink-400 font-medium">{dashboardData.instagram.postsManaged}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Leads Generated</span>
-                    <span className="text-green-400 font-medium">{dashboardData.instagram.leadsGenerated}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/social/instagram'}
-                  className="w-full mt-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Instagram
-                </button>
               </div>
             </div>
             
@@ -760,6 +570,80 @@ export default function MainDashboard() {
                   Manage Email
                 </button>
               </div>
+
+              {/* Facebook Status */}
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Users className="w-6 h-6 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-white">Facebook AI</h3>
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    dashboardData.facebook.pageConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.facebook.pageConnected ? 'Connected' : 'Setup Needed'}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Messages</span>
+                    <span className="text-white font-medium">{dashboardData.facebook.totalMessages}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Posts Managed</span>
+                    <span className="text-blue-400 font-medium">{dashboardData.facebook.postsManaged}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Leads Generated</span>
+                    <span className="text-green-400 font-medium">{dashboardData.facebook.leadsGenerated}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/social/facebook'}
+                  className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Manage Facebook
+                </button>
+              </div>
+
+              {/* Instagram Status */}
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Star className="w-6 h-6 text-pink-400" />
+                    <h3 className="text-lg font-semibold text-white">Instagram AI</h3>
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    dashboardData.instagram.accountConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.instagram.accountConnected ? 'Connected' : 'Setup Needed'}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Messages</span>
+                    <span className="text-white font-medium">{dashboardData.instagram.totalMessages}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Posts Managed</span>
+                    <span className="text-pink-400 font-medium">{dashboardData.instagram.postsManaged}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Leads Generated</span>
+                    <span className="text-green-400 font-medium">{dashboardData.instagram.leadsGenerated}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/social/instagram'}
+                  className="w-full mt-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Manage Instagram
+                </button>
+              </div>
             </div>
 
             {/* Quick Actions */}
@@ -808,9 +692,9 @@ export default function MainDashboard() {
                 
                 <button
                   onClick={() => window.location.href = '/email'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg border border-pink-500/30 transition-colors"
+                  className="flex flex-col items-center space-y-2 p-4 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg border border-purple-500/30 transition-colors"
                 >
-                  <Inbox className="w-6 h-6 text-pink-400" />
+                  <Inbox className="w-6 h-6 text-purple-400" />
                   <span className="text-sm text-white">Email Inbox</span>
                 </button>
               </div>
@@ -954,6 +838,138 @@ export default function MainDashboard() {
                 >
                   Manage Email AI
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Facebook Tab */}
+        {activeTab === 'facebook' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard
+                icon={Users}
+                title="Facebook Messages"
+                value={dashboardData.facebook.totalMessages}
+                color="blue"
+              />
+              <StatCard
+                icon={MessageCircle}
+                title="Conversations"
+                value={dashboardData.facebook.totalConversations}
+                color="green"
+              />
+              <StatCard
+                icon={Target}
+                title="Posts Managed"
+                value={dashboardData.facebook.postsManaged}
+                color="purple"
+              />
+              <StatCard
+                icon={Star}
+                title="Leads Generated"
+                value={dashboardData.facebook.leadsGenerated}
+                color="orange"
+              />
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Facebook AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-sm ${
+                    dashboardData.facebook.pageConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.facebook.pageConnected ? 'Facebook Page Connected' : 'Page Setup Required'}
+                  </div>
+                  {dashboardData.facebook.lastSync && (
+                    <span className="text-gray-400 text-sm">
+                      Last sync: {new Date(dashboardData.facebook.lastSync).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => window.location.href = '/social/facebook'}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Manage Facebook AI
+                  </button>
+                  <button
+                    onClick={() => window.location.href = '/social/facebook/setup'}
+                    className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg font-medium border border-blue-500/30 transition-colors"
+                  >
+                    Facebook Setup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Instagram Tab */}
+        {activeTab === 'instagram' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard
+                icon={Star}
+                title="Instagram Messages"
+                value={dashboardData.instagram.totalMessages}
+                color="purple"
+              />
+              <StatCard
+                icon={MessageCircle}
+                title="Conversations"
+                value={dashboardData.instagram.totalConversations}
+                color="blue"
+              />
+              <StatCard
+                icon={Target}
+                title="Posts Managed"
+                value={dashboardData.instagram.postsManaged}
+                color="orange"
+              />
+              <StatCard
+                icon={Users}
+                title="Leads Generated"
+                value={dashboardData.instagram.leadsGenerated}
+                color="green"
+              />
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Instagram AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-sm ${
+                    dashboardData.instagram.accountConnected 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.instagram.accountConnected ? 'Instagram Account Connected' : 'Account Setup Required'}
+                  </div>
+                  {dashboardData.instagram.lastSync && (
+                    <span className="text-gray-400 text-sm">
+                      Last sync: {new Date(dashboardData.instagram.lastSync).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => window.location.href = '/social/instagram'}
+                    className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Manage Instagram AI
+                  </button>
+                  <button
+                    onClick={() => window.location.href = '/social/instagram/setup'}
+                    className="bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 px-6 py-3 rounded-lg font-medium border border-pink-500/30 transition-colors"
+                  >
+                    Instagram Setup
+                  </button>
+                </div>
               </div>
             </div>
           </div>
