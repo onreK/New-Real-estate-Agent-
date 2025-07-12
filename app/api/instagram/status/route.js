@@ -60,7 +60,7 @@ export async function GET() {
         status: 'active',
         pageId: userConfig.pageId,
         businessName: userConfig.businessName,
-        lastUpdated: userConfig.lastUpdated || new Date().toISOString()
+        lastUpdated: userConfig.configuredAt || new Date().toISOString()
       });
 
     } catch (connectionError) {
