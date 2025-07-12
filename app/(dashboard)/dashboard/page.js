@@ -7,7 +7,7 @@ import {
   Calendar, BarChart3, DollarSign, Clock, Target, Sparkles,
   ArrowUpRight, ArrowDownRight, Activity, Star, Shield,
   Crown, CheckCircle, AlertTriangle, Settings, RefreshCw,
-  Send, FileText, Bot, Inbox, AlertCircle, Camera, Facebook
+  Send, FileText, Bot, Inbox, AlertCircle
 } from 'lucide-react';
 
 export default function MainDashboard() {
@@ -16,7 +16,7 @@ export default function MainDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Enhanced state structure with email data and social media
+  // Enhanced state structure with email data
   const [dashboardData, setDashboardData] = useState({
     // Web Chat Data
     webChat: {
@@ -52,23 +52,6 @@ export default function MainDashboard() {
       emailSettings: null,
       templates: []
     },
-    // NEW: Social Media Data
-    social: {
-      facebook: {
-        configured: false,
-        conversations: [],
-        totalConversations: 0,
-        responseRate: 0,
-        lastSync: null
-      },
-      instagram: {
-        configured: false,
-        conversations: [],
-        totalConversations: 0,
-        responseRate: 0,
-        lastSync: null
-      }
-    },
     // Combined Stats
     combined: {
       totalLeads: 0,
@@ -78,13 +61,12 @@ export default function MainDashboard() {
     }
   });
 
-  // Tab configuration with social media tab
+  // Tab configuration with email tab
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'webchat', label: 'Web Chat', icon: MessageCircle },
     { id: 'sms', label: 'SMS', icon: Phone },
     { id: 'email', label: 'Email AI', icon: Mail },
-    { id: 'social', label: 'Social Media', icon: Users }, // NEW SOCIAL TAB
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
@@ -98,53 +80,73 @@ export default function MainDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      setError('');
       
-      // Load Web Chat data
+      // 1. Load Web Chat data
       const webChatResponse = await fetch('/api/chat?action=conversations');
       const webChatData = await webChatResponse.json();
       
-      // Check AI connection status
-      const aiStatusResponse = await fetch('/api/chat?action=test');
+      // 2. Check AI connection status
+      const aiStatusResponse = await fetch('/api/chat?action=test-connection');
       const aiStatusData = await aiStatusResponse.json();
       
-      // Load SMS data
+      // 3. Load SMS data
       const smsResponse = await fetch('/api/sms/conversations');
       const smsData = await smsResponse.json();
-
-      // Load Email data
-      const emailResponse = await fetch('/api/email/conversations');
-      const emailData = await emailResponse.json();
-
-      const emailSettingsResponse = await fetch('/api/email/settings');
-      const emailSettingsData = await emailSettingsResponse.json();
-
-      const emailTemplatesResponse = await fetch('/api/email/templates');
-      const emailTemplatesData = await emailTemplatesResponse.json();
-
-      // NEW: Load Social Media data
-      const facebookResponse = await fetch('/api/facebook/status');
-      const facebookData = await facebookResponse.json();
-
-      const instagramResponse = await fetch('/api/instagram/status');
-      const instagramData = await instagramResponse.json();
-
+      
+      // 4. Load Email data (with error handling)
+      let emailConversations = [];
+      let emailMessages = 0;
+      let emailLeads = 0;
+      let emailHotLeadsToday = 0;
+      let aiResponseRate = 0;
+      let emailSettingsData = { settings: null };
+      let emailTemplatesData = { templates: [] };
+      
+      try {
+        const emailResponse = await fetch('/api/customer/email-conversations');
+        if (emailResponse.ok) {
+          const emailData = await emailResponse.json();
+          emailConversations = emailData.conversations || [];
+        }
+      } catch (emailError) {
+        console.log('Email conversations not available:', emailError.message);
+      }
+      
+      try {
+        const emailSettingsResponse = await fetch('/api/customer/email-settings');
+        if (emailSettingsResponse.ok) {
+          emailSettingsData = await emailSettingsResponse.json();
+        }
+      } catch (settingsError) {
+        console.log('Email settings not available:', settingsError.message);
+      }
+      
+      try {
+        const emailTemplatesResponse = await fetch('/api/customer/email-templates');
+        if (emailTemplatesResponse.ok) {
+          emailTemplatesData = await emailTemplatesResponse.json();
+        }
+      } catch (templatesError) {
+        console.log('Email templates not available:', templatesError.message);
+      }
+      
       // Process email data
-      const emailConversations = emailData.conversations || [];
-      const emailMessages = emailConversations.reduce((total, conv) => total + (conv.messages?.length || 0), 0);
-      const emailLeads = emailConversations.filter(conv => conv.isLead).length;
-      const emailHotLeadsToday = emailConversations.filter(conv => {
-        const today = new Date().toDateString();
-        return conv.hotLead && new Date(conv.updatedAt).toDateString() === today;
+      emailMessages = emailConversations.reduce((acc, conv) => acc + (conv.messageCount || 0), 0);
+      emailLeads = emailConversations.filter(conv => conv.status === 'lead').length;
+      
+      const today = new Date().toDateString();
+      emailHotLeadsToday = emailConversations.filter(conv => {
+        return conv.lastMessageAt && new Date(conv.lastMessageAt).toDateString() === today;
       }).length;
       
+      // Calculate AI response rate
       const totalEmailsToday = emailConversations.filter(conv => {
-        const today = new Date().toDateString();
-        return new Date(conv.updatedAt).toDateString() === today;
+        return conv.createdAt && new Date(conv.createdAt).toDateString() === today;
       }).length;
+      aiResponseRate = totalEmailsToday > 0 ? Math.round((emailHotLeadsToday / totalEmailsToday) * 100) : 0;
       
-      const aiResponseRate = totalEmailsToday > 0 ? 
-        Math.round((emailHotLeadsToday / totalEmailsToday) * 100) : 0;
-      
+      // 5. Structure the data
       const webChat = {
         conversations: webChatData.conversations || [],
         totalConversations: webChatData.totalConversations || 0,
@@ -168,7 +170,6 @@ export default function MainDashboard() {
         }
       };
 
-      // Email data structure
       const email = {
         conversations: emailConversations,
         totalConversations: emailConversations.length,
@@ -180,36 +181,18 @@ export default function MainDashboard() {
         templates: emailTemplatesData.templates || []
       };
 
-      // NEW: Social media data structure
-      const social = {
-        facebook: {
-          configured: facebookData.configured || false,
-          conversations: facebookData.conversations || [],
-          totalConversations: facebookData.conversationsToday || 0,
-          responseRate: facebookData.responseRate || 0,
-          lastSync: facebookData.lastUpdated
-        },
-        instagram: {
-          configured: instagramData.configured || false,
-          conversations: instagramData.conversations || [],
-          totalConversations: instagramData.conversationsToday || 0,
-          responseRate: instagramData.responseRate || 0,
-          lastSync: instagramData.lastUpdated
-        }
-      };
-
       const combined = {
         totalLeads: webChat.leadsGenerated + sms.leadsGenerated + email.leadsGenerated,
-        totalConversations: webChat.totalConversations + sms.totalConversations + email.totalConversations + social.facebook.totalConversations + social.instagram.totalConversations,
+        totalConversations: webChat.totalConversations + sms.totalConversations + email.totalConversations,
         totalMessages: webChat.totalMessages + sms.totalMessages + email.totalMessages,
         hotLeadsToday: sms.hotLeadStats.alertsLast24h + email.hotLeadsToday
       };
 
-      setDashboardData({ webChat, sms, email, social, combined });
-      setError('');
+      setDashboardData({ webChat, sms, email, combined });
+      
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      setError('Failed to load dashboard data');
+      setError('Failed to load dashboard data. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -223,7 +206,6 @@ export default function MainDashboard() {
       color === 'orange' ? 'from-orange-500/20 to-red-500/20' :
       color === 'purple' ? 'from-purple-500/20 to-pink-500/20' :
       color === 'teal' ? 'from-teal-500/20 to-cyan-500/20' :
-      color === 'pink' ? 'from-pink-500/20 to-rose-500/20' :
       'from-gray-500/20 to-slate-500/20'
     }`}>
       <div className="flex items-start justify-between">
@@ -233,7 +215,6 @@ export default function MainDashboard() {
           color === 'orange' ? 'from-orange-500/20 to-red-500/20' :
           color === 'purple' ? 'from-purple-500/20 to-pink-500/20' :
           color === 'teal' ? 'from-teal-500/20 to-cyan-500/20' :
-          color === 'pink' ? 'from-pink-500/20 to-rose-500/20' :
           'from-gray-500/20 to-slate-500/20'
         }`}>
           <Icon className={`w-6 h-6 ${
@@ -242,86 +223,70 @@ export default function MainDashboard() {
             color === 'orange' ? 'text-orange-400' :
             color === 'purple' ? 'text-purple-400' :
             color === 'teal' ? 'text-teal-400' :
-            color === 'pink' ? 'text-pink-400' :
             'text-gray-400'
           }`} />
         </div>
-        
         {trend && (
-          <div className={`flex items-center text-sm ${
-            trend > 0 ? 'text-green-400' : 'text-red-400'
-          }`}>
-            {trend > 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-            {Math.abs(trend)}%
+          <div className="flex items-center space-x-1 text-sm">
+            <ArrowUpRight className="w-4 h-4 text-green-400" />
+            <span className="text-green-400 font-medium">+{trend}%</span>
           </div>
         )}
       </div>
-      
-      <div>
-        <h3 className="text-2xl font-bold text-white mb-1">{value}</h3>
-        <p className="text-gray-400 text-sm">{title}</p>
-        {subtitle && (
-          <p className="text-gray-500 text-xs mt-1">{subtitle}</p>
-        )}
+      <div className="mt-4">
+        <p className="text-2xl font-bold text-white">{value?.toLocaleString() || 0}</p>
+        <p className="text-sm text-gray-300 font-medium">{title}</p>
+        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
       </div>
     </div>
   );
 
-  if (loading) {
+  if (!isLoaded || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          </div>
-          <p className="text-white text-xl">Loading dashboard...</p>
+          <RefreshCw className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg">Loading Dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Premium Header */}
-      <div className="border-b border-white/10 backdrop-blur-lg bg-white/5">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+      {/* Header */}
+      <div className="border-b border-white/10 backdrop-blur-xl bg-white/5">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl">
-                  <Sparkles className="w-6 h-6 text-white" />
+                <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
+                  <Bot className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-white">AI Business Dashboard</h1>
-                  <p className="text-gray-400 text-sm">Intelligent automation platform</p>
+                  <h1 className="text-2xl font-bold text-white">Bizzy Bot AI</h1>
+                  <p className="text-sm text-gray-300">Welcome back, {user?.firstName || 'User'}</p>
                 </div>
               </div>
             </div>
-
-            {isLoaded && user && (
-              <div className="flex items-center space-x-4">
-                <div className="hidden md:flex items-center space-x-3 bg-white/10 rounded-xl px-4 py-2">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">
-                      {user.firstName?.charAt(0) || user.emailAddresses[0]?.emailAddress?.charAt(0)}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-white text-sm font-medium">
-                      {user.firstName || 'User'}
-                    </p>
-                    <p className="text-gray-400 text-xs">Premium Plan</p>
-                  </div>
-                </div>
-                <SignOutButton>
-                  <button className="text-gray-400 hover:text-white transition-colors">
-                    <Crown className="w-4 h-4" />
-                  </button>
-                </SignOutButton>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 text-sm">
+                <div className={`w-2 h-2 rounded-full ${
+                  dashboardData.webChat.aiStatus === 'connected' ? 'bg-green-400' : 'bg-red-400'
+                }`} />
+                <span className="text-gray-300">
+                  AI Status: {dashboardData.webChat.aiStatus === 'connected' ? 'Connected' : 'Disconnected'}
+                </span>
               </div>
-            )}
+              <SignOutButton>
+                <button className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg border border-red-500/30 transition-colors">
+                  Sign Out
+                </button>
+              </SignOutButton>
+            </div>
           </div>
-
+          
           {/* Navigation Tabs */}
           <div className="mt-6">
             <nav className="flex space-x-1">
@@ -329,7 +294,7 @@ export default function MainDashboard() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                     activeTab === tab.id
                       ? 'bg-purple-500/30 border border-purple-500 text-purple-400'
                       : 'border border-transparent text-gray-400 hover:text-gray-300'
@@ -347,7 +312,10 @@ export default function MainDashboard() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {error && (
           <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-lg p-4">
-            <p className="text-red-300">{error}</p>
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-red-300">{error}</p>
+            </div>
           </div>
         )}
 
@@ -360,7 +328,7 @@ export default function MainDashboard() {
                 icon={Users}
                 title="Total Leads"
                 value={dashboardData.combined.totalLeads}
-                subtitle="Web + SMS + Email + Social"
+                subtitle="Web + SMS + Email"
                 trend={23}
                 color="blue"
               />
@@ -389,7 +357,7 @@ export default function MainDashboard() {
             </div>
 
             {/* Channel Status Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Web Chat Status */}
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -439,7 +407,7 @@ export default function MainDashboard() {
                       ? 'bg-green-500/20 text-green-400' 
                       : 'bg-yellow-500/20 text-yellow-400'
                   }`}>
-                    {dashboardData.sms.phoneNumbers.length > 0 ? 'Active' : 'Setup Required'}
+                    {dashboardData.sms.phoneNumbers.length > 0 ? 'Active' : 'Setup Needed'}
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -448,12 +416,12 @@ export default function MainDashboard() {
                     <span className="text-white font-medium">{dashboardData.sms.phoneNumbers.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Conversations</span>
-                    <span className="text-white font-medium">{dashboardData.sms.totalConversations}</span>
+                    <span className="text-gray-400">Hot Leads</span>
+                    <span className="text-orange-400 font-medium">{dashboardData.sms.hotLeadStats.totalHotLeads}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Hot Leads (24h)</span>
-                    <span className="text-orange-400 font-medium">{dashboardData.sms.hotLeadStats.alertsLast24h}</span>
+                    <span className="text-gray-400">Alerts (24h)</span>
+                    <span className="text-red-400 font-medium">{dashboardData.sms.hotLeadStats.alertsLast24h}</span>
                   </div>
                 </div>
                 <button
@@ -464,19 +432,19 @@ export default function MainDashboard() {
                 </button>
               </div>
 
-              {/* EMAIL AI Status */}
+              {/* Email Status */}
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <Mail className="w-6 h-6 text-teal-400" />
+                    <Mail className="w-6 h-6 text-purple-400" />
                     <h3 className="text-lg font-semibold text-white">Email AI</h3>
                   </div>
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.email.emailSettings?.ai_enabled 
+                    dashboardData.email.emailSettings 
                       ? 'bg-green-500/20 text-green-400' 
                       : 'bg-yellow-500/20 text-yellow-400'
                   }`}>
-                    {dashboardData.email.emailSettings?.ai_enabled ? 'Active' : 'Setup Required'}
+                    {dashboardData.email.emailSettings ? 'Active' : 'Setup Needed'}
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -486,61 +454,18 @@ export default function MainDashboard() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Hot Leads Today</span>
-                    <span className="text-orange-400 font-medium">{dashboardData.email.hotLeadsToday}</span>
+                    <span className="text-purple-400 font-medium">{dashboardData.email.hotLeadsToday}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">AI Response Rate</span>
-                    <span className="text-teal-400 font-medium">{dashboardData.email.aiResponseRate}%</span>
+                    <span className="text-green-400 font-medium">{dashboardData.email.aiResponseRate}%</span>
                   </div>
                 </div>
                 <button
                   onClick={() => window.location.href = '/email'}
-                  className="w-full mt-4 bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Email AI
-                </button>
-              </div>
-
-              {/* NEW: Social Media Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Users className="w-6 h-6 text-purple-400" />
-                    <h3 className="text-lg font-semibold text-white">Social Media</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    (dashboardData.social.facebook.configured || dashboardData.social.instagram.configured)
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {(dashboardData.social.facebook.configured || dashboardData.social.instagram.configured) ? 'Active' : 'Setup Required'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Facebook</span>
-                    <span className={`font-medium ${dashboardData.social.facebook.configured ? 'text-blue-400' : 'text-gray-500'}`}>
-                      {dashboardData.social.facebook.configured ? 'Connected' : 'Not Connected'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Instagram</span>
-                    <span className={`font-medium ${dashboardData.social.instagram.configured ? 'text-pink-400' : 'text-gray-500'}`}>
-                      {dashboardData.social.instagram.configured ? 'Connected' : 'Not Connected'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Total Messages</span>
-                    <span className="text-purple-400 font-medium">
-                      {dashboardData.social.facebook.totalConversations + dashboardData.social.instagram.totalConversations}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setActiveTab('social')}
                   className="w-full mt-4 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
                 >
-                  Manage Social Media
+                  Manage Email
                 </button>
               </div>
             </div>
@@ -548,45 +473,21 @@ export default function MainDashboard() {
             {/* Quick Actions */}
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Quick Actions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={() => window.location.href = '/demo'}
                   className="flex flex-col items-center space-y-2 p-4 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 transition-colors"
                 >
                   <MessageCircle className="w-6 h-6 text-blue-400" />
-                  <span className="text-sm text-white">Test Web Chat</span>
+                  <span className="text-sm text-white">Test Chat</span>
                 </button>
                 
                 <button
-                  onClick={() => window.location.href = '/sms-onboarding'}
+                  onClick={() => window.location.href = '/customer-sms-dashboard'}
                   className="flex flex-col items-center space-y-2 p-4 bg-green-500/20 hover:bg-green-500/30 rounded-lg border border-green-500/30 transition-colors"
                 >
                   <Phone className="w-6 h-6 text-green-400" />
-                  <span className="text-sm text-white">Setup SMS</span>
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/email/setup'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-teal-500/20 hover:bg-teal-500/30 rounded-lg border border-teal-500/30 transition-colors"
-                >
-                  <Mail className="w-6 h-6 text-teal-400" />
-                  <span className="text-sm text-white">Setup Email</span>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/facebook-setup'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg border border-blue-600/30 transition-colors"
-                >
-                  <Facebook className="w-6 h-6 text-blue-500" />
-                  <span className="text-sm text-white">Setup Facebook</span>
-                </button>
-
-                <button
-                  onClick={() => window.location.href = '/instagram-setup'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg border border-pink-500/30 transition-colors"
-                >
-                  <Camera className="w-6 h-6 text-pink-400" />
-                  <span className="text-sm text-white">Setup Instagram</span>
+                  <span className="text-sm text-white">SMS Setup</span>
                 </button>
                 
                 <button
@@ -599,177 +500,12 @@ export default function MainDashboard() {
                 
                 <button
                   onClick={() => window.location.href = '/email'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg border border-purple-500/30 transition-colors"
+                  className="flex flex-col items-center space-y-2 p-4 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg border border-pink-500/30 transition-colors"
                 >
-                  <Inbox className="w-6 h-6 text-purple-400" />
+                  <Inbox className="w-6 h-6 text-pink-400" />
                   <span className="text-sm text-white">Email Inbox</span>
                 </button>
-
-                <button
-                  onClick={() => window.location.href = '/analytics'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-lg border border-indigo-500/30 transition-colors"
-                >
-                  <BarChart3 className="w-6 h-6 text-indigo-400" />
-                  <span className="text-sm text-white">Analytics</span>
-                </button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* NEW: Social Media Tab */}
-        {activeTab === 'social' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Facebook Integration */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <Facebook className="w-8 h-8 text-blue-500 mr-3" />
-                    <div>
-                      <h3 className="text-xl font-semibold text-white">Facebook Messenger</h3>
-                      <p className="text-gray-300 text-sm">AI-powered Facebook messaging</p>
-                    </div>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    dashboardData.social.facebook.configured 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.social.facebook.configured ? 'Active' : 'Setup Required'}
-                  </div>
-                </div>
-
-                {dashboardData.social.facebook.configured ? (
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Conversations Today</span>
-                        <span className="text-white font-medium">{dashboardData.social.facebook.totalConversations}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">AI Response Rate</span>
-                        <span className="text-blue-400 font-medium">{dashboardData.social.facebook.responseRate}%</span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => window.location.href = '/facebook-dashboard'}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Manage Facebook Messages
-                      </button>
-                      <button
-                        onClick={() => window.location.href = '/facebook-setup'}
-                        className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Facebook Settings
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Facebook className="w-16 h-16 text-blue-500 mx-auto mb-4 opacity-50" />
-                    <h4 className="text-lg font-semibold text-white mb-2">Facebook Not Connected</h4>
-                    <p className="text-gray-400 mb-6">Connect your Facebook page to enable AI-powered messaging.</p>
-                    <button
-                      onClick={() => window.location.href = '/facebook-setup'}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                    >
-                      Setup Facebook Messenger
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Instagram Integration */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <Camera className="w-8 h-8 text-pink-400 mr-3" />
-                    <div>
-                      <h3 className="text-xl font-semibold text-white">Instagram Direct</h3>
-                      <p className="text-gray-300 text-sm">AI-powered Instagram messaging</p>
-                    </div>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    dashboardData.social.instagram.configured 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.social.instagram.configured ? 'Active' : 'Setup Required'}
-                  </div>
-                </div>
-
-                {dashboardData.social.instagram.configured ? (
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Conversations Today</span>
-                        <span className="text-white font-medium">{dashboardData.social.instagram.totalConversations}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">AI Response Rate</span>
-                        <span className="text-pink-400 font-medium">{dashboardData.social.instagram.responseRate}%</span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => window.location.href = '/instagram-dashboard'}
-                        className="w-full bg-pink-500 hover:bg-pink-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Manage Instagram Messages
-                      </button>
-                      <button
-                        onClick={() => window.location.href = '/instagram-setup'}
-                        className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Instagram Settings
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Camera className="w-16 h-16 text-pink-400 mx-auto mb-4 opacity-50" />
-                    <h4 className="text-lg font-semibold text-white mb-2">Instagram Not Connected</h4>
-                    <p className="text-gray-400 mb-6">Connect your Instagram account to enable AI-powered direct messaging.</p>
-                    <button
-                      onClick={() => window.location.href = '/instagram-setup'}
-                      className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                    >
-                      Setup Instagram Direct
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Social Media Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard
-                icon={Facebook}
-                title="Facebook Messages"
-                value={dashboardData.social.facebook.totalConversations}
-                color="blue"
-              />
-              <StatCard
-                icon={Camera}
-                title="Instagram Messages"
-                value={dashboardData.social.instagram.totalConversations}
-                color="pink"
-              />
-              <StatCard
-                icon={Target}
-                title="Social Media Leads"
-                value="0"
-                color="orange"
-              />
-              <StatCard
-                icon={Activity}
-                title="Combined Response Rate"
-                value={Math.round((dashboardData.social.facebook.responseRate + dashboardData.social.instagram.responseRate) / 2) || 0}
-                color="green"
-              />
             </div>
           </div>
         )}
@@ -861,7 +597,7 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* EMAIL Tab */}
+        {/* Email Tab */}
         {activeTab === 'email' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -869,7 +605,7 @@ export default function MainDashboard() {
                 icon={Mail}
                 title="Email Conversations"
                 value={dashboardData.email.totalConversations}
-                color="teal"
+                color="purple"
               />
               <StatCard
                 icon={Target}
@@ -878,10 +614,11 @@ export default function MainDashboard() {
                 color="orange"
               />
               <StatCard
-                icon={Bot}
+                icon={Activity}
                 title="AI Response Rate"
-                value={`${dashboardData.email.aiResponseRate}%`}
-                color="purple"
+                value={dashboardData.email.aiResponseRate}
+                subtitle="%"
+                color="green"
               />
               <StatCard
                 icon={FileText}
@@ -891,106 +628,23 @@ export default function MainDashboard() {
               />
             </div>
 
-            {/* Email AI Status */}
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-white">Email AI Configuration</h3>
-                <div className={`px-4 py-2 rounded-lg ${
-                  dashboardData.email.emailSettings?.ai_enabled 
-                    ? 'bg-green-500/20 text-green-400' 
-                    : 'bg-yellow-500/20 text-yellow-400'
-                }`}>
-                  {dashboardData.email.emailSettings?.ai_enabled ? '✅ AI Enabled' : '⚠️ Setup Required'}
-                </div>
-              </div>
-              
-              {dashboardData.email.emailSettings?.ai_enabled ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">AI Model</span>
-                      <span className="text-white">{dashboardData.email.emailSettings.ai_model}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Temperature</span>
-                      <span className="text-white">{dashboardData.email.emailSettings.ai_temperature}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">System Prompt</span>
-                      <span className="text-white">{dashboardData.email.emailSettings.ai_system_prompt ? 'Configured' : 'Default'}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => window.location.href = '/email'}
-                      className="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Manage Email Conversations
-                    </button>
-                    <button
-                      onClick={() => window.location.href = '/email/manage-templates'}
-                      className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Manage Templates
-                    </button>
-                    <button
-                      onClick={() => window.location.href = '/email/settings'}
-                      className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Email AI Settings
-                    </button>
+              <h3 className="text-xl font-semibold text-white mb-4">Email AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-sm ${
+                    dashboardData.email.emailSettings 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {dashboardData.email.emailSettings ? 'Email AI Active' : 'Setup Required'}
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <AlertCircle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-                  <h4 className="text-lg font-semibold text-white mb-2">Email AI Not Configured</h4>
-                  <p className="text-gray-400 mb-6">Set up your email integration to start using AI-powered email responses.</p>
-                  <button
-                    onClick={() => window.location.href = '/email/setup'}
-                    className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                  >
-                    Setup Email AI
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Email Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 text-center">
-                <Inbox className="w-12 h-12 text-teal-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-white mb-2">Email Inbox</h4>
-                <p className="text-gray-400 text-sm mb-4">View and manage email conversations</p>
                 <button
                   onClick={() => window.location.href = '/email'}
-                  className="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                 >
-                  Open Inbox
-                </button>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 text-center">
-                <FileText className="w-12 h-12 text-purple-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-white mb-2">Email Templates</h4>
-                <p className="text-gray-400 text-sm mb-4">Create and manage email templates</p>
-                <button
-                  onClick={() => window.location.href = '/email/manage-templates'}
-                  className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Templates
-                </button>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 text-center">
-                <Settings className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-white mb-2">Email AI Settings</h4>
-                <p className="text-gray-400 text-sm mb-4">Configure AI email responses</p>
-                <button
-                  onClick={() => window.location.href = '/email/settings'}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  AI Settings
+                  Manage Email AI
                 </button>
               </div>
             </div>
@@ -1001,33 +655,41 @@ export default function MainDashboard() {
         {activeTab === 'settings' && (
           <div className="space-y-6">
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-6">AI Configuration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  onClick={() => window.location.href = '/ai-config'}
+                  className="flex items-center space-x-3 p-4 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 transition-colors"
+                >
+                  <Bot className="w-6 h-6 text-blue-400" />
+                  <div className="text-left">
+                    <div className="text-white font-medium">AI Settings</div>
+                    <div className="text-sm text-gray-400">Configure AI behavior and responses</div>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => window.location.href = '/test-ai'}
+                  className="flex items-center space-x-3 p-4 bg-green-500/20 hover:bg-green-500/30 rounded-lg border border-green-500/30 transition-colors"
+                >
+                  <CheckCircle className="w-6 h-6 text-green-400" />
+                  <div className="text-left">
+                    <div className="text-white font-medium">Test AI Connection</div>
+                    <div className="text-sm text-gray-400">Verify OpenAI integration</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Account Settings</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="text-lg font-medium text-white mb-4">Profile Information</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
-                      <p className="text-white">{user?.firstName} {user?.lastName}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
-                      <p className="text-white">{user?.emailAddresses[0]?.emailAddress}</p>
-                    </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-500/20 rounded-lg">
+                  <div>
+                    <div className="text-white font-medium">User Account</div>
+                    <div className="text-sm text-gray-400">{user?.emailAddresses?.[0]?.emailAddress}</div>
                   </div>
-                </div>
-                <div>
-                  <h4 className="text-lg font-medium text-white mb-4">Subscription</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">Plan</label>
-                      <p className="text-white">Premium Plan</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">Status</label>
-                      <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-sm">Active</span>
-                    </div>
-                  </div>
+                  <div className="text-sm text-green-400">Active</div>
                 </div>
               </div>
             </div>
