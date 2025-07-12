@@ -44,17 +44,23 @@ export async function POST(request) {
     }
 
     // Get or create customer record
-    let customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      console.log('👤 Creating customer record for Instagram user:', user.id);
+    let customer;
+    try {
+      customer = await getCustomerByClerkId(user.id);
       
-      customer = await createCustomer({
-        clerk_user_id: user.id,
-        email: user.emailAddresses?.[0]?.emailAddress || '',
-        business_name: businessName || 'My Business',
-        plan: 'basic'
-      });
+      if (!customer) {
+        console.log('👤 Creating customer record for Instagram user:', user.id);
+        
+        customer = await createCustomer({
+          clerk_user_id: user.id,
+          email: user.emailAddresses?.[0]?.emailAddress || '',
+          business_name: businessName || 'My Business',
+          plan: 'basic'
+        });
+      }
+    } catch (dbError) {
+      console.log('⚠️ Database not available, proceeding without customer record');
+      customer = { id: 'temp_customer', business_name: businessName || 'My Business' };
     }
 
     // Store Instagram configuration
@@ -133,5 +139,17 @@ export async function GET(request) {
   }
 }
 
-// Export the config map for use by webhook
-export { instagramConfigs };
+// Helper function to get config by page ID (for webhook use)
+export function getInstagramConfigByPageId(pageId) {
+  for (const config of instagramConfigs.values()) {
+    if (config.pageId === pageId) {
+      return config;
+    }
+  }
+  return null;
+}
+
+// Helper function to get all configs (for status checking)
+export function getAllInstagramConfigs() {
+  return Array.from(instagramConfigs.entries());
+}
