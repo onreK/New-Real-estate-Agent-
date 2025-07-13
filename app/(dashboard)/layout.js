@@ -28,5 +28,6 @@ export default function DashboardLayout({ children }) {
     return null;
   }
 
-  return <>{children}</>;
+  // CRITICAL: No wrapper div! Let dashboard handle its own styling
+  return children;
 }
