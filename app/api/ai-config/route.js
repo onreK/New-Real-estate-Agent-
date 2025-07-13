@@ -1,50 +1,18 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { query } from '../../../lib/database.js';
 
 export const dynamic = 'force-dynamic';
-
-// Import database with proper error handling
-let query = null;
-let dbAvailable = false;
-
-try {
-  const database = await import('../../../lib/database.js');
-  query = database.query;
-  dbAvailable = true;
-  console.log('✅ Database connected for AI config');
-} catch (error) {
-  console.log('⚠️ Database not available for AI config, using fallback:', error.message);
-  dbAvailable = false;
-}
-
-// Fallback in-memory storage when database is not available
-let fallbackConfig = {
-  personality: 'professional',
-  knowledgeBase: '',
-  model: 'gpt-4o-mini',
-  creativity: 0.7,
-  maxTokens: 500,
-  systemPrompt: ''
-};
 
 export async function GET() {
   try {
     console.log('📖 AI Config GET request received');
     
-    // Try to get user authentication
-    let userId = null;
-    try {
-      const authResult = auth();
-      userId = authResult?.userId;
-    } catch (authError) {
-      console.log('⚠️ Auth not available, using fallback mode:', authError.message);
-    }
+    const { userId } = auth();
     
-    console.log('👤 User ID:', userId || 'anonymous');
-
-    if (!dbAvailable || !userId) {
-      console.log('📖 Using fallback config (no DB or auth)');
-      return NextResponse.json(fallbackConfig);
+    if (!userId) {
+      console.log('❌ No user authentication');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     console.log('📖 Getting AI config from database for user:', userId);
@@ -84,8 +52,10 @@ export async function GET() {
 
   } catch (error) {
     console.error('❌ Error getting AI config:', error);
-    console.log('📖 Falling back to default config due to error');
-    return NextResponse.json(fallbackConfig);
+    return NextResponse.json({ 
+      error: 'Failed to get configuration',
+      details: error.message 
+    }, { status: 500 });
   }
 }
 
@@ -93,18 +63,11 @@ export async function POST(request) {
   try {
     console.log('💾 AI Config POST request received');
     
-    // Try to get user authentication
-    let userId = null;
-    try {
-      const authResult = auth();
-      userId = authResult?.userId;
-    } catch (authError) {
-      console.log('⚠️ Auth not available:', authError.message);
-    }
+    const { userId } = auth();
     
     if (!userId) {
-      console.log('❌ No user authentication available');
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      console.log('❌ No user authentication');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -122,12 +85,16 @@ export async function POST(request) {
     
     if (!body.personality || !validPersonalities.includes(body.personality)) {
       console.log('❌ Invalid personality:', body.personality);
-      return NextResponse.json({ error: 'Invalid personality' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'Invalid personality. Must be one of: ' + validPersonalities.join(', ') 
+      }, { status: 400 });
     }
     
     if (!body.model || !validModels.includes(body.model)) {
       console.log('❌ Invalid model:', body.model);
-      return NextResponse.json({ error: 'Invalid model' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'Invalid model. Must be one of: ' + validModels.join(', ') 
+      }, { status: 400 });
     }
     
     // Validate creativity with proper type checking
@@ -136,7 +103,9 @@ export async function POST(request) {
       creativity = typeof body.creativity === 'string' ? parseFloat(body.creativity) : body.creativity;
       if (isNaN(creativity) || creativity < 0 || creativity > 1) {
         console.log('❌ Invalid creativity:', body.creativity);
-        return NextResponse.json({ error: 'Creativity must be between 0 and 1' }, { status: 400 });
+        return NextResponse.json({ 
+          error: 'Creativity must be a number between 0 and 1' 
+        }, { status: 400 });
       }
     }
 
@@ -146,26 +115,10 @@ export async function POST(request) {
       maxTokens = typeof body.maxTokens === 'string' ? parseInt(body.maxTokens) : body.maxTokens;
       if (isNaN(maxTokens) || maxTokens < 1 || maxTokens > 4000) {
         console.log('❌ Invalid maxTokens:', body.maxTokens);
-        return NextResponse.json({ error: 'Max tokens must be between 1 and 4000' }, { status: 400 });
+        return NextResponse.json({ 
+          error: 'Max tokens must be a number between 1 and 4000' 
+        }, { status: 400 });
       }
-    }
-
-    // Handle database fallback
-    if (!dbAvailable) {
-      console.log('💾 Database not available, updating fallback config');
-      fallbackConfig = {
-        personality: body.personality,
-        knowledgeBase: body.knowledgeBase || '',
-        model: body.model,
-        creativity: creativity,
-        maxTokens: maxTokens,
-        systemPrompt: body.systemPrompt || ''
-      };
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Configuration saved (fallback mode)',
-        config: fallbackConfig 
-      });
     }
 
     // Build the system prompt from personality and knowledge base
@@ -288,8 +241,8 @@ export async function getAIConfigForUser(userId) {
   try {
     console.log('🔍 getAIConfigForUser called for user:', userId);
     
-    if (!dbAvailable || !userId) {
-      console.log('🔍 Returning fallback config (no DB or user ID)');
+    if (!userId) {
+      console.log('🔍 No user ID provided, returning default config');
       return {
         model: 'gpt-4o-mini',
         temperature: 0.7,
