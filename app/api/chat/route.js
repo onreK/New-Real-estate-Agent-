@@ -24,23 +24,6 @@ try {
   dbAvailable = false;
 }
 
-// Import AI config functions
-let getAIConfigForUser;
-try {
-  const configModule = await import('../ai-config/route.js');
-  getAIConfigForUser = configModule.getCurrentAIConfig;
-} catch (error) {
-  console.log('⚠️ AI Config not available, using defaults');
-  getAIConfigForUser = () => ({
-    personality: 'professional',
-    knowledgeBase: 'always ask for the customer\'s name, and require email or phone number from the customer',
-    model: 'gpt-4o-mini',
-    creativity: 0.7,
-    maxTokens: 500,
-    systemPrompt: ''
-  });
-}
-
 // Hot lead keywords
 const HOT_LEAD_KEYWORDS = [
   'ready to buy', 'want to purchase', 'looking to buy', 'interested in buying',
@@ -50,31 +33,6 @@ const HOT_LEAD_KEYWORDS = [
   'urgent', 'asap', 'immediately', 'right away', 'this week', 'this month',
   'schedule showing', 'book appointment', 'set up meeting', 'available today'
 ];
-
-// Personality-based system prompts
-const getPersonalityPrompt = (personality, knowledgeBase, businessInfo = '') => {
-  const basePrompts = {
-    professional: `You are a professional AI assistant for ${businessInfo || 'Test Real Estate Co'}. You provide clear, direct, and helpful responses. Always maintain a business-appropriate tone and focus on delivering value to customers.`,
-    
-    friendly: `You are a friendly and conversational AI assistant for ${businessInfo || 'Test Real Estate Co'}. You're warm, approachable, and make customers feel comfortable. Use a casual but respectful tone and show genuine interest in helping.`,
-    
-    enthusiastic: `You are an enthusiastic and energetic AI assistant for ${businessInfo || 'Test Real Estate Co'}. You're excited about helping customers and passionate about the services you provide. Show excitement and positivity in your responses.`,
-    
-    empathetic: `You are an empathetic and understanding AI assistant for ${businessInfo || 'Test Real Estate Co'}. You listen carefully to customer needs, show understanding of their concerns, and provide supportive guidance.`,
-    
-    expert: `You are an expert technical AI assistant for ${businessInfo || 'Test Real Estate Co'}. You provide detailed, accurate information and demonstrate deep knowledge of your field. Use professional terminology appropriately.`
-  };
-
-  let prompt = basePrompts[personality] || basePrompts.professional;
-  
-  if (knowledgeBase && knowledgeBase.trim()) {
-    prompt += `\n\nImportant business information:\n${knowledgeBase}`;
-  }
-  
-  prompt += `\n\nAlways aim to capture leads and schedule appointments when appropriate. Be helpful, professional, and knowledgeable about real estate.`;
-  
-  return prompt;
-};
 
 export async function POST(req) {
   try {
@@ -88,15 +46,6 @@ export async function POST(req) {
     }
 
     console.log('👤 Chat request from user:', userId);
-
-    // Get AI configuration for this user
-    const aiConfig = getAIConfigForUser(userId);
-    console.log('🤖 Using AI config:', {
-      personality: aiConfig.personality,
-      model: aiConfig.model,
-      creativity: aiConfig.creativity,
-      maxTokens: aiConfig.maxTokens
-    });
 
     const body = await req.json();
     const { messages, conversationKey } = body;
@@ -119,21 +68,12 @@ export async function POST(req) {
       messageContent.includes(keyword.toLowerCase())
     );
 
-    // Build system prompt based on AI configuration
-    let systemPrompt;
-    if (aiConfig.systemPrompt && aiConfig.systemPrompt.trim()) {
-      // Use custom system prompt if provided
-      systemPrompt = aiConfig.systemPrompt;
-      console.log('📝 Using custom system prompt');
-    } else {
-      // Use personality-based prompt with knowledge base
-      systemPrompt = getPersonalityPrompt(
-        aiConfig.personality, 
-        aiConfig.knowledgeBase,
-        'Test Real Estate Co'
-      );
-      console.log('🎭 Using personality-based prompt:', aiConfig.personality);
-    }
+    // Build system prompt (simplified for now)
+    const systemPrompt = `You are a professional AI assistant for Test Real Estate Co. 
+You help customers with all their real estate needs including buying, selling, and renting properties.
+
+Be helpful, professional, and knowledgeable about real estate.
+Always aim to capture leads and schedule appointments when appropriate.`;
 
     // Prepare messages for OpenAI
     const openAIMessages = [
@@ -141,14 +81,14 @@ export async function POST(req) {
       ...messages
     ];
 
-    console.log('🚀 Calling OpenAI with model:', aiConfig.model);
+    console.log('🚀 Calling OpenAI');
 
-    // Call OpenAI with user's configuration
+    // Call OpenAI
     const completion = await openai.chat.completions.create({
-      model: aiConfig.model,
+      model: 'gpt-4o-mini',
       messages: openAIMessages,
-      max_tokens: aiConfig.maxTokens,
-      temperature: aiConfig.creativity,
+      max_tokens: 500,
+      temperature: 0.7,
     });
 
     const aiResponse = completion.choices[0]?.message?.content;
@@ -195,11 +135,7 @@ export async function POST(req) {
           response: aiResponse,
           conversationKey: conversation.conversation_key,
           customerId: customer.id,
-          isHotLead: isHotLead,
-          aiConfig: {
-            personality: aiConfig.personality,
-            model: aiConfig.model
-          }
+          isHotLead: isHotLead
         });
 
       } catch (dbError) {
@@ -213,11 +149,7 @@ export async function POST(req) {
       response: aiResponse,
       conversationKey: conversationKey || `conv_${Date.now()}`,
       isHotLead: isHotLead,
-      mode: dbAvailable ? 'database_error' : 'no_database',
-      aiConfig: {
-        personality: aiConfig.personality,
-        model: aiConfig.model
-      }
+      mode: dbAvailable ? 'database_error' : 'no_database'
     });
 
   } catch (error) {
