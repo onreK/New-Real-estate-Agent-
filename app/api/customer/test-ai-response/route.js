@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
 import OpenAI from 'openai';
+import { getAIConfigForUser } from '../../ai-config/route.js';
 import { 
   getCustomerByClerkId 
 } from '../../../../lib/database';
@@ -32,14 +33,29 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Build AI personality prompt based on settings
-    const businessName = customer.business_name || 'My Business';
-    const tone = settings?.tone || 'professional';
-    const expertise = settings?.expertise || 'Real Estate';
-    const specialties = settings?.specialties || 'Residential properties';
-    const responseStyle = settings?.response_style || 'Helpful and detailed responses';
+    console.log('🧪 Testing AI response for user:', user.id);
+    console.log('📝 Test message:', message);
 
-    const systemPrompt = `You are an AI assistant representing ${businessName}. 
+    // Get user's AI configuration from database
+    const aiConfig = await getAIConfigForUser(user.id);
+    console.log('✅ AI Configuration loaded for test:', {
+      model: aiConfig.model,
+      temperature: aiConfig.temperature,
+      hasCustomPrompt: !!aiConfig.systemPrompt
+    });
+
+    // Use the user's actual AI configuration
+    let systemPrompt = aiConfig.systemPrompt;
+
+    // If no custom system prompt exists, build one from the passed settings
+    if (!systemPrompt || systemPrompt.trim() === 'You are a helpful AI assistant.') {
+      const businessName = customer.business_name || 'My Business';
+      const tone = settings?.tone || 'professional';
+      const expertise = settings?.expertise || 'Real Estate';
+      const specialties = settings?.specialties || 'Residential properties';
+      const responseStyle = settings?.response_style || 'Helpful and detailed responses';
+
+      systemPrompt = `You are an AI assistant representing ${businessName}. 
 
 Communication Style:
 - Tone: ${tone}
@@ -48,61 +64,56 @@ Communication Style:
 - Response Style: ${responseStyle}
 
 Key guidelines:
-- Be ${tone} in your email communication
+- Be ${tone} in your communication
 - Provide helpful information about ${expertise}
 - If you cannot answer something specific, offer to connect them with a human team member
 - Keep responses concise but thorough
 - Always maintain a positive, solution-oriented tone
-- Sign emails appropriately for the business
+- Sign responses appropriately for the business
 
 ${settings?.include_availability ? '- Include mentions of availability for viewings/meetings when relevant' : ''}
-${settings?.ask_qualifying_questions ? '- Ask qualifying questions about budget, timeline, and preferences' : ''}
+${settings?.ask_qualifying_questions ? '- Ask qualifying questions to better understand their needs' : ''}
 
-Business: ${businessName}
-Communication method: Email`;
+Business: ${businessName}`;
+    }
 
-    // Generate AI response
+    console.log('🎯 Using system prompt for test:', systemPrompt.substring(0, 100) + '...');
+
+    // Call OpenAI with the user's configuration
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: aiConfig.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
       ],
-      max_tokens: 500,
-      temperature: 0.7,
+      max_tokens: aiConfig.maxTokens,
+      temperature: aiConfig.temperature,
     });
 
-    const aiText = response.choices[0]?.message?.content;
-    
-    if (!aiText) {
-      throw new Error('No AI response generated');
+    const aiResponse = response.choices[0]?.message?.content;
+
+    if (!aiResponse) {
+      throw new Error('No response generated from AI');
     }
 
-    // Check for hot lead keywords
-    const hotLeadKeywords = settings?.hot_lead_keywords || ['urgent', 'asap', 'immediately', 'budget', 'ready'];
-    const messageText = message.toLowerCase();
-    const matchedKeywords = hotLeadKeywords.filter(keyword => 
-      messageText.includes(keyword.toLowerCase())
-    );
+    console.log('✅ Test AI response generated successfully');
 
-    console.log('✅ Test AI response generated for customer:', customer.business_name);
-    
     return NextResponse.json({
       success: true,
-      response: aiText,
-      hotLeadDetected: matchedKeywords.length > 0,
-      matchedKeywords: matchedKeywords,
-      settings: {
-        tone: tone,
-        business: businessName,
-        expertise: expertise
-      }
+      response: aiResponse,
+      config: {
+        model: aiConfig.model,
+        temperature: aiConfig.temperature,
+        maxTokens: aiConfig.maxTokens,
+        systemPrompt: systemPrompt.substring(0, 200) + '...' // Truncated for response
+      },
+      message: 'AI response generated successfully using your custom configuration'
     });
 
   } catch (error) {
-    console.error('❌ Error generating test AI response:', error);
+    console.error('❌ Error testing AI response:', error);
     return NextResponse.json({ 
-      error: 'Failed to generate test AI response',
+      error: 'Failed to generate AI response',
       details: error.message 
     }, { status: 500 });
   }
