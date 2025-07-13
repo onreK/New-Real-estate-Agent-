@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { auth } from '@clerk/nextjs/server';
+import { getAIConfigForUser } from '../ai-config/route.js';
 
 // Force dynamic rendering for authentication
 export const dynamic = 'force-dynamic';
@@ -62,202 +63,162 @@ export async function POST(req) {
 
     console.log('📝 User message:', userMessage.content);
 
+    // Get user's AI configuration from database
+    console.log('🔍 Loading AI configuration for user:', userId);
+    const aiConfig = await getAIConfigForUser(userId);
+    console.log('✅ AI Configuration loaded:', {
+      model: aiConfig.model,
+      temperature: aiConfig.temperature,
+      maxTokens: aiConfig.maxTokens,
+      hasCustomPrompt: !!aiConfig.systemPrompt
+    });
+
     // Check for hot lead keywords
     const messageContent = userMessage.content.toLowerCase();
     const isHotLead = HOT_LEAD_KEYWORDS.some(keyword => 
       messageContent.includes(keyword.toLowerCase())
     );
 
-    // Build system prompt (simplified for now)
-    const systemPrompt = `You are a professional AI assistant for Test Real Estate Co. 
+    // Build system prompt using user's configuration
+    let systemPrompt = aiConfig.systemPrompt;
+
+    // If no custom system prompt, use a default
+    if (!systemPrompt || systemPrompt.trim() === 'You are a helpful AI assistant.') {
+      systemPrompt = `You are a professional AI assistant for a real estate business. 
 You help customers with all their real estate needs including buying, selling, and renting properties.
 
 Be helpful, professional, and knowledgeable about real estate.
 Always aim to capture leads and schedule appointments when appropriate.`;
-
-    // Prepare messages for OpenAI
-    const openAIMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages
-    ];
-
-    console.log('🚀 Calling OpenAI');
-
-    // Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: openAIMessages,
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-
-    const aiResponse = completion.choices[0]?.message?.content;
-    
-    if (!aiResponse) {
-      throw new Error('No response from AI');
     }
 
-    console.log('✅ AI Response generated:', aiResponse.substring(0, 100) + '...');
+    // Add hot lead context if detected
+    if (isHotLead) {
+      systemPrompt += `\n\nIMPORTANT: This customer has expressed hot lead indicators. Be extra attentive and helpful, and try to capture their contact information or schedule a meeting.`;
+    }
 
-    // Try to save to database if available
-    if (dbAvailable) {
+    console.log('🎯 Using system prompt:', systemPrompt.substring(0, 100) + '...');
+
+    // Save conversation to database if available
+    if (dbAvailable && conversationKey) {
       try {
-        const customer = await db.getOrCreateCustomer(userId, userMessage.email || null);
-        
-        const conversation = await db.saveConversation({
-          customer_id: customer.id,
-          conversation_key: conversationKey || `conv_${Date.now()}`,
-          user_message: userMessage.content,
-          ai_response: aiResponse,
-          channel: 'web_chat',
-          is_hot_lead: isHotLead
-        });
+        // Create or get conversation
+        const conversationResult = await db.query(
+          `INSERT INTO conversations (user_id, type, status) 
+           VALUES ($1, 'chat', 'active') 
+           ON CONFLICT DO NOTHING 
+           RETURNING id`,
+          [userId]
+        );
 
-        // Send hot lead alert if needed
-        if (isHotLead) {
-          try {
-            await db.sendHotLeadAlert({
-              customer,
-              conversation,
-              message: userMessage.content,
-              urgency: 'High',
-              score: Math.floor(Math.random() * 3) + 8 // Demo score 8-10
-            });
-            console.log('🚨 Hot lead alert sent');
-          } catch (alertError) {
-            console.log('⚠️ Hot lead alert failed:', alertError.message);
-          }
+        let conversationId = conversationResult.rows[0]?.id;
+        
+        if (!conversationId) {
+          // Get existing conversation
+          const existingConv = await db.query(
+            'SELECT id FROM conversations WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1',
+            [userId, 'chat']
+          );
+          conversationId = existingConv.rows[0]?.id;
         }
 
-        console.log('💾 Saved conversation to database');
+        // Save user message
+        if (conversationId) {
+          await db.query(
+            'INSERT INTO messages (conversation_id, sender_type, content) VALUES ($1, $2, $3)',
+            [conversationId, 'user', userMessage.content]
+          );
+        }
 
-        return NextResponse.json({
-          response: aiResponse,
-          conversationKey: conversation.conversation_key,
-          customerId: customer.id,
-          isHotLead: isHotLead
-        });
-
+        console.log('💾 Conversation saved to database');
       } catch (dbError) {
-        console.error('❌ Database error:', dbError);
-        // Continue without database - just return AI response
+        console.error('⚠️ Database error (continuing anyway):', dbError);
       }
     }
 
-    // Return response (with or without database)
-    return NextResponse.json({
-      response: aiResponse,
-      conversationKey: conversationKey || `conv_${Date.now()}`,
-      isHotLead: isHotLead,
-      mode: dbAvailable ? 'database_error' : 'no_database'
+    // Prepare messages for OpenAI
+    const openaiMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(msg => ({
+        role: msg.role || (msg.sender === 'assistant' ? 'assistant' : 'user'),
+        content: msg.content
+      }))
+    ];
+
+    console.log('🤖 Calling OpenAI with config:', {
+      model: aiConfig.model,
+      temperature: aiConfig.temperature,
+      max_tokens: aiConfig.maxTokens,
+      messages_count: openaiMessages.length
+    });
+
+    // Call OpenAI with user's configuration
+    const completion = await openai.chat.completions.create({
+      model: aiConfig.model,
+      messages: openaiMessages,
+      max_tokens: aiConfig.maxTokens,
+      temperature: aiConfig.temperature,
+    });
+
+    const assistantMessage = completion.choices[0].message.content;
+    console.log('✅ OpenAI response received:', assistantMessage.substring(0, 100) + '...');
+
+    // Save assistant response to database if available
+    if (dbAvailable && conversationKey) {
+      try {
+        const conversationResult = await db.query(
+          'SELECT id FROM conversations WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1',
+          [userId, 'chat']
+        );
+        
+        const conversationId = conversationResult.rows[0]?.id;
+        if (conversationId) {
+          await db.query(
+            'INSERT INTO messages (conversation_id, sender_type, content) VALUES ($1, $2, $3)',
+            [conversationId, 'assistant', assistantMessage]
+          );
+        }
+      } catch (dbError) {
+        console.error('⚠️ Database error saving response:', dbError);
+      }
+    }
+
+    // Handle hot lead detection
+    if (isHotLead && dbAvailable && aiConfig.leadDetectionEnabled) {
+      try {
+        // Create hot lead entry
+        await db.query(
+          `INSERT INTO hot_leads (user_id, urgency_score, keywords, ai_analysis, status) 
+           VALUES ($1, $2, $3, $4, 'new')`,
+          [
+            userId,
+            8, // High urgency score for detected keywords
+            HOT_LEAD_KEYWORDS.filter(keyword => messageContent.includes(keyword.toLowerCase())),
+            `Hot lead detected from chat. Keywords found: ${HOT_LEAD_KEYWORDS.filter(keyword => messageContent.includes(keyword.toLowerCase())).join(', ')}`
+          ]
+        );
+        console.log('🔥 Hot lead logged to database');
+      } catch (dbError) {
+        console.error('⚠️ Error logging hot lead:', dbError);
+      }
+    }
+
+    console.log('✅ Chat response completed successfully');
+
+    return NextResponse.json({ 
+      response: assistantMessage,
+      isHotLead,
+      model: aiConfig.model,
+      configApplied: true
     });
 
   } catch (error) {
     console.error('❌ Chat API Error:', error);
     
-    // Return a helpful error response
-    return NextResponse.json({
-      response: "I'm experiencing some technical difficulties right now. Please try again in a moment, or feel free to contact us directly for immediate assistance with your real estate needs!",
-      error: true,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-}
-
-// Handle GET requests for testing
-export async function GET(req) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const action = searchParams.get('action');
-
-    console.log('💬 Chat GET request, action:', action);
-
-    if (action === 'test-connection') {
-      // Test OpenAI connection
-      try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: 'Test' }],
-          max_tokens: 10,
-        });
-        
-        console.log('✅ OpenAI connection test successful');
-        return NextResponse.json({ 
-          connected: true, 
-          success: true,
-          message: 'OpenAI Connected Successfully!',
-          model: 'gpt-4o-mini',
-          database: dbAvailable ? 'Available' : 'Not Available'
-        });
-      } catch (error) {
-        console.log('❌ OpenAI connection test failed:', error.message);
-        return NextResponse.json({ 
-          connected: false,
-          success: false,
-          error: error.message 
-        });
-      }
-    }
-
-    if (action === 'conversations') {
-      const { userId } = auth();
-      
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-
-      if (!dbAvailable) {
-        return NextResponse.json({
-          conversations: [],
-          totalConversations: 0,
-          totalMessages: 0,
-          leadsGenerated: 0,
-          message: 'Database not available'
-        });
-      }
-
-      try {
-        const customer = await db.getCustomerByClerkId(userId);
-        
-        if (!customer) {
-          return NextResponse.json({
-            conversations: [],
-            totalConversations: 0,
-            totalMessages: 0,
-            leadsGenerated: 0
-          });
-        }
-
-        const conversations = await db.getConversationsByCustomer(customer.id);
-        const stats = await db.getCustomerStats(customer.id);
-
-        return NextResponse.json({
-          conversations,
-          totalConversations: stats.total_conversations || 0,
-          totalMessages: stats.total_messages || 0,
-          leadsGenerated: stats.total_hot_leads || 0
-        });
-
-      } catch (dbError) {
-        console.error('❌ Database error in conversations:', dbError);
-        return NextResponse.json({
-          conversations: [],
-          totalConversations: 0,
-          totalMessages: 0,
-          leadsGenerated: 0,
-          error: 'Database error'
-        });
-      }
-    }
-
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-
-  } catch (error) {
-    console.error('❌ Chat GET API Error:', error);
-    
-    return NextResponse.json({
-      error: 'Failed to process request',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    // Return a helpful error message
+    return NextResponse.json({ 
+      error: 'Failed to generate response',
+      details: error.message,
+      fallbackResponse: "I'm sorry, I'm experiencing some technical difficulties right now. Please try again in a moment."
     }, { status: 500 });
   }
 }
