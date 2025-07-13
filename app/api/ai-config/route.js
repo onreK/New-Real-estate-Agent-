@@ -35,7 +35,7 @@ export async function GET() {
       return NextResponse.json({ error: 'ai_configs table not accessible' }, { status: 500 });
     }
 
-    // Get AI configuration from database
+    // Get AI configuration from database using CORRECT column names
     const result = await query(
       'SELECT * FROM ai_configs WHERE user_id = $1',
       [userId]
@@ -48,13 +48,14 @@ export async function GET() {
       const dbConfig = result.rows[0];
       console.log('📄 Database config keys:', Object.keys(dbConfig));
       
+      // Map database columns to frontend format using CORRECT column names
       config = {
-        personality: 'professional',
-        knowledgeBase: dbConfig.system_prompt || '',
+        personality: dbConfig.personality || 'professional',
+        knowledgeBase: dbConfig.knowledge_base || '',  // ✅ CORRECT: knowledge_base
         model: dbConfig.model || 'gpt-4o-mini',
-        creativity: parseFloat(dbConfig.temperature) || 0.7,
-        maxTokens: dbConfig.max_tokens || 500,
-        systemPrompt: dbConfig.system_prompt || ''
+        creativity: parseFloat(dbConfig.creativity) || 0.7,  // ✅ CORRECT: creativity
+        maxTokens: parseInt(dbConfig.response_length) || 500,  // ✅ CORRECT: response_length
+        systemPrompt: dbConfig.business_info || ''  // ✅ CORRECT: business_info
       };
       console.log('✅ Config loaded from database');
     } else {
@@ -113,18 +114,20 @@ export async function POST(request) {
     const creativity = parseFloat(body.creativity) || 0.7;
     const maxTokens = parseInt(body.maxTokens) || 500;
 
-    // Build system prompt
-    let systemPrompt = 'You are a professional AI assistant.';
+    // Build system prompt from knowledgeBase
+    let businessInfo = 'You are a professional AI assistant.';
     if (body.knowledgeBase && body.knowledgeBase.trim()) {
-      systemPrompt += '\n\nBusiness Information:\n' + body.knowledgeBase.trim();
+      businessInfo = body.knowledgeBase.trim();
     }
 
     console.log('💾 Saving config for user:', userId);
     console.log('📊 Values to save:', {
+      personality: body.personality,
       model: body.model,
       creativity,
       maxTokens,
-      systemPromptLength: systemPrompt.length
+      knowledgeBaseLength: body.knowledgeBase?.length || 0,
+      businessInfoLength: businessInfo.length
     });
 
     try {
@@ -143,22 +146,42 @@ export async function POST(request) {
 
       if (existingResult.rows.length > 0) {
         console.log('🔄 Updating existing config...');
+        // ✅ CORRECT column names: personality, knowledge_base, model, creativity, response_length, business_info
         await query(
           `UPDATE ai_configs 
-           SET model = $1, temperature = $2, max_tokens = $3, system_prompt = $4, 
-               auto_response_enabled = true, lead_detection_enabled = true, 
-               updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = $5`,
-          [body.model, creativity, maxTokens, systemPrompt, userId]
+           SET personality = $1, knowledge_base = $2, model = $3, creativity = $4, 
+               response_length = $5, business_info = $6, updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = $7`,
+          [body.personality, body.knowledgeBase || '', body.model, creativity, maxTokens, businessInfo, userId]
         );
         console.log('✅ Update completed');
       } else {
         console.log('➕ Creating new config...');
+        // ✅ CORRECT: Insert with all required columns using proper names
         await query(
-          `INSERT INTO ai_configs (user_id, model, temperature, max_tokens, system_prompt, 
-                                   auto_response_enabled, lead_detection_enabled)
-           VALUES ($1, $2, $3, $4, $5, true, true)`,
-          [userId, body.model, creativity, maxTokens, systemPrompt]
+          `INSERT INTO ai_configs (
+             user_id, customer_id, phone_number, business_name, personality, 
+             business_info, welcome_message, model, creativity, response_length, 
+             knowledge_base, enable_hot_lead_alerts, business_owner_phone, 
+             alert_business_hours, hot_lead_threshold
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          [
+            userId,                           // user_id
+            'default',                        // customer_id  
+            '',                              // phone_number
+            'My Business',                   // business_name
+            body.personality,                // personality
+            businessInfo,                    // business_info (was system_prompt)
+            'Hello! How can I help you?',    // welcome_message
+            body.model,                      // model
+            creativity,                      // creativity (was temperature)
+            maxTokens,                       // response_length (was max_tokens)
+            body.knowledgeBase || '',        // knowledge_base
+            false,                           // enable_hot_lead_alerts
+            '',                              // business_owner_phone
+            '9AM-5PM',                       // alert_business_hours
+            3                                // hot_lead_threshold
+          ]
         );
         console.log('✅ Insert completed');
       }
@@ -169,13 +192,13 @@ export async function POST(request) {
         model: body.model,
         creativity,
         maxTokens,
-        systemPrompt: body.systemPrompt || ''
+        systemPrompt: businessInfo
       };
       
       console.log('🎉 Save successful');
       return NextResponse.json({ 
         success: true, 
-        message: 'Configuration saved successfully!',
+        message: 'Configuration saved successfully! 🎉',
         config: savedConfig 
       });
 
@@ -183,12 +206,14 @@ export async function POST(request) {
       console.error('❌ Database save error:', dbError);
       console.error('DB Error code:', dbError.code);
       console.error('DB Error detail:', dbError.detail);
+      console.error('DB Error constraint:', dbError.constraint);
       console.error('DB Error stack:', dbError.stack);
       
       return NextResponse.json({ 
         error: 'Database error',
         details: dbError.message,
-        code: dbError.code
+        code: dbError.code,
+        constraint: dbError.constraint
       }, { status: 500 });
     }
 
@@ -225,11 +250,11 @@ export async function getAIConfigForUser(userId) {
       const config = result.rows[0];
       return {
         model: config.model || 'gpt-4o-mini',
-        temperature: parseFloat(config.temperature) || 0.7,
-        maxTokens: config.max_tokens || 500,
-        systemPrompt: config.system_prompt || 'You are a helpful AI assistant.',
-        autoResponseEnabled: config.auto_response_enabled || false,
-        leadDetectionEnabled: config.lead_detection_enabled || true
+        temperature: parseFloat(config.creativity) || 0.7,  // ✅ CORRECT: creativity
+        maxTokens: parseInt(config.response_length) || 500,  // ✅ CORRECT: response_length
+        systemPrompt: config.business_info || 'You are a helpful AI assistant.',  // ✅ CORRECT: business_info
+        autoResponseEnabled: config.enable_hot_lead_alerts || false,
+        leadDetectionEnabled: true
       };
     }
 
