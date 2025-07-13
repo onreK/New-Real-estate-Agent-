@@ -28,6 +28,5 @@ export default function DashboardLayout({ children }) {
     return null;
   }
 
-  // Don't add any background wrapper - let the dashboard component handle its own styling
   return <>{children}</>;
 }
