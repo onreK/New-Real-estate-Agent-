@@ -1,60 +1,64 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { query } from '../../../lib/database.js';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    console.log('📖 AI Config GET request');
+    console.log('📖 AI Config GET request received');
     
     const { userId } = auth();
+    console.log('🔐 Auth result:', { userId: userId || 'none' });
     
     if (!userId) {
-      console.log('❌ No authentication');
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('👤 Loading config for user:', userId);
+    console.log('📖 Querying database for user:', userId);
 
+    // Test database connection first
     try {
-      // Import database dynamically to avoid import issues
-      const { query } = await import('../../../lib/database.js');
+      await query('SELECT 1 as test');
+      console.log('✅ Database connection test passed');
+    } catch (connectionError) {
+      console.error('❌ Database connection failed:', connectionError);
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    }
+
+    // Check if ai_configs table exists
+    try {
+      await query('SELECT COUNT(*) FROM ai_configs');
+      console.log('✅ ai_configs table exists and accessible');
+    } catch (tableError) {
+      console.error('❌ ai_configs table issue:', tableError);
+      return NextResponse.json({ error: 'ai_configs table not accessible' }, { status: 500 });
+    }
+
+    // Get AI configuration from database
+    const result = await query(
+      'SELECT * FROM ai_configs WHERE user_id = $1',
+      [userId]
+    );
+
+    console.log('📊 Query result:', { rowCount: result.rows.length });
+
+    let config;
+    if (result.rows.length > 0) {
+      const dbConfig = result.rows[0];
+      console.log('📄 Database config keys:', Object.keys(dbConfig));
       
-      // Get AI configuration from database
-      const result = await query(
-        'SELECT * FROM ai_configs WHERE user_id = $1',
-        [userId]
-      );
-
-      if (result.rows.length > 0) {
-        const dbConfig = result.rows[0];
-        const config = {
-          personality: 'professional',
-          knowledgeBase: dbConfig.system_prompt || '',
-          model: dbConfig.model || 'gpt-4o-mini',
-          creativity: parseFloat(dbConfig.temperature) || 0.7,
-          maxTokens: dbConfig.max_tokens || 500,
-          systemPrompt: dbConfig.system_prompt || ''
-        };
-        console.log('✅ Config loaded from database');
-        return NextResponse.json(config);
-      } else {
-        console.log('📖 No config found, using defaults');
-        const defaultConfig = {
-          personality: 'professional',
-          knowledgeBase: '',
-          model: 'gpt-4o-mini',
-          creativity: 0.7,
-          maxTokens: 500,
-          systemPrompt: ''
-        };
-        return NextResponse.json(defaultConfig);
-      }
-
-    } catch (dbError) {
-      console.error('❌ Database error in GET:', dbError);
-      // Return defaults if database fails
-      const fallbackConfig = {
+      config = {
+        personality: 'professional',
+        knowledgeBase: dbConfig.system_prompt || '',
+        model: dbConfig.model || 'gpt-4o-mini',
+        creativity: parseFloat(dbConfig.temperature) || 0.7,
+        maxTokens: dbConfig.max_tokens || 500,
+        systemPrompt: dbConfig.system_prompt || ''
+      };
+      console.log('✅ Config loaded from database');
+    } else {
+      config = {
         personality: 'professional',
         knowledgeBase: '',
         model: 'gpt-4o-mini',
@@ -62,118 +66,83 @@ export async function GET() {
         maxTokens: 500,
         systemPrompt: ''
       };
-      return NextResponse.json(fallbackConfig);
+      console.log('📖 Using default config (no saved config found)');
     }
+
+    return NextResponse.json(config);
 
   } catch (error) {
     console.error('❌ GET Error:', error);
+    console.error('Error stack:', error.stack);
     return NextResponse.json({ 
-      error: 'Failed to load configuration' 
+      error: 'Failed to get configuration',
+      details: error.message 
     }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
-    console.log('💾 AI Config POST request');
+    console.log('💾 AI Config POST request received');
     
     const { userId } = auth();
+    console.log('🔐 Auth result:', { userId: userId || 'none' });
     
     if (!userId) {
-      console.log('❌ No authentication');
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    console.log('📝 Saving config for user:', userId);
+    console.log('📝 Request body:', {
+      personality: body.personality,
+      model: body.model,
+      knowledgeBaseLength: body.knowledgeBase?.length || 0,
+      creativity: body.creativity,
+      maxTokens: body.maxTokens
+    });
     
-    // Basic validation
+    // Validate required fields
     if (!body.personality || !body.model) {
+      console.log('❌ Missing required fields');
       return NextResponse.json({ 
         error: 'Personality and model are required' 
       }, { status: 400 });
     }
 
-    // Validate values
-    const validPersonalities = ['professional', 'friendly', 'enthusiastic', 'empathetic', 'expert'];
-    const validModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
-    
-    if (!validPersonalities.includes(body.personality)) {
-      return NextResponse.json({ 
-        error: 'Invalid personality selected' 
-      }, { status: 400 });
-    }
-    
-    if (!validModels.includes(body.model)) {
-      return NextResponse.json({ 
-        error: 'Invalid model selected' 
-      }, { status: 400 });
-    }
-
-    // Parse numeric values safely
-    let creativity = 0.7;
-    if (body.creativity !== undefined) {
-      creativity = parseFloat(body.creativity);
-      if (isNaN(creativity) || creativity < 0 || creativity > 1) {
-        creativity = 0.7;
-      }
-    }
-
-    let maxTokens = 500;
-    if (body.maxTokens !== undefined) {
-      maxTokens = parseInt(body.maxTokens);
-      if (isNaN(maxTokens) || maxTokens < 1) {
-        maxTokens = 500;
-      }
-    }
+    // Parse values safely
+    const creativity = parseFloat(body.creativity) || 0.7;
+    const maxTokens = parseInt(body.maxTokens) || 500;
 
     // Build system prompt
-    let systemPrompt = '';
-    
-    switch (body.personality) {
-      case 'professional':
-        systemPrompt = 'You are a professional AI assistant. Be direct, helpful, and maintain a business-appropriate tone.';
-        break;
-      case 'friendly':
-        systemPrompt = 'You are a friendly AI assistant. Be warm, conversational, and approachable.';
-        break;
-      case 'enthusiastic':
-        systemPrompt = 'You are an enthusiastic AI assistant. Be energetic and positive.';
-        break;
-      case 'empathetic':
-        systemPrompt = 'You are an empathetic AI assistant. Be understanding and supportive.';
-        break;
-      case 'expert':
-        systemPrompt = 'You are an expert AI assistant. Be technical and authoritative.';
-        break;
-      default:
-        systemPrompt = 'You are a helpful AI assistant.';
-    }
-
-    // Add knowledge base
+    let systemPrompt = 'You are a professional AI assistant.';
     if (body.knowledgeBase && body.knowledgeBase.trim()) {
       systemPrompt += '\n\nBusiness Information:\n' + body.knowledgeBase.trim();
     }
 
-    // Add custom prompt
-    if (body.systemPrompt && body.systemPrompt.trim()) {
-      systemPrompt += '\n\nAdditional Instructions:\n' + body.systemPrompt.trim();
-    }
+    console.log('💾 Saving config for user:', userId);
+    console.log('📊 Values to save:', {
+      model: body.model,
+      creativity,
+      maxTokens,
+      systemPromptLength: systemPrompt.length
+    });
 
     try {
-      console.log('💾 Saving to database...');
-      
-      // Import database dynamically
-      const { query } = await import('../../../lib/database.js');
-      
+      // Test database connection
+      await query('SELECT 1 as test');
+      console.log('✅ Database connection test passed');
+
       // Check if config exists
+      console.log('🔍 Checking for existing config...');
       const existingResult = await query(
         'SELECT id FROM ai_configs WHERE user_id = $1',
         [userId]
       );
 
+      console.log('📊 Existing check result:', { rowCount: existingResult.rows.length });
+
       if (existingResult.rows.length > 0) {
-        // Update existing
+        console.log('🔄 Updating existing config...');
         await query(
           `UPDATE ai_configs 
            SET model = $1, temperature = $2, max_tokens = $3, system_prompt = $4, 
@@ -182,29 +151,28 @@ export async function POST(request) {
            WHERE user_id = $5`,
           [body.model, creativity, maxTokens, systemPrompt, userId]
         );
-        console.log('✅ Updated existing config');
+        console.log('✅ Update completed');
       } else {
-        // Create new
+        console.log('➕ Creating new config...');
         await query(
           `INSERT INTO ai_configs (user_id, model, temperature, max_tokens, system_prompt, 
                                    auto_response_enabled, lead_detection_enabled)
            VALUES ($1, $2, $3, $4, $5, true, true)`,
           [userId, body.model, creativity, maxTokens, systemPrompt]
         );
-        console.log('✅ Created new config');
+        console.log('✅ Insert completed');
       }
 
-      // Return success
       const savedConfig = {
         personality: body.personality,
         knowledgeBase: body.knowledgeBase || '',
         model: body.model,
-        creativity: creativity,
-        maxTokens: maxTokens,
+        creativity,
+        maxTokens,
         systemPrompt: body.systemPrompt || ''
       };
       
-      console.log('✅ Save successful');
+      console.log('🎉 Save successful');
       return NextResponse.json({ 
         success: true, 
         message: 'Configuration saved successfully!',
@@ -213,16 +181,20 @@ export async function POST(request) {
 
     } catch (dbError) {
       console.error('❌ Database save error:', dbError);
-      console.error('Error details:', dbError.message, dbError.code);
+      console.error('DB Error code:', dbError.code);
+      console.error('DB Error detail:', dbError.detail);
+      console.error('DB Error stack:', dbError.stack);
       
       return NextResponse.json({ 
-        error: 'Failed to save to database',
-        details: `Database error: ${dbError.message}`
+        error: 'Database error',
+        details: dbError.message,
+        code: dbError.code
       }, { status: 500 });
     }
 
   } catch (error) {
     console.error('❌ POST Error:', error);
+    console.error('Error stack:', error.stack);
     return NextResponse.json({ 
       error: 'Failed to save configuration',
       details: error.message 
@@ -244,8 +216,6 @@ export async function getAIConfigForUser(userId) {
       };
     }
 
-    const { query } = await import('../../../lib/database.js');
-    
     const result = await query(
       'SELECT * FROM ai_configs WHERE user_id = $1',
       [userId]
