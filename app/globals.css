@@ -1,68 +1,33 @@
-/* Add these styles to your app/globals.css file for the creativity slider */
-
-/* Range Slider Styling */
-.slider {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: #e5e7eb;
-  outline: none;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.slider:hover {
-  opacity: 1;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #2563eb;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
-}
-
-.slider::-webkit-slider-thumb:hover {
-  background: #1d4ed8;
-  transform: scale(1.1);
-}
-
-.slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #2563eb;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
-}
-
-.slider::-moz-range-thumb:hover {
-  background: #1d4ed8;
-  transform: scale(1.1);
-}
-
-.slider::-moz-range-track {
-  height: 6px;
-  border-radius: 3px;
-  background: #e5e7eb;
-  border: none;
-}
-
-/* Focus states for accessibility */
-.slider:focus::-webkit-slider-thumb {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-.slider:focus::-moz-range-thumb {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+{
+  "name": "ai-business-automation-saas",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "echo 'Install complete'"
+  },
+  "dependencies": {
+    "next": "^14.2.25",
+    "react": "^18",
+    "react-dom": "^18",
+    "twilio": "^4.19.0",
+    "@clerk/nextjs": "^4.29.1",
+    "openai": "^4.57.0",
+    "pg": "^8.11.0",
+    "svix": "^1.15.0",
+    "lucide-react": "^0.263.1",
+    "stripe": "^14.0.0",
+    "@stripe/stripe-js": "^2.0.0",
+    "resend": "^3.0.0",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.0.1",
+    "postcss": "^8"
+  },
+  "devDependencies": {
+    "eslint": "^8",
+    "eslint-config-next": "14.0.0"
+  }
 }
