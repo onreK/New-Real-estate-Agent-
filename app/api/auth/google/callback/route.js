@@ -19,11 +19,23 @@ export async function GET(request) {
     const code = searchParams.get('code');
     const state = searchParams.get('state'); // This contains the Clerk user ID
     const error = searchParams.get('error');
+    const test = searchParams.get('test'); // For testing
 
     console.log('📧 Gmail OAuth callback received');
     console.log('📋 Code present:', !!code);
     console.log('👤 State (userId):', state);
     console.log('❌ Error param:', error);
+    console.log('🧪 Test mode:', !!test);
+
+    // Handle test mode
+    if (test) {
+      console.log('🧪 TEST MODE - Callback route is working!');
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Callback route is working!',
+        timestamp: new Date().toISOString()
+      });
+    }
 
     if (error) {
       console.error('❌ OAuth error parameter:', error);
