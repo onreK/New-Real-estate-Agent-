@@ -1,4 +1,4 @@
-// middleware.js
+// Gmail OAuth update - v2
 import { authMiddleware } from "@clerk/nextjs";
 
 export default authMiddleware({
