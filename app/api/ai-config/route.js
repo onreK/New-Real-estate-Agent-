@@ -157,14 +157,15 @@ export async function POST(request) {
         console.log('✅ Update completed');
       } else {
         console.log('➕ Creating new config...');
-        // ✅ FIXED: Use explicit column names to avoid ordering issues
+        // ✅ FIXED: Include required business_name field
         await query(
           `INSERT INTO ai_configs (
-             user_id, personality, business_info, model, creativity, 
-             response_length, knowledge_base
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+             user_id, business_name, personality, business_info, model, 
+             creativity, response_length, knowledge_base
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             userId,                           // user_id
+            'My Business',                   // business_name - REQUIRED field
             body.personality,                // personality
             businessInfo,                    // business_info
             body.model,                      // model
