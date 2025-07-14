@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 export default function EmailSetup() {
   const { user } = useUser();
-  const [setupMethod, setSetupMethod] = useState('intellihub'); // 'intellihub' or 'custom'
+  const [setupMethod, setSetupMethod] = useState('custom'); // 'custom' or 'gmail'
   const [customDomain, setCustomDomain] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [currentEmail, setCurrentEmail] = useState('');
@@ -40,7 +40,7 @@ export default function EmailSetup() {
       const data = await response.json();
       if (data.success && data.settings) {
         setEmailSettings(data.settings);
-        setSetupMethod(data.settings.setup_method || 'intellihub');
+        setSetupMethod(data.settings.setup_method || 'custom');
         setCustomDomain(data.settings.custom_domain || '');
         setCurrentEmail(data.settings.email_address || '');
       }
@@ -56,9 +56,11 @@ export default function EmailSetup() {
         setup_method: setupMethod,
         custom_domain: setupMethod === 'custom' ? customDomain : null,
         business_name: businessName,
-        email_address: setupMethod === 'intellihub' 
-          ? `${businessName.toLowerCase().replace(/\s+/g, '')}@intellihub.ai`
-          : `${currentEmail.split('@')[0]}@${customDomain}`
+        email_address: setupMethod === 'custom' 
+          ? `${currentEmail.split('@')[0] || 'agent'}@${customDomain}`
+          : setupMethod === 'gmail'
+          ? currentEmail
+          : `agent@${customDomain}`
       };
 
       const response = await fetch('/api/customer/email-settings', {
@@ -82,11 +84,8 @@ export default function EmailSetup() {
     }
   };
 
-  const generateIntelliHubEmail = () => {
-    if (businessName) {
-      return `${businessName.toLowerCase().replace(/\s+/g, '')}@intellihub.ai`;
-    }
-    return 'yourbusiness@intellihub.ai';
+  const connectGmail = () => {
+    alert('Gmail integration coming soon! 📧\n\nThis will allow you to:\n• Connect your existing Gmail account\n• Get AI responses sent from your Gmail\n• Keep all conversations in your Gmail inbox\n• No DNS setup required');
   };
 
   return (
@@ -97,7 +96,7 @@ export default function EmailSetup() {
           <div className="flex justify-between items-center h-16">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">📧 Email AI Setup</h1>
-              <p className="text-sm text-gray-600">Connect your email to IntelliHub AI</p>
+              <p className="text-sm text-gray-600">Connect your email to AI automation</p>
             </div>
             <div className="flex items-center space-x-4">
               <Link 
@@ -117,50 +116,6 @@ export default function EmailSetup() {
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Choose Email Setup Method</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* IntelliHub Email Option */}
-            <div 
-              onClick={() => setSetupMethod('intellihub')}
-              className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
-                setupMethod === 'intellihub' 
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 ml-3">IntelliHub Email</h3>
-              </div>
-              <p className="text-gray-600 mb-4">Get a professional email address hosted by IntelliHub</p>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-500">Your email will be:</p>
-                <p className="font-mono text-blue-600">{generateIntelliHubEmail()}</p>
-              </div>
-              <div className="mt-4">
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Works immediately</span>
-                </div>
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">No technical setup</span>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Professional appearance</span>
-                </div>
-              </div>
-            </div>
-
             {/* Custom Domain Option */}
             <div 
               onClick={() => setSetupMethod('custom')}
@@ -204,129 +159,219 @@ export default function EmailSetup() {
                 </div>
               </div>
             </div>
+
+            {/* Gmail Integration Option - Coming Soon */}
+            <div 
+              onClick={connectGmail}
+              className="border-2 border-gray-200 hover:border-blue-300 rounded-lg p-6 cursor-pointer transition-all relative"
+            >
+              <div className="absolute top-4 right-4">
+                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  Coming Soon
+                </span>
+              </div>
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <svg className="w-6 h-6 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-.904.732-1.636 1.636-1.636h3.819l6.545 4.91 6.545-4.91h3.819A1.636 1.636 0 0 1 24 5.457z"/>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 ml-3">Connect Gmail</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Connect your existing Gmail account</p>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm text-gray-500">Your Gmail:</p>
+                <p className="font-mono text-red-600">youremail@gmail.com</p>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-center text-green-600 mb-2">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm">No DNS setup required</span>
+                </div>
+                <div className="flex items-center text-green-600 mb-2">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm">Uses your existing email</span>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm">Keep all conversations in Gmail</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Configuration Form */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Email Configuration</h2>
-          
-          {/* Business Name */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Business Name
-            </label>
-            <input
-              type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="John Smith Realty"
-            />
-          </div>
+        {/* Configuration Form - Only for Custom Domain */}
+        {setupMethod === 'custom' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Email Configuration</h2>
+            
+            {/* Business Name */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Business Name
+              </label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="John Smith Realty"
+              />
+            </div>
 
-          {setupMethod === 'custom' && (
-            <>
-              {/* Custom Domain */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Domain
-                </label>
-                <input
-                  type="text"
-                  value={customDomain}
-                  onChange={(e) => setCustomDomain(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="yourbusiness.com"
-                />
+            {/* Custom Domain */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Domain
+              </label>
+              <input
+                type="text"
+                value={customDomain}
+                onChange={(e) => setCustomDomain(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="yourbusiness.com"
+              />
+            </div>
+
+            {/* Current Email */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={currentEmail}
+                onChange={(e) => setCurrentEmail(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="agent@yourbusiness.com"
+              />
+            </div>
+
+            {/* DNS Instructions */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+              <h3 className="text-lg font-medium text-yellow-800 mb-3">
+                🔧 DNS Setup Required
+              </h3>
+              <p className="text-yellow-700 mb-4">
+                To use your custom domain, you'll need to update your DNS settings:
+              </p>
+              <div className="bg-white rounded-lg p-4 font-mono text-sm">
+                <p className="text-gray-600 mb-2">Add these MX records to your domain:</p>
+                <p className="text-blue-600">MX 10 mx1.resend.com</p>
+                <p className="text-blue-600">MX 20 mx2.resend.com</p>
               </div>
+              <p className="text-yellow-700 mt-4 text-sm">
+                Contact your domain provider (GoDaddy, Namecheap, etc.) for help with DNS changes.
+              </p>
+            </div>
 
-              {/* Current Email */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={currentEmail}
-                  onChange={(e) => setCurrentEmail(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="agent@yourbusiness.com"
-                />
-              </div>
-
-              {/* DNS Instructions */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-                <h3 className="text-lg font-medium text-yellow-800 mb-3">
-                  🔧 DNS Setup Required
-                </h3>
-                <p className="text-yellow-700 mb-4">
-                  To use your custom domain, you'll need to update your DNS settings:
-                </p>
-                <div className="bg-white rounded-lg p-4 font-mono text-sm">
-                  <p className="text-gray-600 mb-2">Add these MX records to your domain:</p>
-                  <p className="text-blue-600">MX 10 mx1.resend.com</p>
-                  <p className="text-blue-600">MX 20 mx2.resend.com</p>
-                </div>
-                <p className="text-yellow-700 mt-4 text-sm">
-                  Contact your domain provider (GoDaddy, Namecheap, etc.) for help with DNS changes.
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* Email Preview */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-            <h3 className="text-lg font-medium text-blue-800 mb-3">
-              📧 Your AI Email Address
-            </h3>
-            <div className="bg-white rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-2">Customers will email:</p>
-              <p className="text-2xl font-mono text-blue-600">
-                {setupMethod === 'intellihub' 
-                  ? generateIntelliHubEmail()
-                  : customDomain 
+            {/* Email Preview */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-medium text-blue-800 mb-3">
+                📧 Your AI Email Address
+              </h3>
+              <div className="bg-white rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-2">Customers will email:</p>
+                <p className="text-2xl font-mono text-blue-600">
+                  {customDomain 
                     ? `${currentEmail.split('@')[0] || 'agent'}@${customDomain}`
                     : 'agent@yourdomain.com'
-                }
-              </p>
-              <p className="text-sm text-gray-500 mt-3">
-                All emails to this address will get instant AI responses!
-              </p>
+                  }
+                </p>
+                <p className="text-sm text-gray-500 mt-3">
+                  All emails to this address will get instant AI responses powered by your Resend integration!
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Save Button */}
-          <div className="flex justify-end space-x-4">
-            <Link
-              href="/email"
-              className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            {/* Save Button */}
+            <div className="flex justify-end space-x-4">
+              <Link
+                href="/email"
+                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </Link>
+              <button
+                onClick={saveEmailSettings}
+                disabled={saving || !businessName || !customDomain || !currentEmail}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Email Settings'}
+              </button>
+            </div>
+
+            {emailSettings && (
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-green-800 font-medium">Email AI is configured and ready!</p>
+                </div>
+                <p className="text-green-700 text-sm mt-1">
+                  Your customers can now email {emailSettings.email_address} and get instant AI responses.
+                </p>
+                <p className="text-green-600 text-xs mt-2">
+                  ⚠️ Note: Email processing functionality is still in development. Currently saves settings only.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Gmail Coming Soon Message */}
+        {setupMethod === 'gmail' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+            <div className="text-6xl mb-4">📧</div>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-4">Gmail Integration Coming Soon!</h3>
+            <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+              We're working on Gmail integration that will allow you to connect your existing Gmail account and get AI responses sent directly from your Gmail. No DNS setup required!
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-lg mx-auto">
+              <h4 className="text-lg font-semibold text-blue-900 mb-3">Planned Features:</h4>
+              <div className="text-left space-y-2">
+                <div className="flex items-center text-blue-800">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>Connect your existing Gmail account</span>
+                </div>
+                <div className="flex items-center text-blue-800">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>AI responses sent from your Gmail</span>
+                </div>
+                <div className="flex items-center text-blue-800">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>All conversations stay in your Gmail inbox</span>
+                </div>
+                <div className="flex items-center text-blue-800">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>No DNS or technical setup required</span>
+                </div>
+              </div>
+            </div>
+            <button 
+              onClick={() => setSetupMethod('custom')}
+              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
             >
-              Cancel
-            </Link>
-            <button
-              onClick={saveEmailSettings}
-              disabled={saving || !businessName}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-            >
-              {saving ? 'Saving...' : 'Save Email Settings'}
+              Try Custom Domain Setup Instead
             </button>
           </div>
-
-          {emailSettings && (
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <p className="text-green-800 font-medium">Email AI is configured and active!</p>
-              </div>
-              <p className="text-green-700 text-sm mt-1">
-                Your customers can now email {emailSettings.email_address} and get instant AI responses.
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
