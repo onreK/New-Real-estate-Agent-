@@ -56,7 +56,7 @@ export async function POST() {
           conversation_id INTEGER NOT NULL REFERENCES gmail_conversations(id) ON DELETE CASCADE,
           gmail_message_id VARCHAR(255) NOT NULL UNIQUE,
           thread_id VARCHAR(255) NOT NULL,
-          sender_type VARCHAR(50) NOT NULL, -- 'customer' or 'ai'
+          sender_type VARCHAR(50) NOT NULL,
           sender_email VARCHAR(255),
           subject VARCHAR(1000),
           body_text TEXT,
@@ -126,4 +126,12 @@ export async function POST() {
       details: error.message
     }, { status: 500 });
   }
+}
+
+// Allow GET requests for testing
+export async function GET() {
+  return NextResponse.json({
+    message: 'Gmail tables setup endpoint ready',
+    note: 'Send POST request to create Gmail integration tables'
+  });
 }
