@@ -4,20 +4,29 @@ import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 
-export default function EmailSetup() {
+export default function EmailAISettings() {
   const { user } = useUser();
-  const [setupMethod, setSetupMethod] = useState('custom'); // 'custom' or 'gmail'
-  const [customDomain, setCustomDomain] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [currentEmail, setCurrentEmail] = useState('');
+  const [settings, setSettings] = useState({
+    ai_personality: '',
+    tone: 'professional',
+    expertise: '',
+    specialties: '',
+    response_style: '',
+    hot_lead_keywords: ['urgent', 'asap', 'immediately', 'budget', 'ready', 'buying now'],
+    auto_response_enabled: true,
+    alert_hot_leads: true,
+    include_availability: true,
+    ask_qualifying_questions: true,
+    require_approval: false
+  });
+  const [customKeyword, setCustomKeyword] = useState('');
   const [saving, setSaving] = useState(false);
   const [customer, setCustomer] = useState(null);
-  const [emailSettings, setEmailSettings] = useState(null);
 
   useEffect(() => {
     if (user) {
       loadCustomerData();
-      loadEmailSettings();
+      loadAISettings();
     }
   }, [user]);
 
@@ -27,43 +36,32 @@ export default function EmailSetup() {
       const data = await response.json();
       if (data.success) {
         setCustomer(data.customer);
-        setBusinessName(data.customer.business_name || '');
       }
     } catch (error) {
       console.error('Error loading customer data:', error);
     }
   };
 
-  const loadEmailSettings = async () => {
+  const loadAISettings = async () => {
     try {
-      const response = await fetch('/api/customer/email-settings');
+      const response = await fetch('/api/customer/ai-settings');
       const data = await response.json();
       if (data.success && data.settings) {
-        setEmailSettings(data.settings);
-        setSetupMethod(data.settings.setup_method || 'custom');
-        setCustomDomain(data.settings.custom_domain || '');
-        setCurrentEmail(data.settings.email_address || '');
+        setSettings({
+          ...settings,
+          ...data.settings,
+          hot_lead_keywords: data.settings.hot_lead_keywords || settings.hot_lead_keywords
+        });
       }
     } catch (error) {
-      console.error('Error loading email settings:', error);
+      console.error('Error loading AI settings:', error);
     }
   };
 
-  const saveEmailSettings = async () => {
+  const saveAISettings = async () => {
     setSaving(true);
     try {
-      const settings = {
-        setup_method: setupMethod,
-        custom_domain: setupMethod === 'custom' ? customDomain : null,
-        business_name: businessName,
-        email_address: setupMethod === 'custom' 
-          ? `${currentEmail.split('@')[0] || 'agent'}@${customDomain}`
-          : setupMethod === 'gmail'
-          ? currentEmail
-          : `agent@${customDomain}`
-      };
-
-      const response = await fetch('/api/customer/email-settings', {
+      const response = await fetch('/api/customer/ai-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
@@ -71,8 +69,7 @@ export default function EmailSetup() {
 
       const data = await response.json();
       if (data.success) {
-        setEmailSettings(data.settings);
-        alert('Email settings saved successfully!');
+        alert('AI settings saved successfully!');
       } else {
         alert('Error saving settings: ' + data.error);
       }
@@ -84,21 +81,63 @@ export default function EmailSetup() {
     }
   };
 
-  const connectGmail = () => {
-    alert('Gmail integration coming soon! 📧\n\nThis will allow you to:\n• Connect your existing Gmail account\n• Get AI responses sent from your Gmail\n• Keep all conversations in your Gmail inbox\n• No DNS setup required');
+  const addCustomKeyword = () => {
+    if (customKeyword.trim() && !settings.hot_lead_keywords.includes(customKeyword.trim().toLowerCase())) {
+      setSettings({
+        ...settings,
+        hot_lead_keywords: [...settings.hot_lead_keywords, customKeyword.trim().toLowerCase()]
+      });
+      setCustomKeyword('');
+    }
+  };
+
+  const removeKeyword = (keyword) => {
+    setSettings({
+      ...settings,
+      hot_lead_keywords: settings.hot_lead_keywords.filter(k => k !== keyword)
+    });
+  };
+
+  const testAIResponse = async () => {
+    try {
+      const response = await fetch('/api/customer/test-ai-response', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: "Hi, I'm urgently looking for a 3-bedroom house under $500K. Can you help me find something ASAP?",
+          settings: settings
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('Test Response:\n\n' + data.response);
+      } else {
+        alert('Error testing AI: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error testing AI:', error);
+      alert('Error testing AI response');
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">📧 Email AI Setup</h1>
-              <p className="text-sm text-gray-600">Connect your email to AI automation</p>
+              <h1 className="text-2xl font-bold text-gray-900">🤖 AI Settings</h1>
+              <p className="text-sm text-gray-600">Configure your Email AI personality and behavior</p>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={testAIResponse}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                🧪 Test AI Response
+              </button>
               <Link 
                 href="/email"
                 className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-gray-700 transition-colors"
@@ -110,268 +149,304 @@ export default function EmailSetup() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Setup Method Selection */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Choose Email Setup Method</h2>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Custom Domain Option */}
-            <div 
-              onClick={() => setSetupMethod('custom')}
-              className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
-                setupMethod === 'custom' 
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 ml-3">Your Domain</h3>
+          {/* AI Personality Settings */}
+          <div className="lg:col-span-2 space-y-8">
+            
+            {/* Basic Personality */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">👤 AI Personality</h2>
+              
+              {/* Business Name */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Name
+                </label>
+                <input
+                  type="text"
+                  value={customer?.business_name || ''}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50 text-gray-500"
+                  disabled
+                  placeholder="Set in profile settings"
+                />
+                <p className="text-xs text-gray-500 mt-1">Update in your profile settings</p>
               </div>
-              <p className="text-gray-600 mb-4">Use your existing business email domain</p>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-500">Example:</p>
-                <p className="font-mono text-purple-600">agent@yourbusiness.com</p>
+
+              {/* Tone */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Communication Tone
+                </label>
+                <div className="grid grid-cols-3 gap-4">
+                  {['formal', 'professional', 'casual'].map((tone) => (
+                    <button
+                      key={tone}
+                      onClick={() => setSettings({...settings, tone})}
+                      className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                        settings.tone === tone
+                          ? 'border-blue-500 bg-blue-50 text-blue-600'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                      }`}
+                    >
+                      <div className="capitalize font-medium">{tone}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="mt-4">
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Your brand/domain</span>
-                </div>
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Maximum professionalism</span>
-                </div>
-                <div className="flex items-center text-orange-500">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Requires DNS setup</span>
-                </div>
+
+              {/* Expertise */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Primary Expertise
+                </label>
+                <input
+                  type="text"
+                  value={settings.expertise}
+                  onChange={(e) => setSettings({...settings, expertise: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Real Estate, Property Management, Home Sales"
+                />
+              </div>
+
+              {/* Specialties */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Specialties
+                </label>
+                <textarea
+                  value={settings.specialties}
+                  onChange={(e) => setSettings({...settings, specialties: e.target.value})}
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Luxury homes, First-time buyers, Investment properties"
+                />
+              </div>
+
+              {/* Response Style */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Response Style
+                </label>
+                <textarea
+                  value={settings.response_style}
+                  onChange={(e) => setSettings({...settings, response_style: e.target.value})}
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Helpful and detailed responses, Brief and to-the-point, Enthusiastic and encouraging"
+                />
+              </div>
+
+              {/* Custom AI Personality */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Additional Instructions
+                </label>
+                <textarea
+                  value={settings.ai_personality}
+                  onChange={(e) => setSettings({...settings, ai_personality: e.target.value})}
+                  rows={4}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Additional personality traits or instructions for the AI..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Provide specific instructions about how the AI should behave, what to emphasize, etc.
+                </p>
               </div>
             </div>
 
-            {/* Gmail Integration Option - Coming Soon */}
-            <div 
-              onClick={connectGmail}
-              className="border-2 border-gray-200 hover:border-blue-300 rounded-lg p-6 cursor-pointer transition-all relative"
-            >
-              <div className="absolute top-4 right-4">
-                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                  Coming Soon
-                </span>
+            {/* Hot Lead Detection */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">🔥 Hot Lead Detection</h2>
+              
+              {/* Keywords */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hot Lead Keywords
+                </label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {settings.hot_lead_keywords.map((keyword, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full"
+                    >
+                      {keyword}
+                      <button
+                        onClick={() => removeKeyword(keyword)}
+                        className="ml-2 text-red-600 hover:text-red-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={customKeyword}
+                    onChange={(e) => setCustomKeyword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addCustomKeyword()}
+                    className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Add new keyword..."
+                  />
+                  <button
+                    onClick={addCustomKeyword}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Keywords that indicate high buying intent and urgency
+                </p>
               </div>
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <svg className="w-6 h-6 text-red-600" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-.904.732-1.636 1.636-1.636h3.819l6.545 4.91 6.545-4.91h3.819A1.636 1.636 0 0 1 24 5.457z"/>
-                  </svg>
+            </div>
+
+            {/* Behavior Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">⚙️ AI Behavior</h2>
+              
+              <div className="space-y-4">
+                {/* Auto Response */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">Auto-Response</div>
+                    <div className="text-sm text-gray-500">Automatically respond to emails</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.auto_response_enabled}
+                      onChange={(e) => setSettings({...settings, auto_response_enabled: e.target.checked})}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 ml-3">Connect Gmail</h3>
+
+                {/* Hot Lead Alerts */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">Hot Lead Alerts</div>
+                    <div className="text-sm text-gray-500">Send notifications for high-intent emails</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.alert_hot_leads}
+                      onChange={(e) => setSettings({...settings, alert_hot_leads: e.target.checked})}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Include Availability */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">Include Availability</div>
+                    <div className="text-sm text-gray-500">Mention availability for meetings/viewings</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.include_availability}
+                      onChange={(e) => setSettings({...settings, include_availability: e.target.checked})}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Ask Qualifying Questions */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">Ask Qualifying Questions</div>
+                    <div className="text-sm text-gray-500">Ask follow-up questions to qualify leads</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.ask_qualifying_questions}
+                      onChange={(e) => setSettings({...settings, ask_qualifying_questions: e.target.checked})}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Require Approval */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">Require Approval</div>
+                    <div className="text-sm text-gray-500">Hold responses for manual approval</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.require_approval}
+                      onChange={(e) => setSettings({...settings, require_approval: e.target.checked})}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
               </div>
-              <p className="text-gray-600 mb-4">Connect your existing Gmail account</p>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-500">Your Gmail:</p>
-                <p className="font-mono text-red-600">youremail@gmail.com</p>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            
+            {/* Save Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <button
+                onClick={saveAISettings}
+                disabled={saving}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-3 rounded-lg font-medium transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save AI Settings'}
+              </button>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+              <div className="space-y-3">
+                <button
+                  onClick={testAIResponse}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  🧪 Test AI Response
+                </button>
+                <Link
+                  href="/email/manage-templates"
+                  className="block w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                >
+                  📝 Manage Templates
+                </Link>
+                <Link
+                  href="/email"
+                  className="block w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                >
+                  📧 Email Manager
+                </Link>
               </div>
-              <div className="mt-4">
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">No DNS setup required</span>
-                </div>
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Uses your existing email</span>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Keep all conversations in Gmail</span>
-                </div>
+            </div>
+
+            {/* Help */}
+            <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Tips</h3>
+              <div className="space-y-3 text-sm text-blue-800">
+                <p>• Be specific about your expertise and specialties</p>
+                <p>• Add keywords customers use when they're ready to buy</p>
+                <p>• Test your AI responses regularly to ensure quality</p>
+                <p>• Enable hot lead alerts to never miss urgent inquiries</p>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Configuration Form - Only for Custom Domain */}
-        {setupMethod === 'custom' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Email Configuration</h2>
-            
-            {/* Business Name */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Business Name
-              </label>
-              <input
-                type="text"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="John Smith Realty"
-              />
-            </div>
-
-            {/* Custom Domain */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Your Domain
-              </label>
-              <input
-                type="text"
-                value={customDomain}
-                onChange={(e) => setCustomDomain(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="yourbusiness.com"
-              />
-            </div>
-
-            {/* Current Email */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={currentEmail}
-                onChange={(e) => setCurrentEmail(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="agent@yourbusiness.com"
-              />
-            </div>
-
-            {/* DNS Instructions */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-medium text-yellow-800 mb-3">
-                🔧 DNS Setup Required
-              </h3>
-              <p className="text-yellow-700 mb-4">
-                To use your custom domain, you'll need to update your DNS settings:
-              </p>
-              <div className="bg-white rounded-lg p-4 font-mono text-sm">
-                <p className="text-gray-600 mb-2">Add these MX records to your domain:</p>
-                <p className="text-blue-600">MX 10 mx1.resend.com</p>
-                <p className="text-blue-600">MX 20 mx2.resend.com</p>
-              </div>
-              <p className="text-yellow-700 mt-4 text-sm">
-                Contact your domain provider (GoDaddy, Namecheap, etc.) for help with DNS changes.
-              </p>
-            </div>
-
-            {/* Email Preview */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-              <h3 className="text-lg font-medium text-blue-800 mb-3">
-                📧 Your AI Email Address
-              </h3>
-              <div className="bg-white rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-2">Customers will email:</p>
-                <p className="text-2xl font-mono text-blue-600">
-                  {customDomain 
-                    ? `${currentEmail.split('@')[0] || 'agent'}@${customDomain}`
-                    : 'agent@yourdomain.com'
-                  }
-                </p>
-                <p className="text-sm text-gray-500 mt-3">
-                  All emails to this address will get instant AI responses powered by your Resend integration!
-                </p>
-              </div>
-            </div>
-
-            {/* Save Button */}
-            <div className="flex justify-end space-x-4">
-              <Link
-                href="/email"
-                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </Link>
-              <button
-                onClick={saveEmailSettings}
-                disabled={saving || !businessName || !customDomain || !currentEmail}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-              >
-                {saving ? 'Saving...' : 'Save Email Settings'}
-              </button>
-            </div>
-
-            {emailSettings && (
-              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-green-800 font-medium">Email AI is configured and ready!</p>
-                </div>
-                <p className="text-green-700 text-sm mt-1">
-                  Your customers can now email {emailSettings.email_address} and get instant AI responses.
-                </p>
-                <p className="text-green-600 text-xs mt-2">
-                  ⚠️ Note: Email processing functionality is still in development. Currently saves settings only.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Gmail Coming Soon Message */}
-        {setupMethod === 'gmail' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-            <div className="text-6xl mb-4">📧</div>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-4">Gmail Integration Coming Soon!</h3>
-            <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-              We're working on Gmail integration that will allow you to connect your existing Gmail account and get AI responses sent directly from your Gmail. No DNS setup required!
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-lg mx-auto">
-              <h4 className="text-lg font-semibold text-blue-900 mb-3">Planned Features:</h4>
-              <div className="text-left space-y-2">
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>Connect your existing Gmail account</span>
-                </div>
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>AI responses sent from your Gmail</span>
-                </div>
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>All conversations stay in your Gmail inbox</span>
-                </div>
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>No DNS or technical setup required</span>
-                </div>
-              </div>
-            </div>
-            <button 
-              onClick={() => setSetupMethod('custom')}
-              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-            >
-              Try Custom Domain Setup Instead
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
