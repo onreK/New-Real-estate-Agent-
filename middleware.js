@@ -1,4 +1,5 @@
-// Gmail OAuth update - v2
+// Gmail OAuth enabled - v3
+// middleware.js
 import { authMiddleware } from "@clerk/nextjs";
 
 export default authMiddleware({
@@ -25,9 +26,7 @@ export default authMiddleware({
     "/privacy",
     "/terms",
     // Gmail OAuth routes - MUST be public for OAuth flow to work
-    "/api/auth/google",
-    "/api/auth/google/callback",
-    "/api/auth/google/status"
+    "/api/auth/google(.*)",  // This pattern should catch both routes
   ],
   
   // Routes that are completely ignored by Clerk (no auth checks)
@@ -35,7 +34,11 @@ export default authMiddleware({
     "/api/public(.*)",
     "/_next/static(.*)",
     "/_next/image(.*)",
-    "/favicon.ico"
+    "/favicon.ico",
+    // ALSO add OAuth routes to ignored routes as backup
+    "/api/auth/google",
+    "/api/auth/google/callback",
+    "/api/auth/google/status"
   ]
 });
 
