@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { Webhook } from 'svix';
-import { createCustomer } from '../../../../lib/database.js';
+// import { createCustomer } from '../../../../lib/database.js'; // TEMPORARILY DISABLED
 
 // Force dynamic rendering for webhook processing
 export const dynamic = 'force-dynamic';
@@ -63,52 +63,46 @@ export async function POST(req) {
       const email = userData.email_addresses?.[0]?.email_address || '';
       const firstName = userData.first_name || '';
       const lastName = userData.last_name || '';
-      const phone = userData.phone_numbers?.[0]?.phone_number || '';
       const businessName = `${firstName} ${lastName}`.trim() || userData.username || 'My Business';
 
-      console.log('👤 Creating customer for new user:', {
+      console.log('👤 User created webhook received:', {
         clerkUserId: userData.id,
         email,
         businessName
       });
 
-      // Create customer in database using Postgres schema
+      // TEMPORARILY SKIP DATABASE OPERATIONS TO PREVENT CRASHES
+      console.log('⚠️ Database operations temporarily disabled for Gmail OAuth testing');
+      
+      /*
+      // COMMENTED OUT TO PREVENT DUPLICATE KEY ERRORS
       const customerData = {
-        clerk_user_id: userData.id, // Store Clerk user ID for linking
+        clerk_user_id: userData.id,
         email: email,
         business_name: businessName,
-        plan: 'basic' // Default plan for new users
+        plan: 'basic'
       };
 
       const customer = await createCustomer(customerData);
-
       console.log('✅ Customer created successfully:', customer);
+      */
 
       return NextResponse.json({
         success: true,
-        message: 'Customer created successfully',
-        customer: {
-          id: customer.id,
-          email: customer.email,
-          business_name: customer.business_name,
-          plan: customer.plan
+        message: 'Webhook received - database operations temporarily disabled',
+        user: {
+          id: userData.id,
+          email: email,
+          business_name: businessName
         }
       });
 
     } catch (error) {
-      console.error('❌ Error creating customer:', error);
-      
-      // More detailed error logging for debugging
-      if (error.code) {
-        console.error('Database Error Code:', error.code);
-      }
-      if (error.detail) {
-        console.error('Database Error Detail:', error.detail);
-      }
+      console.error('❌ Error in webhook handler:', error);
       
       return NextResponse.json({
         success: false,
-        error: 'Failed to create customer',
+        error: 'Webhook processing error',
         details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       }, { status: 500 });
     }
@@ -116,13 +110,11 @@ export async function POST(req) {
 
   if (eventType === 'user.updated') {
     console.log('👤 User updated, webhook received');
-    // Handle user updates if needed
     return NextResponse.json({ received: true });
   }
 
   if (eventType === 'user.deleted') {
     console.log('👤 User deleted, webhook received');
-    // Handle user deletion if needed
     return NextResponse.json({ received: true });
   }
 
