@@ -157,7 +157,7 @@ export async function POST(request) {
         console.log('✅ Update completed');
       } else {
         console.log('➕ Creating new config...');
-        // ✅ CORRECT: Insert with all required columns using proper names
+        // ✅ FIXED: Use NULL for customer_id instead of 'default' string
         await query(
           `INSERT INTO ai_configs (
              user_id, customer_id, phone_number, business_name, personality, 
@@ -167,15 +167,15 @@ export async function POST(request) {
            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
           [
             userId,                           // user_id
-            'default',                        // customer_id  
+            null,                            // customer_id - ✅ FIXED: Use NULL instead of 'default'
             '',                              // phone_number
             'My Business',                   // business_name
             body.personality,                // personality
-            businessInfo,                    // business_info (was system_prompt)
+            businessInfo,                    // business_info
             'Hello! How can I help you?',    // welcome_message
             body.model,                      // model
-            creativity,                      // creativity (was temperature)
-            maxTokens,                       // response_length (was max_tokens)
+            creativity,                      // creativity
+            maxTokens,                       // response_length
             body.knowledgeBase || '',        // knowledge_base
             false,                           // enable_hot_lead_alerts
             '',                              // business_owner_phone
