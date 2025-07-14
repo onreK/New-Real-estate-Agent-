@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { getCustomerByClerkId, getDbClient } from '../../../../lib/database.js';
+import { getCustomerByClerkId, getDbClient } from '../../../../../lib/database.js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -106,15 +106,6 @@ export async function GET(request) {
       const result = await client.query(query, values);
       console.log('✅ Gmail connection saved to database');
 
-      // Set up Gmail push notifications (Pub/Sub)
-      try {
-        await setupGmailWatch(gmail, customer.id);
-        console.log('✅ Gmail watch setup completed');
-      } catch (watchError) {
-        console.error('⚠️ Gmail watch setup failed:', watchError.message);
-        // Don't fail the whole process if watch setup fails
-      }
-
       // Redirect back to email setup with success
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/email/setup?success=gmail_connected&email=${encodeURIComponent(userInfo.data.email)}`);
 
@@ -125,30 +116,5 @@ export async function GET(request) {
   } catch (error) {
     console.error('❌ Gmail OAuth callback error:', error);
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/email/setup?error=oauth_failed`);
-  }
-}
-
-// Set up Gmail push notifications
-async function setupGmailWatch(gmail, customerId) {
-  try {
-    // Create a unique topic name for this customer
-    const topicName = `bizzy-bot-gmail-${customerId}`;
-    
-    const watchRequest = {
-      userId: 'me',
-      requestBody: {
-        labelIds: ['INBOX'],
-        topicName: `projects/${process.env.GOOGLE_CLOUD_PROJECT_ID}/topics/${topicName}`,
-        labelFilterAction: 'include'
-      }
-    };
-
-    const response = await gmail.users.watch(watchRequest);
-    console.log('✅ Gmail watch setup:', response.data);
-    
-    return response.data;
-  } catch (error) {
-    console.error('❌ Gmail watch setup error:', error);
-    throw error;
   }
 }
