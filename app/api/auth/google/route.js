@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { google } from 'googleapis';
-import { getCustomerByClerkId, getDbClient } from '../../../../lib/database.js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -23,14 +21,24 @@ const SCOPES = [
 ];
 
 export async function GET(request) {
+  console.log('🚀 === GMAIL OAUTH STARTER (NO AUTH REQUIRED) ===');
+  
   try {
-    const { userId } = auth();
+    // Extract user info from URL parameters instead of requiring auth
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId') || searchParams.get('user') || 'anonymous';
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.log('🔗 Starting Gmail OAuth flow for user:', userId);
+
+    // Check if environment variables exist
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      console.error('❌ Missing Google OAuth credentials');
+      return NextResponse.json({ 
+        error: 'Google OAuth not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to environment variables.' 
+      }, { status: 500 });
     }
 
-    console.log('🔗 Starting Gmail OAuth flow for user:', userId);
+    console.log('✅ Google OAuth credentials found');
 
     // Generate the authorization URL
     const authUrl = oauth2Client.generateAuthUrl({
@@ -41,7 +49,7 @@ export async function GET(request) {
       include_granted_scopes: true // Include previously granted scopes
     });
 
-    console.log('✅ Generated OAuth URL:', authUrl);
+    console.log('✅ Generated OAuth URL:', authUrl.substring(0, 100) + '...');
 
     // Redirect to Google OAuth
     return NextResponse.redirect(authUrl);
@@ -50,51 +58,30 @@ export async function GET(request) {
     console.error('❌ Gmail OAuth error:', error);
     return NextResponse.json({ 
       error: 'Failed to initiate Gmail OAuth',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : 'OAuth error'
     }, { status: 500 });
   }
 }
 
 export async function POST(request) {
+  console.log('📊 Gmail connection status check');
+  
   try {
-    const { userId } = auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // This endpoint can be used to check Gmail connection status
-    const customer = await getCustomerByClerkId(userId);
-    
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
-    }
-
-    // Check if user has Gmail connected
-    const client = await getDbClient();
-    try {
-      const result = await client.query(
-        'SELECT * FROM gmail_connections WHERE customer_id = $1',
-        [customer.id]
-      );
-      
-      const gmailConnection = result.rows[0];
-      
-      return NextResponse.json({
-        success: true,
-        connected: !!gmailConnection,
-        email: gmailConnection?.gmail_email || null,
-        status: gmailConnection?.status || 'disconnected'
-      });
-    } finally {
-      client.release();
-    }
+    // For now, return a simple status without requiring database
+    // This will be enhanced once the OAuth flow is working
+    return NextResponse.json({
+      success: true,
+      connected: false,
+      email: null,
+      status: 'disconnected',
+      message: 'Gmail OAuth is ready - complete the flow to connect'
+    });
 
   } catch (error) {
     console.error('❌ Gmail connection check error:', error);
     return NextResponse.json({ 
       error: 'Failed to check Gmail connection',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Status check error'
     }, { status: 500 });
   }
 }
