@@ -84,8 +84,77 @@ export default function EmailSetup() {
     }
   };
 
-  const connectGmail = () => {
-    alert('Gmail integration coming soon! 📧\n\nThis will allow you to:\n• Connect your existing Gmail account\n• Get AI responses sent from your Gmail\n• Keep all conversations in your Gmail inbox\n• No DNS setup required');
+  const [gmailStatus, setGmailStatus] = useState({ connected: false, email: null });
+  const [loadingGmail, setLoadingGmail] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    checkGmailConnection();
+    handleOAuthCallback();
+  }, []);
+
+  const handleOAuthCallback = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const success = urlParams.get('success');
+    const email = urlParams.get('email');
+
+    if (error) {
+      let errorMessage = 'Failed to connect Gmail';
+      switch (error) {
+        case 'oauth_denied':
+          errorMessage = 'Gmail access was denied. Please try again and grant permissions.';
+          break;
+        case 'oauth_failed':
+          errorMessage = 'Gmail connection failed. Please try again.';
+          break;
+        case 'user_not_found':
+          errorMessage = 'User account not found. Please contact support.';
+          break;
+      }
+      setMessage({ type: 'error', text: errorMessage });
+    } else if (success === 'gmail_connected' && email) {
+      setMessage({ type: 'success', text: `Successfully connected Gmail account: ${decodeURIComponent(email)}` });
+      setGmailStatus({ connected: true, email: decodeURIComponent(email) });
+    }
+
+    // Clear URL parameters
+    if (error || success) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
+  const checkGmailConnection = async () => {
+    try {
+      const response = await fetch('/api/auth/google', { method: 'POST' });
+      const data = await response.json();
+      if (data.success) {
+        setGmailStatus({
+          connected: data.connected,
+          email: data.email
+        });
+      }
+    } catch (error) {
+      console.error('Error checking Gmail connection:', error);
+    }
+  };
+
+  const connectGmail = async () => {
+    if (gmailStatus.connected) {
+      // Already connected, maybe show disconnect option
+      const disconnect = confirm(`Gmail is connected to ${gmailStatus.email}.\n\nWould you like to disconnect and reconnect?`);
+      if (!disconnect) return;
+    }
+
+    setLoadingGmail(true);
+    try {
+      // Redirect to Gmail OAuth
+      window.location.href = '/api/auth/google';
+    } catch (error) {
+      console.error('Error connecting Gmail:', error);
+      alert('Error connecting to Gmail. Please try again.');
+      setLoadingGmail(false);
+    }
   };
 
   return (
@@ -111,6 +180,33 @@ export default function EmailSetup() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Success/Error Messages */}
+        {message.text && (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            message.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            <div className="flex items-center">
+              {message.type === 'success' ? (
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              )}
+              <span>{message.text}</span>
+              <button 
+                onClick={() => setMessage({ type: '', text: '' })}
+                className="ml-auto text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         {/* Setup Method Selection */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Choose Email Setup Method</h2>
@@ -160,28 +256,51 @@ export default function EmailSetup() {
               </div>
             </div>
 
-            {/* Gmail Integration Option - Coming Soon */}
+            {/* Gmail Integration Option */}
             <div 
               onClick={connectGmail}
-              className="border-2 border-gray-200 hover:border-blue-300 rounded-lg p-6 cursor-pointer transition-all relative"
+              className={`border-2 rounded-lg p-6 cursor-pointer transition-all relative ${
+                gmailStatus.connected
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 hover:border-blue-300'
+              }`}
             >
               <div className="absolute top-4 right-4">
-                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                  Coming Soon
+                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                  gmailStatus.connected
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {gmailStatus.connected ? 'Connected' : 'Not Connected'}
                 </span>
               </div>
               <div className="flex items-center mb-4">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <svg className="w-6 h-6 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                <div className={`p-2 rounded-lg ${
+                  gmailStatus.connected ? 'bg-green-100' : 'bg-red-100'
+                }`}>
+                  <svg className={`w-6 h-6 ${
+                    gmailStatus.connected ? 'text-green-600' : 'text-red-600'
+                  }`} viewBox="0 0 24 24" fill="currentColor">
                     <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-.904.732-1.636 1.636-1.636h3.819l6.545 4.91 6.545-4.91h3.819A1.636 1.636 0 0 1 24 5.457z"/>
                   </svg>
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 ml-3">Connect Gmail</h3>
               </div>
-              <p className="text-gray-600 mb-4">Connect your existing Gmail account</p>
+              <p className="text-gray-600 mb-4">
+                {gmailStatus.connected 
+                  ? `Connected to your Gmail account`
+                  : 'Connect your existing Gmail account'
+                }
+              </p>
               <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-500">Your Gmail:</p>
-                <p className="font-mono text-red-600">youremail@gmail.com</p>
+                <p className="text-sm text-gray-500">
+                  {gmailStatus.connected ? 'Connected Gmail:' : 'Your Gmail:'}
+                </p>
+                <p className={`font-mono ${
+                  gmailStatus.connected ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {gmailStatus.connected ? gmailStatus.email : 'youremail@gmail.com'}
+                </p>
               </div>
               <div className="mt-4">
                 <div className="flex items-center text-green-600 mb-2">
@@ -203,6 +322,12 @@ export default function EmailSetup() {
                   <span className="text-sm">Keep all conversations in Gmail</span>
                 </div>
               </div>
+              
+              {loadingGmail && (
+                <div className="mt-4 text-center">
+                  <div className="text-blue-600 text-sm">Connecting to Gmail...</div>
+                </div>
+              )}
             </div>
           </div>
         </div>
