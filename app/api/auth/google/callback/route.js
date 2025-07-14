@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/google/callback`
+  `${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/api/auth/google/callback`
 );
 
 export async function GET(request) {
@@ -20,15 +20,18 @@ export async function GET(request) {
     const error = searchParams.get('error');
 
     console.log('📧 Gmail OAuth callback received');
+    console.log('Code present:', !!code);
+    console.log('State (userId):', state);
+    console.log('Error:', error);
 
     if (error) {
       console.error('❌ OAuth error:', error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/email/setup?error=oauth_denied`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/email/setup?error=oauth_denied`);
     }
 
     if (!code || !state) {
       console.error('❌ Missing code or state parameter');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/email/setup?error=invalid_callback`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/email/setup?error=invalid_callback`);
     }
 
     const userId = state; // Clerk user ID from state parameter
@@ -39,14 +42,17 @@ export async function GET(request) {
     
     if (!customer) {
       console.error('❌ Customer not found for user:', userId);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/email/setup?error=user_not_found`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/email/setup?error=user_not_found`);
     }
 
     // Exchange authorization code for access token
+    console.log('🔄 Exchanging code for tokens...');
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
     console.log('✅ Successfully exchanged code for tokens');
+    console.log('Access token received:', !!tokens.access_token);
+    console.log('Refresh token received:', !!tokens.refresh_token);
 
     // Get user's Gmail profile information
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
@@ -107,7 +113,7 @@ export async function GET(request) {
       console.log('✅ Gmail connection saved to database');
 
       // Redirect back to email setup with success
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/email/setup?success=gmail_connected&email=${encodeURIComponent(userInfo.data.email)}`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/email/setup?success=gmail_connected&email=${encodeURIComponent(userInfo.data.email)}`);
 
     } finally {
       client.release();
@@ -115,6 +121,9 @@ export async function GET(request) {
 
   } catch (error) {
     console.error('❌ Gmail OAuth callback error:', error);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/email/setup?error=oauth_failed`);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/email/setup?error=oauth_failed&details=${encodeURIComponent(error.message)}`);
   }
 }
