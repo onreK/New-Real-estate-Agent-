@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { google } from 'googleapis';
-import { getCustomerByClerkId, getDbClient } from '../../../lib/database.js';
+import { getCustomerByClerkId, getDbClient } from '../../../../lib/database.js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
