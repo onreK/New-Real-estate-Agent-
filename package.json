@@ -21,7 +21,8 @@
     "lucide-react": "^0.263.1",
     "stripe": "^14.0.0",
     "@stripe/stripe-js": "^2.0.0",
-    "resend": "^3.0.0"
+    "resend": "^3.0.0",
+    "googleapis": "^128.0.0"
   },
   "devDependencies": {
     "eslint": "^8",
