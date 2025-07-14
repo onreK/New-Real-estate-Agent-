@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/google/callback`
+  `${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/api/auth/google/callback`
 );
 
 // Gmail API scopes we need
@@ -37,10 +37,11 @@ export async function GET(request) {
       access_type: 'offline', // Important: get refresh token
       scope: SCOPES,
       state: userId, // Pass user ID in state for verification
-      prompt: 'consent' // Force consent screen to get refresh token
+      prompt: 'consent', // Force consent screen to get refresh token
+      include_granted_scopes: true // Include previously granted scopes
     });
 
-    console.log('✅ Generated OAuth URL');
+    console.log('✅ Generated OAuth URL:', authUrl);
 
     // Redirect to Google OAuth
     return NextResponse.redirect(authUrl);
