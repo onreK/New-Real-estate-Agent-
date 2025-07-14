@@ -157,30 +157,20 @@ export async function POST(request) {
         console.log('✅ Update completed');
       } else {
         console.log('➕ Creating new config...');
-        // ✅ FIXED: Use NULL for customer_id instead of 'default' string
+        // ✅ FIXED: Use explicit column names to avoid ordering issues
         await query(
           `INSERT INTO ai_configs (
-             user_id, customer_id, phone_number, business_name, personality, 
-             business_info, welcome_message, model, creativity, response_length, 
-             knowledge_base, enable_hot_lead_alerts, business_owner_phone, 
-             alert_business_hours, hot_lead_threshold
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+             user_id, personality, business_info, model, creativity, 
+             response_length, knowledge_base
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
             userId,                           // user_id
-            null,                            // customer_id - ✅ FIXED: Use NULL instead of 'default'
-            '',                              // phone_number
-            'My Business',                   // business_name
             body.personality,                // personality
             businessInfo,                    // business_info
-            'Hello! How can I help you?',    // welcome_message
             body.model,                      // model
             creativity,                      // creativity
             maxTokens,                       // response_length
-            body.knowledgeBase || '',        // knowledge_base
-            false,                           // enable_hot_lead_alerts
-            '',                              // business_owner_phone
-            '9AM-5PM',                       // alert_business_hours
-            3                                // hot_lead_threshold
+            body.knowledgeBase || ''         // knowledge_base
           ]
         );
         console.log('✅ Insert completed');
