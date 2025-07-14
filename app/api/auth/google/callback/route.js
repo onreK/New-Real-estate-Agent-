@@ -12,6 +12,8 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 export async function GET(request) {
+  console.log('🚀 === GMAIL OAUTH CALLBACK STARTED ===');
+  
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
@@ -19,57 +21,120 @@ export async function GET(request) {
     const error = searchParams.get('error');
 
     console.log('📧 Gmail OAuth callback received');
-    console.log('Code present:', !!code);
-    console.log('State (userId):', state);
+    console.log('📋 Code present:', !!code);
+    console.log('👤 State (userId):', state);
+    console.log('❌ Error param:', error);
 
     if (error) {
-      console.error('❌ OAuth error:', error);
-      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=oauth_denied`);
+      console.error('❌ OAuth error parameter:', error);
+      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=oauth_denied&details=${error}`);
     }
 
-    if (!code || !state) {
-      console.error('❌ Missing code or state parameter');
-      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=invalid_callback`);
+    if (!code) {
+      console.error('❌ Missing authorization code');
+      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=missing_code`);
     }
 
-    console.log('🔄 Exchanging code for tokens...');
+    if (!state) {
+      console.error('❌ Missing state parameter (user ID)');
+      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=missing_user_id`);
+    }
+
+    console.log('🔄 Step 1: Exchanging authorization code for tokens...');
     
     // Exchange authorization code for access token
     const { tokens } = await oauth2Client.getToken(code);
+    console.log('✅ Step 1 Complete: Tokens received');
+    console.log('🔑 Access token length:', tokens.access_token ? tokens.access_token.length : 'MISSING');
+    console.log('🔄 Refresh token present:', !!tokens.refresh_token);
+    console.log('⏰ Token expiry:', tokens.expiry_date);
+
     oauth2Client.setCredentials(tokens);
+    console.log('✅ OAuth client credentials set');
 
-    console.log('✅ Tokens received successfully');
-
+    console.log('🔄 Step 2: Getting user info from Google...');
+    
     // Get user info
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const userInfo = await oauth2.userinfo.get();
     const userEmail = userInfo.data.email;
 
-    console.log('✅ User email retrieved:', userEmail);
+    console.log('✅ Step 2 Complete: User email retrieved:', userEmail);
+    console.log('👤 User name:', userInfo.data.name);
+    console.log('🆔 User ID from Google:', userInfo.data.id);
 
-    // Store in global memory for demo (bypassing database completely)
+    console.log('🔄 Step 3: Storing Gmail connection in memory...');
+
+    // Initialize global storage if it doesn't exist
     if (!global.gmailConnections) {
       global.gmailConnections = new Map();
+      console.log('🆕 Initialized global Gmail connections storage');
     }
 
-    global.gmailConnections.set(state, {
+    // Create connection object
+    const connectionData = {
       userId: state,
       email: userEmail,
+      userName: userInfo.data.name,
+      googleUserId: userInfo.data.id,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       tokenExpiry: tokens.expiry_date,
       status: 'connected',
-      connectedAt: new Date().toISOString()
+      connectedAt: new Date().toISOString(),
+      lastChecked: new Date().toISOString()
+    };
+
+    console.log('📊 Connection data created:', {
+      userId: connectionData.userId,
+      email: connectionData.email,
+      hasAccessToken: !!connectionData.accessToken,
+      hasRefreshToken: !!connectionData.refreshToken,
+      status: connectionData.status
     });
 
-    console.log('✅ Gmail connection stored successfully for user:', state);
-    console.log('📧 Total Gmail connections in memory:', global.gmailConnections.size);
+    // Store the connection
+    global.gmailConnections.set(state, connectionData);
+    
+    console.log('✅ Step 3 Complete: Gmail connection stored in memory');
+    console.log('📈 Total Gmail connections stored:', global.gmailConnections.size);
+    console.log('🔍 Stored connection keys:', Array.from(global.gmailConnections.keys()));
+
+    // Verify storage worked
+    const storedConnection = global.gmailConnections.get(state);
+    if (storedConnection) {
+      console.log('✅ VERIFICATION: Connection successfully retrieved from storage');
+      console.log('📧 Stored email:', storedConnection.email);
+    } else {
+      console.error('❌ VERIFICATION FAILED: Could not retrieve stored connection');
+    }
+
+    console.log('🔄 Step 4: Redirecting to success page...');
+
+    // Create success URL with detailed parameters
+    const successUrl = `https://bizzybotai.com/email/setup?success=gmail_connected&email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(state)}&timestamp=${Date.now()}`;
+    
+    console.log('🔗 Redirect URL:', successUrl);
+    console.log('🎉 === GMAIL OAUTH CALLBACK COMPLETED SUCCESSFULLY ===');
 
     // Redirect back with success
-    return NextResponse.redirect(`https://bizzybotai.com/email/setup?success=gmail_connected&email=${encodeURIComponent(userEmail)}`);
+    return NextResponse.redirect(successUrl);
 
   } catch (error) {
-    console.error('❌ Gmail OAuth callback error:', error);
-    return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=oauth_failed&message=${encodeURIComponent(error.message)}`);
+    console.error('❌ === GMAIL OAUTH CALLBACK ERROR ===');
+    console.error('❌ Error type:', error.constructor.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Log the full error details
+    if (error.response) {
+      console.error('❌ HTTP Response Error:', error.response.status, error.response.statusText);
+      console.error('❌ Response data:', error.response.data);
+    }
+    
+    const errorUrl = `https://bizzybotai.com/email/setup?error=oauth_failed&message=${encodeURIComponent(error.message)}&timestamp=${Date.now()}`;
+    console.log('🔗 Error redirect URL:', errorUrl);
+    
+    return NextResponse.redirect(errorUrl);
   }
 }
