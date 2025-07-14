@@ -23,7 +23,11 @@ export default authMiddleware({
     "/onboarding",
     "/pricing",
     "/privacy",
-    "/terms"
+    "/terms",
+    // Gmail OAuth routes - MUST be public for OAuth flow to work
+    "/api/auth/google",
+    "/api/auth/google/callback",
+    "/api/auth/google/status"
   ],
   
   // Routes that are completely ignored by Clerk (no auth checks)
