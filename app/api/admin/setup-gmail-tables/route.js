@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/database.js';
 
-export async function POST() {
+async function setupGmailTables() {
   try {
     console.log('📧 Setting up Gmail integration tables...');
 
@@ -157,7 +157,7 @@ export async function POST() {
 
     console.log('🎉 Gmail integration database setup completed!');
 
-    return NextResponse.json({
+    return {
       success: true,
       message: 'Gmail integration database setup completed successfully',
       details: {
@@ -174,28 +174,37 @@ export async function POST() {
           'Hot lead detection',
           'Memory + Database hybrid storage'
         ]
+      },
+      endpoints: {
+        setup: 'POST /api/admin/setup-gmail-tables',
+        test_connection: 'GET /api/auth/google?test=true',
+        monitor_emails: 'POST /api/gmail/monitor',
+        status_check: 'GET /api/gmail/status'
       }
-    });
+    };
 
   } catch (error) {
     console.error('❌ Gmail database setup error:', error);
-    return NextResponse.json({
+    return {
       success: false,
       error: 'Failed to setup Gmail integration tables',
       details: error.message
-    }, { status: 500 });
+    };
   }
 }
 
-// Allow GET requests for testing
+export async function POST() {
+  const result = await setupGmailTables();
+  return NextResponse.json(result, { 
+    status: result.success ? 200 : 500 
+  });
+}
+
+// Updated GET handler - now actually creates tables instead of just showing info
 export async function GET() {
-  return NextResponse.json({
-    message: 'Gmail tables setup endpoint ready',
-    note: 'Send POST request to create Gmail integration tables',
-    endpoints: {
-      setup: 'POST /api/admin/setup-gmail-tables',
-      test_connection: 'GET /api/auth/google?test=true',
-      monitor_emails: 'POST /api/gmail/monitor'
-    }
+  console.log('📧 GET request received - creating Gmail tables...');
+  const result = await setupGmailTables();
+  return NextResponse.json(result, { 
+    status: result.success ? 200 : 500 
   });
 }
