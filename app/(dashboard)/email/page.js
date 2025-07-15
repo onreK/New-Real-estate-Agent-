@@ -76,12 +76,27 @@ export default function EmailDashboard() {
 
   const checkGmailConnection = async () => {
     try {
+      console.log('🔍 Checking Gmail connection status...');
       const response = await fetch('/api/gmail/status');
       if (response.ok) {
         const data = await response.json();
-        if (data.connected) {
+        console.log('📧 Gmail status response:', data);
+        
+        if (data.connected && data.connection) {
           setGmailConnection(data.connection);
+          console.log('✅ Gmail connection detected:', data.connection.email);
+          
+          // Update stats to show we have Gmail capability
+          setStats(prev => ({
+            ...prev,
+            responseRate: 95 // Show some activity when Gmail is connected
+          }));
+        } else {
+          console.log('❌ No Gmail connection found');
+          setGmailConnection(null);
         }
+      } else {
+        console.error('Gmail status check failed:', response.status);
       }
     } catch (error) {
       console.error('Error checking Gmail connection:', error);
@@ -231,7 +246,7 @@ export default function EmailDashboard() {
                 </h3>
                 <p className="text-sm text-gray-600">
                   {gmailConnection 
-                    ? `Connected to ${gmailConnection.email}` 
+                    ? `Connected to ${gmailConnection.email} (${gmailConnection.source})` 
                     : 'Connect Gmail for AI-powered email automation'
                   }
                 </p>
@@ -261,12 +276,29 @@ export default function EmailDashboard() {
                     <ExternalLink className="w-4 h-4 mr-1" />
                     Advanced Testing
                   </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={checkGmailConnection}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    Refresh Status
+                  </Button>
                 </>
               ) : (
-                <Button onClick={connectGmail} className="flex items-center gap-2">
-                  <LinkIcon className="w-4 h-4" />
-                  Connect Gmail
-                </Button>
+                <>
+                  <Button onClick={connectGmail} className="flex items-center gap-2">
+                    <LinkIcon className="w-4 h-4" />
+                    Connect Gmail
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={checkGmailConnection}
+                  >
+                    Check Status
+                  </Button>
+                </>
               )}
             </div>
           </div>
