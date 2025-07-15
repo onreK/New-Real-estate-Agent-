@@ -21,10 +21,11 @@ export async function POST(request) {
   
   try {
     const body = await request.json();
-    const { action, emailAddress, emailId, customMessage } = body;
+    const { action, emailAddress, emailId, customMessage, actualSend = false } = body;
     
     console.log('📧 Action:', action);
     console.log('📧 Email:', emailAddress);
+    console.log('🚀 Actual Send Mode:', actualSend);
     
     if (!emailAddress) {
       return NextResponse.json({ 
@@ -40,8 +41,6 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    console.log('🔍 Available connections:', Array.from(global.gmailConnections.keys()));
-
     const connection = global.gmailConnections.get(emailAddress) || 
                       Array.from(global.gmailConnections.values()).find(conn => conn.email === emailAddress);
     
@@ -53,8 +52,6 @@ export async function POST(request) {
     }
 
     console.log('✅ Gmail connection found:', connection.email);
-    console.log('🔑 Access token exists:', !!connection.accessToken);
-    console.log('🔄 Refresh token exists:', !!connection.refreshToken);
 
     // Set up OAuth client with stored tokens
     oauth2Client.setCredentials({
@@ -73,7 +70,7 @@ export async function POST(request) {
         const response = await gmail.users.messages.list({
           userId: 'me',
           q: 'is:unread',
-          maxResults: 5
+          maxResults: 10
         });
 
         const messages = response.data.messages || [];
@@ -81,7 +78,7 @@ export async function POST(request) {
 
         const emailDetails = [];
 
-        for (const message of messages.slice(0, 3)) { // Limit to 3 for demo
+        for (const message of messages.slice(0, 5)) { // Limit to 5 for demo
           try {
             const messageData = await gmail.users.messages.get({
               userId: 'me',
@@ -101,14 +98,17 @@ export async function POST(request) {
                 body = Buffer.from(messageData.data.payload.body.data, 'base64').toString();
               } else if (messageData.data.payload.parts) {
                 const textPart = messageData.data.payload.parts.find(part => 
-                  part.mimeType === 'text/plain' || part.mimeType === 'text/html'
+                  part.mimeType === 'text/plain'
                 );
                 if (textPart?.body?.data) {
                   body = Buffer.from(textPart.body.data, 'base64').toString();
                 }
               }
+              
+              if (!body) {
+                body = messageData.data.snippet || 'Email content unavailable';
+              }
             } catch (bodyError) {
-              console.log('⚠️ Could not decode email body:', bodyError.message);
               body = messageData.data.snippet || 'Email content unavailable';
             }
 
@@ -118,8 +118,9 @@ export async function POST(request) {
               from: fromHeader?.value || 'Unknown',
               subject: subjectHeader?.value || 'No Subject',
               date: dateHeader?.value || 'Unknown',
-              body: body.substring(0, 300), // First 300 chars
-              snippet: messageData.data.snippet
+              body: body.substring(0, 300),
+              snippet: messageData.data.snippet,
+              preview: `From: ${fromHeader?.value}\nSubject: ${subjectHeader?.value}\nContent: ${body.substring(0, 100)}...`
             });
 
           } catch (messageError) {
@@ -137,14 +138,6 @@ export async function POST(request) {
 
       } catch (gmailError) {
         console.error('❌ Gmail API error:', gmailError.message);
-        
-        if (gmailError.message.includes('invalid_grant') || gmailError.message.includes('unauthorized')) {
-          return NextResponse.json({
-            error: 'Gmail authentication expired. Please reconnect Gmail.',
-            needsReauth: true
-          }, { status: 401 });
-        }
-        
         throw gmailError;
       }
     }
@@ -157,6 +150,7 @@ export async function POST(request) {
       }
 
       console.log('🤖 Generating AI response for email:', emailId);
+      console.log('📤 Will actually send email:', actualSend);
 
       try {
         // Get the original email
@@ -169,9 +163,17 @@ export async function POST(request) {
         const headers = messageData.data.payload.headers;
         const fromHeader = headers.find(h => h.name === 'From');
         const subjectHeader = headers.find(h => h.name === 'Subject');
+        const messageIdHeader = headers.find(h => h.name === 'Message-ID');
 
         console.log('📧 Original email from:', fromHeader?.value);
         console.log('📧 Original subject:', subjectHeader?.value);
+
+        // Extract email address from From header
+        const fromEmail = fromHeader?.value || '';
+        const emailMatch = fromEmail.match(/<(.+?)>/) || fromEmail.match(/([^\s<>]+@[^\s<>]+)/);
+        const replyToEmail = emailMatch ? emailMatch[1] || emailMatch[0] : fromEmail;
+
+        console.log('📧 Will reply to:', replyToEmail);
 
         // Get email body safely
         let originalBody = '';
@@ -191,32 +193,32 @@ export async function POST(request) {
             originalBody = messageData.data.snippet || 'Original email content unavailable';
           }
         } catch (bodyError) {
-          console.log('⚠️ Using snippet instead of full body');
           originalBody = messageData.data.snippet || 'Email content unavailable';
         }
 
-        console.log('📝 Original body preview:', originalBody.substring(0, 100));
+        // Clean up the body text
+        originalBody = originalBody.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/g, (match, hex) => {
+          return String.fromCharCode(parseInt(hex, 16));
+        });
 
-        // Check OpenAI availability
-        if (!process.env.OPENAI_API_KEY) {
-          return NextResponse.json({
-            error: 'OpenAI API key not configured'
-          }, { status: 500 });
-        }
+        console.log('📝 Original body preview:', originalBody.substring(0, 150));
 
         // Generate AI response
-        const systemPrompt = `You are a professional AI assistant representing the business associated with ${connection.email}. 
-
-You are responding to a customer email. Be helpful, professional, and provide useful information.
+        const businessName = connection.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        const systemPrompt = `You are a professional AI assistant representing ${businessName}. You are responding to a customer email inquiry.
 
 Key guidelines:
-- Be friendly but professional
-- Keep responses concise but informative  
+- Be friendly, professional, and helpful
+- Provide useful information about the business
+- Keep responses concise but informative (2-3 paragraphs max)
 - If you cannot answer something specific, offer to connect them with a human team member
-- Always maintain a positive tone
+- Always maintain a positive, solution-oriented tone
 - End with a professional signature
+- Do not include any email headers or technical information in your response
 
-Business Email: ${connection.email}`;
+Business: ${businessName}
+Email: ${connection.email}`;
 
         console.log('🤖 Calling OpenAI...');
 
@@ -226,7 +228,7 @@ Business Email: ${connection.email}`;
             { role: 'system', content: systemPrompt },
             { role: 'user', content: customMessage || originalBody }
           ],
-          max_tokens: 300,
+          max_tokens: 350,
           temperature: 0.7,
         });
 
@@ -237,29 +239,104 @@ Business Email: ${connection.email}`;
         }
 
         console.log('✅ AI response generated');
-        console.log('🤖 AI response preview:', aiText.substring(0, 100));
 
-        // For demo purposes, just return the response without actually sending
-        // (To avoid potential email sending issues)
-        return NextResponse.json({
-          success: true,
-          message: 'AI response generated successfully',
-          demo: true,
-          data: {
-            originalFrom: fromHeader?.value,
-            originalSubject: subjectHeader?.value,
-            originalBody: originalBody.substring(0, 200),
-            aiResponse: aiText,
-            wouldReplyTo: fromHeader?.value,
-            timestamp: new Date().toISOString()
-          }
-        });
+        // Create the email response
+        const originalSubject = subjectHeader?.value || 'Your inquiry';
+        const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
+
+        const emailBody = `${aiText}
+
+--
+Best regards,
+AI Assistant
+${businessName}
+${connection.email}
+
+This email was automatically generated by AI. If you need to speak with a human representative, please reply to this email.`;
+
+        if (actualSend) {
+          console.log('📤 Actually sending email response...');
+
+          // Create the raw email message
+          const rawMessage = [
+            `From: ${connection.email}`,
+            `To: ${replyToEmail}`,
+            `Subject: ${replySubject}`,
+            `In-Reply-To: ${messageIdHeader?.value || ''}`,
+            `References: ${messageIdHeader?.value || ''}`,
+            'Content-Type: text/plain; charset="UTF-8"',
+            'MIME-Version: 1.0',
+            '',
+            emailBody
+          ].join('\r\n');
+
+          // Encode the message
+          const encodedMessage = Buffer.from(rawMessage)
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+          // Send the email
+          const sendResponse = await gmail.users.messages.send({
+            userId: 'me',
+            requestBody: {
+              raw: encodedMessage,
+              threadId: messageData.data.threadId
+            }
+          });
+
+          console.log('✅ Email sent successfully! Message ID:', sendResponse.data.id);
+
+          // Mark original email as read
+          await gmail.users.messages.modify({
+            userId: 'me',
+            id: emailId,
+            requestBody: {
+              removeLabelIds: ['UNREAD']
+            }
+          });
+
+          console.log('✅ Original email marked as read');
+
+          return NextResponse.json({
+            success: true,
+            message: 'AI response sent successfully!',
+            actualSent: true,
+            data: {
+              originalFrom: fromHeader?.value,
+              originalSubject: subjectHeader?.value,
+              sentTo: replyToEmail,
+              replySubject: replySubject,
+              aiResponse: aiText,
+              messageId: sendResponse.data.id,
+              timestamp: new Date().toISOString()
+            }
+          });
+
+        } else {
+          // Preview mode
+          return NextResponse.json({
+            success: true,
+            message: 'AI response generated (preview mode)',
+            preview: true,
+            data: {
+              originalFrom: fromHeader?.value,
+              originalSubject: subjectHeader?.value,
+              wouldReplyTo: replyToEmail,
+              replySubject: replySubject,
+              aiResponse: aiText,
+              fullEmailBody: emailBody,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
 
       } catch (responseError) {
-        console.error('❌ Error generating response:', responseError.message);
+        console.error('❌ Error generating/sending response:', responseError.message);
         
         return NextResponse.json({
-          error: 'Failed to generate AI response',
+          error: 'Failed to generate or send AI response',
           details: responseError.message
         }, { status: 500 });
       }
