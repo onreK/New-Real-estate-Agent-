@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { query } from '@/lib/database.js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -66,7 +67,7 @@ export async function GET(request) {
 
     console.log('🔄 Step 2: Getting user info from Google...');
     
-    // Get user info
+    // Get user info from Google
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const userInfo = await oauth2.userinfo.get();
     const userEmail = userInfo.data.email;
@@ -75,16 +76,66 @@ export async function GET(request) {
     console.log('👤 User name:', userInfo.data.name);
     console.log('🆔 User ID from Google:', userInfo.data.id);
 
-    console.log('🔄 Step 3: Storing Gmail connection in memory...');
+    console.log('🔄 Step 3: Storing Gmail connection in database...');
 
-    // Initialize global storage if it doesn't exist
+    // Save to database
+    try {
+      const connectionData = {
+        user_id: state,
+        gmail_email: userEmail,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        token_expiry: tokens.expiry_date,
+        user_name: userInfo.data.name,
+        google_user_id: userInfo.data.id,
+        status: 'connected'
+      };
+
+      // Insert or update Gmail connection in database
+      const dbResult = await query(`
+        INSERT INTO gmail_connections (
+          user_id, gmail_email, access_token, refresh_token, token_expiry, 
+          user_name, google_user_id, status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (user_id, gmail_email) 
+        DO UPDATE SET 
+          access_token = EXCLUDED.access_token,
+          refresh_token = EXCLUDED.refresh_token,
+          token_expiry = EXCLUDED.token_expiry,
+          user_name = EXCLUDED.user_name,
+          google_user_id = EXCLUDED.google_user_id,
+          status = 'connected',
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING *
+      `, [
+        connectionData.user_id,
+        connectionData.gmail_email,
+        connectionData.access_token,
+        connectionData.refresh_token,
+        connectionData.token_expiry,
+        connectionData.user_name,
+        connectionData.google_user_id,
+        connectionData.status
+      ]);
+
+      const savedConnection = dbResult.rows[0];
+      console.log('✅ Gmail connection saved to database with ID:', savedConnection.id);
+
+    } catch (dbError) {
+      console.error('⚠️ Database save failed, using memory fallback:', dbError.message);
+    }
+
+    console.log('🔄 Step 4: Storing Gmail connection in memory (fallback/compatibility)...');
+
+    // Also store in memory for backwards compatibility
     if (!global.gmailConnections) {
       global.gmailConnections = new Map();
       console.log('🆕 Initialized global Gmail connections storage');
     }
 
-    // Create connection object
-    const connectionData = {
+    // Create connection object for memory storage
+    const memoryConnectionData = {
       userId: state,
       email: userEmail,
       userName: userInfo.data.name,
@@ -94,37 +145,30 @@ export async function GET(request) {
       tokenExpiry: tokens.expiry_date,
       status: 'connected',
       connectedAt: new Date().toISOString(),
-      lastChecked: new Date().toISOString()
+      lastChecked: new Date().toISOString(),
+      source: 'database_backed' // Flag to indicate this has database backing
     };
 
-    console.log('📊 Connection data created:', {
-      userId: connectionData.userId,
-      email: connectionData.email,
-      hasAccessToken: !!connectionData.accessToken,
-      hasRefreshToken: !!connectionData.refreshToken,
-      status: connectionData.status
-    });
-
-    // Store the connection
-    global.gmailConnections.set(state, connectionData);
+    // Store the connection in memory
+    global.gmailConnections.set(state, memoryConnectionData);
     
-    console.log('✅ Step 3 Complete: Gmail connection stored in memory');
+    console.log('✅ Step 4 Complete: Gmail connection stored in memory');
     console.log('📈 Total Gmail connections stored:', global.gmailConnections.size);
     console.log('🔍 Stored connection keys:', Array.from(global.gmailConnections.keys()));
 
-    // Verify storage worked
+    // Verify both storage methods worked
     const storedConnection = global.gmailConnections.get(state);
     if (storedConnection) {
-      console.log('✅ VERIFICATION: Connection successfully retrieved from storage');
+      console.log('✅ VERIFICATION: Connection successfully retrieved from memory');
       console.log('📧 Stored email:', storedConnection.email);
     } else {
-      console.error('❌ VERIFICATION FAILED: Could not retrieve stored connection');
+      console.error('❌ VERIFICATION FAILED: Could not retrieve stored connection from memory');
     }
 
-    console.log('🔄 Step 4: Redirecting to success page...');
+    console.log('🔄 Step 5: Redirecting to success page...');
 
     // Create success URL with detailed parameters
-    const successUrl = `https://bizzybotai.com/email/setup?success=gmail_connected&email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(state)}&timestamp=${Date.now()}`;
+    const successUrl = `https://bizzybotai.com/email/setup?success=gmail_connected&email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(state)}&timestamp=${Date.now()}&storage=hybrid`;
     
     console.log('🔗 Redirect URL:', successUrl);
     console.log('🎉 === GMAIL OAUTH CALLBACK COMPLETED SUCCESSFULLY ===');
