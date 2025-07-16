@@ -1,5 +1,6 @@
 // app/api/admin/update-email-system/route.js
-import { getDbClient } from '../../../lib/database';
+import { getDbClient } from '../../../../lib/database';
+import { NextResponse } from 'next/server';
 
 export async function POST() {
   const client = await getDbClient().connect();
@@ -198,7 +199,7 @@ export async function POST() {
 
     console.log('🎉 Email system database update completed successfully!');
 
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       success: true,
       message: 'Email system database updated successfully',
       stats: {
@@ -216,22 +217,16 @@ export async function POST() {
         'Added performance indexes',
         `Created default settings for ${defaultResult.rowCount} existing customers`
       ]
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('❌ Email system database update failed:', error);
     
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       error: 'Database update failed',
       details: error.message,
       suggestion: 'Check database permissions and try again'
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    }, { status: 500 });
   } finally {
     client.release();
   }
