@@ -59,6 +59,7 @@ export default function CompleteEmailSystem() {
   const [gmailConnection, setGmailConnection] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [saving, setSaving] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -259,9 +260,11 @@ export default function CompleteEmailSystem() {
             }));
           }
         }
+      } else if (response.status === 404) {
+        console.log('AI settings API not found - using defaults');
       }
     } catch (error) {
-      console.log('AI settings not found, using defaults');
+      console.log('AI settings not available - using defaults');
     }
   };
 
@@ -290,22 +293,33 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         console.log('✅ Settings saved successfully');
+      } else if (response.status === 404) {
+        console.log('⚠️ AI settings API not available yet - settings stored locally');
       } else {
-        console.error('Failed to save settings');
+        console.error('❌ Failed to save settings:', response.status);
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error('❌ Error saving settings:', error);
     } finally {
       setSaving(false);
     }
   };
 
   const connectGmail = () => {
+    if (gmailConnection) {
+      setReconnecting(true);
+      console.log('🔗 Reconnecting Gmail account...');
+    } else {
+      console.log('🔗 Connecting Gmail account...');
+    }
     window.location.href = '/api/auth/google';
   };
 
   const checkGmailEmails = async (silent = false) => {
-    if (!gmailConnection) return;
+    if (!gmailConnection) {
+      console.log('No Gmail connection available');
+      return;
+    }
     
     if (!silent) setGmailLoading(true);
     try {
@@ -333,6 +347,13 @@ export default function CompleteEmailSystem() {
         if (dashboardSettings.soundNotifications && data.emails?.length > 0 && silent) {
           console.log('🔔 New emails detected!');
         }
+      } else if (response.status === 401) {
+        console.log('⚠️ Gmail authentication expired - please reconnect');
+        setGmailConnection(null);
+      } else if (response.status === 404) {
+        console.log('⚠️ Gmail monitor API not available');
+      } else {
+        console.error('Gmail check failed:', response.status);
       }
     } catch (error) {
       console.error('Error checking Gmail emails:', error);
@@ -958,7 +979,7 @@ export default function CompleteEmailSystem() {
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={gmailConnection ? checkGmailConnection : connectGmail}>
+            <Button variant="outline" onClick={connectGmail}>
               {gmailConnection ? 'Reconnect' : 'Connect Gmail'}
             </Button>
           </div>
