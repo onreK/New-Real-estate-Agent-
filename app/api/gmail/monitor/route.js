@@ -17,6 +17,90 @@ const oauth2Client = new google.auth.OAuth2(
   `${process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com'}/api/auth/google/callback`
 );
 
+// NEW: Helper function to get customer AI settings including knowledge base
+async function getCustomerAISettings(customerEmail) {
+  try {
+    console.log('📚 Loading AI settings for customer email:', customerEmail);
+    
+    // First try to find customer by email in customers table
+    const customerQuery = `
+      SELECT c.*, es.* 
+      FROM customers c
+      LEFT JOIN email_settings es ON c.id = es.customer_id
+      WHERE c.email = $1
+      LIMIT 1
+    `;
+    
+    let result = await query(customerQuery, [customerEmail]);
+    
+    // If not found by customer email, try by email_settings email_address
+    if (result.rows.length === 0) {
+      const settingsQuery = `
+        SELECT c.*, es.* 
+        FROM email_settings es
+        LEFT JOIN customers c ON es.customer_id = c.id
+        WHERE es.email_address = $1
+        LIMIT 1
+      `;
+      result = await query(settingsQuery, [customerEmail]);
+    }
+    
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      const settings = {
+        business_name: row.business_name || 'Your Business',
+        tone: row.tone || 'professional',
+        knowledge_base: row.knowledge_base || '',
+        expertise: row.expertise || '',
+        specialties: row.specialties || '',
+        hot_lead_keywords: row.hot_lead_keywords || ['urgent', 'asap', 'budget', 'ready']
+      };
+      
+      console.log('✅ Found AI settings for:', settings.business_name);
+      console.log('📖 Knowledge base length:', settings.knowledge_base?.length || 0, 'characters');
+      
+      return settings;
+    }
+    
+    console.log('⚠️ No AI settings found, using defaults');
+    return null;
+  } catch (error) {
+    console.error('❌ Error loading AI settings:', error);
+    return null;
+  }
+}
+
+// NEW: Helper function to build AI prompt with knowledge base
+function buildAIPrompt(aiSettings, businessName) {
+  const basePrompt = `You are a professional AI assistant representing ${aiSettings?.business_name || businessName}.`;
+  
+  let prompt = basePrompt;
+  
+  // Add knowledge base if available
+  if (aiSettings?.knowledge_base && aiSettings.knowledge_base.trim()) {
+    prompt += `\n\nBUSINESS INFORMATION:\n${aiSettings.knowledge_base}`;
+  }
+  
+  // Add tone guidance
+  const tone = aiSettings?.tone || 'professional';
+  prompt += `\n\nCOMMUNICATION STYLE: Respond in a ${tone} tone.`;
+  
+  // Add expertise if available
+  if (aiSettings?.expertise || aiSettings?.specialties) {
+    prompt += `\nEXPERTISE: ${aiSettings.expertise} ${aiSettings.specialties}`.trim();
+  }
+  
+  prompt += `\n\nINSTRUCTIONS:
+- Answer customer questions using the business information provided above
+- Be specific about services, pricing, and processes when mentioned in the business information
+- Keep responses helpful, accurate, and professional
+- If asked about services or pricing, use the specific information from the business details
+- If information isn't available in the business details, say so politely
+- Keep responses concise but informative`;
+
+  return prompt;
+}
+
 // Helper function to save/update Gmail connection in database
 async function saveGmailConnectionToDatabase(connectionData) {
   try {
@@ -119,7 +203,7 @@ async function saveMessageToDatabase(conversationId, messageData) {
 }
 
 export async function POST(request) {
-  console.log('📧 === GMAIL MONITOR STARTED (WITH DATABASE) ===');
+  console.log('📧 === GMAIL MONITOR WITH KNOWLEDGE BASE INTEGRATION ===');
   
   try {
     const body = await request.json();
@@ -129,6 +213,7 @@ export async function POST(request) {
     console.log('📧 Email:', emailAddress);
     console.log('🚀 Actual Send Mode:', actualSend);
     console.log('💾 Database storage: ENABLED');
+    console.log('🧠 Knowledge Base: ENABLED');
     
     if (!emailAddress) {
       return NextResponse.json({ 
@@ -365,6 +450,7 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
   }
 }
 
+// UPDATED: respondToEmail function with Knowledge Base integration
 async function respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend) {
   if (!emailId) {
     return NextResponse.json({ 
@@ -372,7 +458,7 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
     }, { status: 400 });
   }
 
-  console.log('🤖 Generating AI response with database logging...');
+  console.log('🤖 Generating AI response with Knowledge Base integration...');
 
   try {
     // Get original email
@@ -413,23 +499,39 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
       originalBody = messageData.data.snippet || 'Email content unavailable';
     }
 
-    // Generate AI response
-    const businessName = connection.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, ' ').trim();
+    // NEW: Get customer AI settings including knowledge base
+    console.log('📚 Loading customer AI settings and knowledge base...');
+    const aiSettings = await getCustomerAISettings(connection.email);
     
+    if (aiSettings) {
+      console.log('✅ Found AI settings for:', aiSettings.business_name);
+      console.log('📖 Knowledge base active:', !!(aiSettings.knowledge_base?.trim()));
+    } else {
+      console.log('⚠️ No AI settings found, using defaults');
+    }
+
+    // NEW: Build AI prompt with knowledge base
+    const businessName = aiSettings?.business_name || connection.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, ' ').trim();
+    const systemPrompt = buildAIPrompt(aiSettings, businessName);
+    
+    console.log('🧠 AI Prompt length:', systemPrompt.length, 'characters');
+    console.log('🔍 Knowledge base included:', !!(aiSettings?.knowledge_base?.trim()));
+
+    // Generate AI response with knowledge base
     const startTime = Date.now();
     const aiResponse = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: `You are a professional AI assistant representing ${businessName}. Respond helpfully and professionally to customer inquiries. Keep responses concise but informative.`
+          content: systemPrompt
         },
         {
           role: 'user',
           content: customMessage || originalBody
         }
       ],
-      max_tokens: 350,
+      max_tokens: 500, // Increased for more detailed responses
       temperature: 0.7,
     });
 
@@ -440,6 +542,9 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
       throw new Error('No AI response generated');
     }
 
+    console.log('✅ AI response generated in', responseTime, 'ms');
+    console.log('📝 Response preview:', aiText.substring(0, 150) + '...');
+
     const originalSubject = subjectHeader?.value || 'Your inquiry';
     const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
 
@@ -447,8 +552,7 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
 
 --
 Best regards,
-AI Assistant
-${businessName}
+${aiSettings?.business_name || businessName}
 ${connection.email}
 
 📧 This email was automatically generated by Bizzy Bot AI`;
@@ -538,9 +642,11 @@ ${connection.email}
         }
       }
 
+      console.log('🎉 Email sent successfully with Knowledge Base-powered response!');
+
       return NextResponse.json({
         success: true,
-        message: 'AI response sent successfully!',
+        message: 'AI response sent successfully with business knowledge!',
         actualSent: true,
         databaseEnabled: true,
         data: {
@@ -548,13 +654,15 @@ ${connection.email}
           aiResponse: aiText,
           sentTo: replyToEmail,
           responseTime: responseTime,
-          tokensUsed: aiResponse.usage?.total_tokens || 0
+          tokensUsed: aiResponse.usage?.total_tokens || 0,
+          knowledgeBaseUsed: !!(aiSettings?.knowledge_base?.trim()),
+          businessName: aiSettings?.business_name || businessName
         }
       });
     } else {
       return NextResponse.json({
         success: true,
-        message: 'AI response generated (preview)',
+        message: 'AI response generated with business knowledge (preview)',
         preview: true,
         databaseEnabled: true,
         data: {
@@ -562,7 +670,9 @@ ${connection.email}
           wouldReplyTo: replyToEmail,
           emailBody: emailBody,
           responseTime: responseTime,
-          tokensUsed: aiResponse.usage?.total_tokens || 0
+          tokensUsed: aiResponse.usage?.total_tokens || 0,
+          knowledgeBaseUsed: !!(aiSettings?.knowledge_base?.trim()),
+          businessName: aiSettings?.business_name || businessName
         }
       });
     }
@@ -580,13 +690,16 @@ ${connection.email}
 // Handle GET requests for testing
 export async function GET() {
   return NextResponse.json({
-    message: 'Gmail Monitor API (Database Enabled)',
+    message: 'Gmail Monitor API with Knowledge Base Integration',
     status: 'Active',
     features: [
+      'Knowledge Base Integration ✨',
       'Gmail connection storage',
       'Email conversation tracking', 
       'AI response logging',
-      'Performance analytics'
+      'Performance analytics',
+      'Business-specific AI responses',
+      'Customer AI settings loading'
     ],
     endpoints: {
       check: 'POST with action: "check"',
