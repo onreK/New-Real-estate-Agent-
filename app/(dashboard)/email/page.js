@@ -85,7 +85,6 @@ export default function CompleteEmailSystem() {
 
   const [aiSettings, setAiSettings] = useState({
     communicationTone: 'professional',
-    // REMOVED: responseStyle (replaced with knowledgeBase)
     knowledgeBase: '', // NEW: Business Knowledge Base
     hotLeadKeywords: ['urgent', 'asap', 'budget', 'ready'],
     behaviors: {
@@ -268,23 +267,31 @@ export default function CompleteEmailSystem() {
     }
   };
 
+  // FIXED: Complete saveAllSettings function with proper data format
   const saveAllSettings = async () => {
     setSaving(true);
     try {
-      // Prepare the settings in the format your existing API expects
+      // Prepare the settings in the correct format for the API
       const settingsToSave = {
         tone: aiSettings.communicationTone,
         expertise: businessProfile.industry,
         specialties: businessProfile.expertise,
-        response_style: 'Knowledge-based responses with business expertise', // Updated description
-        knowledge_base: aiSettings.knowledgeBase, // NEW: Include knowledge base
+        response_style: 'Knowledge-based responses with business expertise',
+        knowledge_base: aiSettings.knowledgeBase, // FIXED: correct field name
         hot_lead_keywords: aiSettings.hotLeadKeywords,
         auto_response_enabled: automationSettings.responseControl.aiResponses,
         alert_hot_leads: aiSettings.behaviors.hotLeadAlerts,
         include_availability: aiSettings.behaviors.includeAvailability,
         ask_qualifying_questions: aiSettings.behaviors.askQualifyingQuestions,
-        require_approval: !automationSettings.responseControl.autoSend
+        require_approval: !automationSettings.responseControl.autoSend,
+        
+        // Enhanced settings
+        email_filtering: automationSettings.emailFiltering,
+        response_rules: automationSettings.responseControl,
+        monitoring: dashboardSettings
       };
+
+      console.log('💾 Saving settings:', settingsToSave);
 
       const response = await fetch('/api/customer/ai-settings', {
         method: 'POST',
@@ -293,18 +300,21 @@ export default function CompleteEmailSystem() {
       });
 
       if (response.ok) {
-        console.log('✅ Settings saved successfully');
-      } else if (response.status === 404) {
-        console.log('⚠️ AI settings API not available yet - settings stored locally');
+        const result = await response.json();
+        console.log('✅ Settings saved successfully:', result);
+        alert('✅ Settings saved successfully! Your AI now has your business knowledge.');
       } else {
         const errorData = await response.json();
+        console.error('❌ Failed to save settings:', errorData);
         if (errorData.missing_column === 'knowledge_base') {
-          alert('Database needs to be updated! Please run: /api/admin/add-knowledge-base');
+          alert('❌ Database needs to be updated! Please contact support.');
+        } else {
+          alert(`❌ Failed to save settings: ${errorData.error || 'Unknown error'}`);
         }
-        console.error('❌ Failed to save settings:', response.status);
       }
     } catch (error) {
       console.error('❌ Error saving settings:', error);
+      alert('❌ Error saving settings. Please try again.');
     } finally {
       setSaving(false);
     }
