@@ -1,4 +1,4 @@
-// app/api/customer/ai-settings/route.js - COMPLETE VERSION WITH KNOWLEDGE BASE
+// app/api/customer/ai-settings/route.js - FIXED VERSION THAT CREATES CUSTOMER IF MISSING
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
 import { 
@@ -14,12 +14,18 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
+    console.log('🔍 Getting AI settings for user:', user.id);
+
+    // Get or create customer from database
+    let customer = await getCustomerByClerkId(user.id);
     
+    // If customer not found, create one
     if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      console.log('👤 Customer not found, creating new customer for:', user.id);
+      customer = await createCustomerIfNotExists(user);
     }
+
+    console.log('✅ Found/created customer:', customer.id, customer.business_name);
 
     // Get AI settings for this customer
     const client = await getDbClient().connect();
@@ -94,15 +100,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
+    console.log('💾 Saving AI settings for user:', user.id);
+
+    // Get or create customer from database
+    let customer = await getCustomerByClerkId(user.id);
     
+    // If customer not found, create one
     if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      console.log('👤 Customer not found during save, creating new customer for:', user.id);
+      customer = await createCustomerIfNotExists(user);
     }
 
+    console.log('✅ Using customer:', customer.id, customer.business_name);
+
     const body = await request.json();
-    console.log('💾 Saving AI settings with knowledge base for customer:', customer.business_name);
     console.log('📊 Request body:', body);
 
     // Extract all settings including knowledge base
@@ -126,6 +137,7 @@ export async function POST(request) {
       
       if (checkResult.rows.length > 0) {
         // Update existing settings with knowledge base
+        console.log('🔄 Updating existing settings');
         query = `
           UPDATE email_settings 
           SET tone = $1, expertise = $2, specialties = $3, response_style = $4,
@@ -166,6 +178,7 @@ export async function POST(request) {
         ];
       } else {
         // Create new settings with knowledge base
+        console.log('➕ Creating new settings');
         query = `
           INSERT INTO email_settings (
             customer_id, setup_method, business_name, email_address,
@@ -183,7 +196,7 @@ export async function POST(request) {
           customer.id,
           'intellihub',
           customer.business_name,
-          `${customer.business_name.toLowerCase().replace(/\s+/g, '')}@intellihub.ai`,
+          customer.email || `${customer.business_name.toLowerCase().replace(/\s+/g, '')}@intellihub.ai`,
           tone || 'professional',
           expertise || '',
           specialties || '',
@@ -240,5 +253,45 @@ export async function POST(request) {
       error: 'Failed to save AI settings',
       details: error.message 
     }, { status: 500 });
+  }
+}
+
+// Helper function to create customer if not exists
+async function createCustomerIfNotExists(user) {
+  const client = await getDbClient().connect();
+  try {
+    console.log('🔨 Creating new customer for Clerk user:', user.id);
+    
+    // Extract user information
+    const businessName = user.firstName && user.lastName 
+      ? `${user.firstName} ${user.lastName}'s Business`
+      : user.username || 'My Business';
+    
+    const email = user.emailAddresses?.[0]?.emailAddress || 'user@example.com';
+    
+    const insertQuery = `
+      INSERT INTO customers (
+        clerk_user_id, business_name, email, plan, 
+        created_at, updated_at
+      ) 
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *
+    `;
+    
+    const result = await client.query(insertQuery, [
+      user.id,
+      businessName,
+      email,
+      'starter'
+    ]);
+    
+    console.log('✅ Created new customer:', result.rows[0]);
+    return result.rows[0];
+    
+  } catch (error) {
+    console.error('❌ Error creating customer:', error);
+    throw error;
+  } finally {
+    client.release();
   }
 }
