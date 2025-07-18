@@ -1,4 +1,4 @@
-// app/api/customer/ai-settings/route.js - ENHANCED VERSION WITH KNOWLEDGE BASE
+// app/api/customer/ai-settings/route.js - COMPLETE VERSION WITH KNOWLEDGE BASE
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
 import { 
@@ -14,14 +14,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get customer from database (keeping your existing structure)
+    // Get customer from database
     const customer = await getCustomerByClerkId(user.id);
     
     if (!customer) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
-    // Get AI settings for this customer (keeping your existing query)
+    // Get AI settings for this customer
     const client = await getDbClient().connect();
     try {
       const query = 'SELECT * FROM email_settings WHERE customer_id = $1';
@@ -32,7 +32,7 @@ export async function GET() {
       return NextResponse.json({
         success: true,
         settings: settings ? {
-          // Existing fields (keep as-is)
+          // Existing fields
           ai_personality: settings.ai_personality || '',
           tone: settings.tone || 'professional',
           expertise: settings.expertise || '',
@@ -49,7 +49,7 @@ export async function GET() {
           ask_qualifying_questions: settings.ask_qualifying_questions !== false,
           require_approval: settings.require_approval === true,
           
-          // Enhanced fields for 3-tab system (with defaults if columns don't exist yet)
+          // Enhanced fields for 3-tab system
           email_filtering: {
             auto_archive_spam: settings.auto_archive_spam !== false,
             block_mass_emails: settings.block_mass_emails !== false,
@@ -94,7 +94,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get customer from database (keeping your existing structure)
+    // Get customer from database
     const customer = await getCustomerByClerkId(user.id);
     
     if (!customer) {
@@ -102,19 +102,15 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    console.log('💾 Saving enhanced AI settings with knowledge base for customer:', customer.business_name);
+    console.log('💾 Saving AI settings with knowledge base for customer:', customer.business_name);
+    console.log('📊 Request body:', body);
 
-    // Extract all settings (existing + new knowledge base)
+    // Extract all settings including knowledge base
     const { 
-      // Existing fields
       tone, expertise, specialties, response_style, hot_lead_keywords,
       auto_response_enabled, alert_hot_leads, include_availability, 
       ask_qualifying_questions, require_approval,
-      
-      // NEW: Knowledge Base field
-      knowledge_base,
-      
-      // Enhanced fields
+      knowledge_base, // NEW: Knowledge Base field
       email_filtering,
       response_rules,
       monitoring
@@ -122,14 +118,14 @@ export async function POST(request) {
 
     const client = await getDbClient().connect();
     try {
-      // Check if settings exist (keeping your existing logic)
+      // Check if settings exist
       const checkQuery = 'SELECT id FROM email_settings WHERE customer_id = $1';
       const checkResult = await client.query(checkQuery, [customer.id]);
       
       let query, values;
       
       if (checkResult.rows.length > 0) {
-        // Update existing settings - enhanced with knowledge base
+        // Update existing settings with knowledge base
         query = `
           UPDATE email_settings 
           SET tone = $1, expertise = $2, specialties = $3, response_style = $4,
@@ -144,10 +140,17 @@ export async function POST(request) {
           RETURNING *
         `;
         values = [
-          tone, expertise, specialties, response_style, hot_lead_keywords,
-          auto_response_enabled, alert_hot_leads, include_availability,
-          ask_qualifying_questions, require_approval,
-          knowledge_base, // NEW: Knowledge base value
+          tone || 'professional',
+          expertise || '',
+          specialties || '',
+          response_style || 'Knowledge-based responses',
+          hot_lead_keywords || ['urgent', 'asap', 'budget', 'ready'],
+          auto_response_enabled !== false,
+          alert_hot_leads !== false,
+          include_availability !== false,
+          ask_qualifying_questions !== false,
+          require_approval === true,
+          knowledge_base || '', // NEW: Knowledge base value
           // Filtering fields
           email_filtering?.auto_archive_spam !== false,
           email_filtering?.block_mass_emails !== false,
@@ -162,7 +165,7 @@ export async function POST(request) {
           customer.id
         ];
       } else {
-        // Create new settings with all fields (existing + knowledge base)
+        // Create new settings with knowledge base
         query = `
           INSERT INTO email_settings (
             customer_id, setup_method, business_name, email_address,
@@ -177,11 +180,21 @@ export async function POST(request) {
           RETURNING *
         `;
         values = [
-          customer.id, 'intellihub', customer.business_name, 
+          customer.id,
+          'intellihub',
+          customer.business_name,
           `${customer.business_name.toLowerCase().replace(/\s+/g, '')}@intellihub.ai`,
-          tone, expertise, specialties, response_style, hot_lead_keywords,
-          auto_response_enabled, alert_hot_leads, include_availability,
-          ask_qualifying_questions, require_approval, knowledge_base, // NEW: Knowledge base
+          tone || 'professional',
+          expertise || '',
+          specialties || '',
+          response_style || 'Knowledge-based responses',
+          hot_lead_keywords || ['urgent', 'asap', 'budget', 'ready'],
+          auto_response_enabled !== false,
+          alert_hot_leads !== false,
+          include_availability !== false,
+          ask_qualifying_questions !== false,
+          require_approval === true,
+          knowledge_base || '', // NEW: Knowledge base
           // Filtering fields
           email_filtering?.auto_archive_spam !== false,
           email_filtering?.block_mass_emails !== false,
@@ -198,7 +211,7 @@ export async function POST(request) {
       
       const result = await client.query(query, values);
       
-      console.log('✅ Enhanced AI settings with knowledge base saved for customer:', customer.business_name);
+      console.log('✅ AI settings with knowledge base saved successfully');
       
       return NextResponse.json({
         success: true,
@@ -211,24 +224,15 @@ export async function POST(request) {
     }
 
   } catch (error) {
-    console.error('❌ Error saving enhanced AI settings:', error);
+    console.error('❌ Error saving AI settings:', error);
+    console.error('❌ Error stack:', error.stack);
     
-    // If error is about missing knowledge_base column, provide helpful message
     if (error.message.includes('knowledge_base') && error.message.includes('does not exist')) {
       return NextResponse.json({ 
         error: 'Knowledge base column missing from database',
         details: 'Please run the database update script to add the knowledge_base column',
         missing_column: 'knowledge_base',
         fix_url: '/api/admin/add-knowledge-base'
-      }, { status: 500 });
-    }
-    
-    // If error is about other missing columns, provide helpful message
-    if (error.message.includes('column') && error.message.includes('does not exist')) {
-      return NextResponse.json({ 
-        error: 'Database needs updating for new features',
-        details: 'Please run the database update script to add new columns',
-        missingColumns: true
       }, { status: 500 });
     }
     
