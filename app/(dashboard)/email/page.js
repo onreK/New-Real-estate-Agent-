@@ -39,7 +39,8 @@ import {
   MessageCircle,
   Phone,
   Archive,
-  X
+  X,
+  BookOpen
 } from 'lucide-react';
 
 export default function CompleteEmailSystem() {
@@ -84,10 +85,8 @@ export default function CompleteEmailSystem() {
 
   const [aiSettings, setAiSettings] = useState({
     communicationTone: 'professional',
-    responseStyle: {
-      detailed: true,
-      includeCompanyInfo: true
-    },
+    // REMOVED: responseStyle (replaced with knowledgeBase)
+    knowledgeBase: '', // NEW: Business Knowledge Base
     hotLeadKeywords: ['urgent', 'asap', 'budget', 'ready'],
     behaviors: {
       includeAvailability: true,
@@ -243,6 +242,7 @@ export default function CompleteEmailSystem() {
           setAiSettings(prev => ({
             ...prev,
             communicationTone: data.settings.tone || 'professional',
+            knowledgeBase: data.settings.knowledge_base || '', // NEW: Load knowledge base
             behaviors: {
               ...prev.behaviors,
               includeAvailability: data.settings.include_availability !== false,
@@ -276,7 +276,8 @@ export default function CompleteEmailSystem() {
         tone: aiSettings.communicationTone,
         expertise: businessProfile.industry,
         specialties: businessProfile.expertise,
-        response_style: aiSettings.responseStyle.detailed ? 'Detailed responses with company information' : 'Brief and concise responses',
+        response_style: 'Knowledge-based responses with business expertise', // Updated description
+        knowledge_base: aiSettings.knowledgeBase, // NEW: Include knowledge base
         hot_lead_keywords: aiSettings.hotLeadKeywords,
         auto_response_enabled: automationSettings.responseControl.aiResponses,
         alert_hot_leads: aiSettings.behaviors.hotLeadAlerts,
@@ -296,6 +297,10 @@ export default function CompleteEmailSystem() {
       } else if (response.status === 404) {
         console.log('⚠️ AI settings API not available yet - settings stored locally');
       } else {
+        const errorData = await response.json();
+        if (errorData.missing_column === 'knowledge_base') {
+          alert('Database needs to be updated! Please run: /api/admin/add-knowledge-base');
+        }
         console.error('❌ Failed to save settings:', response.status);
       }
     } catch (error) {
@@ -766,7 +771,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🤖 AI SETTINGS TAB
+  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE
   const AISettingsTab = () => (
     <div className="space-y-6">
       {/* Business Profile */}
@@ -836,40 +841,57 @@ export default function CompleteEmailSystem() {
         </CardContent>
       </Card>
 
-      {/* Response Style */}
+      {/* KNOWLEDGE BASE - REPLACES RESPONSE STYLE */}
       <Card>
         <CardHeader>
-          <CardTitle>Response Style</CardTitle>
-          <CardDescription>Configure response preferences</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5" />
+            Business Knowledge Base
+          </CardTitle>
+          <CardDescription>
+            Add specific information about your services, pricing, processes, and policies so the AI can answer customer questions accurately
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={aiSettings.responseStyle.detailed}
-                onChange={(e) => setAiSettings(prev => ({
-                  ...prev,
-                  responseStyle: { ...prev.responseStyle, detailed: e.target.checked }
-                }))}
-                className="rounded border-gray-300"
-              />
-              <span className="text-sm">Detailed responses</span>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-3">
+              Business Information (200-1000 characters recommended)
             </label>
-
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={aiSettings.responseStyle.includeCompanyInfo}
-                onChange={(e) => setAiSettings(prev => ({
-                  ...prev,
-                  responseStyle: { ...prev.responseStyle, includeCompanyInfo: e.target.checked }
-                }))}
-                className="rounded border-gray-300"
-              />
-              <span className="text-sm">Include company info</span>
-            </label>
+            <Textarea
+              value={aiSettings.knowledgeBase}
+              onChange={(e) => setAiSettings(prev => ({ ...prev, knowledgeBase: e.target.value }))}
+              placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
+              rows={8}
+              className="resize-none"
+              maxLength={2000}
+            />
+            <div className="flex justify-between items-center mt-2">
+              <p className="text-xs text-gray-500">
+                Include: services offered, pricing, coverage areas, processes, specialties, contact hours
+              </p>
+              <p className="text-xs text-gray-400">
+                {aiSettings.knowledgeBase.length}/2000 characters
+              </p>
+            </div>
           </div>
+          
+          {aiSettings.knowledgeBase.length > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-700 font-medium">✅ Knowledge Base Active</p>
+              <p className="text-xs text-green-600 mt-1">
+                AI can now answer specific questions about your business based on this information
+              </p>
+            </div>
+          )}
+          
+          {aiSettings.knowledgeBase.length === 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-700 font-medium">⚠️ Knowledge Base Empty</p>
+              <p className="text-xs text-yellow-600 mt-1">
+                AI will give generic responses without business-specific knowledge
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
