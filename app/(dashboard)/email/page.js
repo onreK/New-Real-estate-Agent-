@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import ConnectionsTab from '@/components/ConnectionsTab';
 import { 
   Mail, 
   Settings, 
@@ -140,6 +141,12 @@ export default function CompleteEmailSystem() {
       label: 'Automation', 
       icon: Wrench,
       description: 'Gmail connection, email filtering, and automation rules'
+    },
+    { 
+      id: 'connections', 
+      label: 'Connections', 
+      icon: Settings,
+      description: 'Manage Gmail and domain email connections'
     }
   ];
 
@@ -1265,6 +1272,7 @@ export default function CompleteEmailSystem() {
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'ai-settings' && <AISettingsTab />}
         {activeTab === 'automation' && <AutomationTab />}
+        {activeTab === 'connections' && <ConnectionsTab />}
       </div>
     </div>
   );
