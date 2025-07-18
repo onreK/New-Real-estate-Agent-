@@ -1,4 +1,4 @@
-// app/api/customer/ai-settings/route.js - ENHANCED VERSION
+// app/api/customer/ai-settings/route.js - ENHANCED VERSION WITH KNOWLEDGE BASE
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
 import { 
@@ -38,6 +38,10 @@ export async function GET() {
           expertise: settings.expertise || '',
           specialties: settings.specialties || '',
           response_style: settings.response_style || '',
+          
+          // NEW: Knowledge Base field
+          knowledge_base: settings.knowledge_base || '',
+          
           hot_lead_keywords: settings.hot_lead_keywords || ['urgent', 'asap', 'immediately', 'budget', 'ready', 'buying now'],
           auto_response_enabled: settings.auto_response_enabled !== false,
           alert_hot_leads: settings.alert_hot_leads !== false,
@@ -98,16 +102,19 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    console.log('💾 Saving enhanced AI settings for customer:', customer.business_name);
+    console.log('💾 Saving enhanced AI settings with knowledge base for customer:', customer.business_name);
 
-    // Extract all settings (existing + new)
+    // Extract all settings (existing + new knowledge base)
     const { 
       // Existing fields
       tone, expertise, specialties, response_style, hot_lead_keywords,
       auto_response_enabled, alert_hot_leads, include_availability, 
       ask_qualifying_questions, require_approval,
       
-      // New enhanced fields
+      // NEW: Knowledge Base field
+      knowledge_base,
+      
+      // Enhanced fields
       email_filtering,
       response_rules,
       monitoring
@@ -122,49 +129,51 @@ export async function POST(request) {
       let query, values;
       
       if (checkResult.rows.length > 0) {
-        // Update existing settings - enhanced with new fields
+        // Update existing settings - enhanced with knowledge base
         query = `
           UPDATE email_settings 
           SET tone = $1, expertise = $2, specialties = $3, response_style = $4,
               hot_lead_keywords = $5, auto_response_enabled = $6, alert_hot_leads = $7,
               include_availability = $8, ask_qualifying_questions = $9, require_approval = $10,
-              auto_archive_spam = $11, block_mass_emails = $12, personal_only = $13, skip_auto_generated = $14,
-              business_hours_only = $15, urgent_priority = $16,
-              monitoring_enabled = $17, auto_refresh_interval = $18,
+              knowledge_base = $11,
+              auto_archive_spam = $12, block_mass_emails = $13, personal_only = $14, skip_auto_generated = $15,
+              business_hours_only = $16, urgent_priority = $17,
+              monitoring_enabled = $18, auto_refresh_interval = $19,
               updated_at = CURRENT_TIMESTAMP
-          WHERE customer_id = $19
+          WHERE customer_id = $20
           RETURNING *
         `;
         values = [
           tone, expertise, specialties, response_style, hot_lead_keywords,
           auto_response_enabled, alert_hot_leads, include_availability,
           ask_qualifying_questions, require_approval,
-          // New filtering fields
+          knowledge_base, // NEW: Knowledge base value
+          // Filtering fields
           email_filtering?.auto_archive_spam !== false,
           email_filtering?.block_mass_emails !== false,
           email_filtering?.personal_only === true,
           email_filtering?.skip_auto_generated !== false,
-          // New response rule fields
+          // Response rule fields
           response_rules?.business_hours_only !== false,
           response_rules?.urgent_priority !== false,
-          // New monitoring fields
+          // Monitoring fields
           monitoring?.enabled !== false,
           monitoring?.auto_refresh_interval || 30,
           customer.id
         ];
       } else {
-        // Create new settings with all fields (existing + enhanced)
+        // Create new settings with all fields (existing + knowledge base)
         query = `
           INSERT INTO email_settings (
             customer_id, setup_method, business_name, email_address,
             tone, expertise, specialties, response_style, hot_lead_keywords,
             auto_response_enabled, alert_hot_leads, include_availability,
-            ask_qualifying_questions, require_approval,
+            ask_qualifying_questions, require_approval, knowledge_base,
             auto_archive_spam, block_mass_emails, personal_only, skip_auto_generated,
             business_hours_only, urgent_priority,
             monitoring_enabled, auto_refresh_interval
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
           RETURNING *
         `;
         values = [
@@ -172,16 +181,16 @@ export async function POST(request) {
           `${customer.business_name.toLowerCase().replace(/\s+/g, '')}@intellihub.ai`,
           tone, expertise, specialties, response_style, hot_lead_keywords,
           auto_response_enabled, alert_hot_leads, include_availability,
-          ask_qualifying_questions, require_approval,
-          // New filtering fields
+          ask_qualifying_questions, require_approval, knowledge_base, // NEW: Knowledge base
+          // Filtering fields
           email_filtering?.auto_archive_spam !== false,
           email_filtering?.block_mass_emails !== false,
           email_filtering?.personal_only === true,
           email_filtering?.skip_auto_generated !== false,
-          // New response rule fields
+          // Response rule fields
           response_rules?.business_hours_only !== false,
           response_rules?.urgent_priority !== false,
-          // New monitoring fields
+          // Monitoring fields
           monitoring?.enabled !== false,
           monitoring?.auto_refresh_interval || 30
         ];
@@ -189,12 +198,12 @@ export async function POST(request) {
       
       const result = await client.query(query, values);
       
-      console.log('✅ Enhanced AI settings saved for customer:', customer.business_name);
+      console.log('✅ Enhanced AI settings with knowledge base saved for customer:', customer.business_name);
       
       return NextResponse.json({
         success: true,
         settings: result.rows[0],
-        message: 'Enhanced AI settings saved successfully'
+        message: 'AI settings with knowledge base saved successfully'
       });
 
     } finally {
@@ -204,7 +213,17 @@ export async function POST(request) {
   } catch (error) {
     console.error('❌ Error saving enhanced AI settings:', error);
     
-    // If error is about missing columns, provide helpful message
+    // If error is about missing knowledge_base column, provide helpful message
+    if (error.message.includes('knowledge_base') && error.message.includes('does not exist')) {
+      return NextResponse.json({ 
+        error: 'Knowledge base column missing from database',
+        details: 'Please run the database update script to add the knowledge_base column',
+        missing_column: 'knowledge_base',
+        fix_url: '/api/admin/add-knowledge-base'
+      }, { status: 500 });
+    }
+    
+    // If error is about other missing columns, provide helpful message
     if (error.message.includes('column') && error.message.includes('does not exist')) {
       return NextResponse.json({ 
         error: 'Database needs updating for new features',
@@ -214,7 +233,7 @@ export async function POST(request) {
     }
     
     return NextResponse.json({ 
-      error: 'Failed to save enhanced AI settings',
+      error: 'Failed to save AI settings',
       details: error.message 
     }, { status: 500 });
   }
