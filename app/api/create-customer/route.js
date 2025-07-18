@@ -1,4 +1,4 @@
-// app/api/create-customer/route.js
+// app/api/create-customer/route.js 
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
 import { getDbClient } from '../../../lib/database';
