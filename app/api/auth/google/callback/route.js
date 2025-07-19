@@ -40,17 +40,17 @@ export async function GET(request) {
 
     if (error) {
       console.error('❌ OAuth error parameter:', error);
-      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=oauth_denied&details=${error}`);
+      return NextResponse.redirect(`https://bizzybotai.com/email?tab=connections&error=oauth_denied&details=${error}`);
     }
 
     if (!code) {
       console.error('❌ Missing authorization code');
-      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=missing_code`);
+      return NextResponse.redirect(`https://bizzybotai.com/email?tab=connections&error=missing_code`);
     }
 
     if (!state) {
       console.error('❌ Missing state parameter (user ID)');
-      return NextResponse.redirect(`https://bizzybotai.com/email/setup?error=missing_user_id`);
+      return NextResponse.redirect(`https://bizzybotai.com/email?tab=connections&error=missing_user_id`);
     }
 
     console.log('🔄 Step 1: Exchanging authorization code for tokens...');
@@ -167,8 +167,8 @@ export async function GET(request) {
 
     console.log('🔄 Step 5: Redirecting to success page...');
 
-    // Create success URL with detailed parameters
-    const successUrl = `https://bizzybotai.com/email/setup?success=gmail_connected&email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(state)}&timestamp=${Date.now()}&storage=hybrid`;
+    // Create success URL with detailed parameters - REDIRECT TO /email WITH CONNECTIONS TAB
+    const successUrl = `https://bizzybotai.com/email?tab=connections&success=gmail_connected&email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(state)}&timestamp=${Date.now()}`;
     
     console.log('🔗 Redirect URL:', successUrl);
     console.log('🎉 === GMAIL OAUTH CALLBACK COMPLETED SUCCESSFULLY ===');
@@ -188,7 +188,7 @@ export async function GET(request) {
       console.error('❌ Response data:', error.response.data);
     }
     
-    const errorUrl = `https://bizzybotai.com/email/setup?error=oauth_failed&message=${encodeURIComponent(error.message)}&timestamp=${Date.now()}`;
+    const errorUrl = `https://bizzybotai.com/email?tab=connections&error=oauth_failed&message=${encodeURIComponent(error.message)}&timestamp=${Date.now()}`;
     console.log('🔗 Error redirect URL:', errorUrl);
     
     return NextResponse.redirect(errorUrl);
