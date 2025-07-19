@@ -70,10 +70,9 @@ export default function CompleteEmailSystem() {
     avgResponseTime: 0
   });
 
-  // Dashboard Settings
+  // Dashboard Settings (simplified)
   const [dashboardSettings, setDashboardSettings] = useState({
     autoRefresh: true,
-    soundNotifications: false,
     refreshInterval: 30
   });
 
@@ -191,7 +190,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // Auto-refresh logic (properly managed)
+  // Auto-refresh logic (simplified - always enabled)
   useEffect(() => {
     // Clear any existing interval
     if (refreshIntervalRef.current) {
@@ -199,8 +198,8 @@ export default function CompleteEmailSystem() {
       refreshIntervalRef.current = null;
     }
 
-    // Set up auto-refresh only for dashboard tab when enabled and Gmail connected
-    if (dashboardSettings.autoRefresh && activeTab === 'dashboard' && gmailConnection && !loading) {
+    // Set up auto-refresh for dashboard tab when Gmail connected
+    if (activeTab === 'dashboard' && gmailConnection && !loading) {
       refreshIntervalRef.current = setInterval(() => {
         checkGmailEmails(true); // Silent refresh
         setLastRefresh(new Date());
@@ -214,7 +213,7 @@ export default function CompleteEmailSystem() {
         refreshIntervalRef.current = null;
       }
     };
-  }, [dashboardSettings.autoRefresh, activeTab, gmailConnection?.email, dashboardSettings.refreshInterval, loading]);
+  }, [activeTab, gmailConnection?.email, dashboardSettings.refreshInterval, loading]);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -400,11 +399,6 @@ export default function CompleteEmailSystem() {
         }));
         
         if (!silent) setLastRefresh(new Date());
-
-        // Play notification sound if enabled and new emails found
-        if (dashboardSettings.soundNotifications && data.emails?.length > 0 && silent) {
-          console.log('🔔 New emails detected!');
-        }
       } else if (response.status === 401) {
         console.log('⚠️ Gmail authentication expired - please reconnect');
         setGmailConnection(null);
@@ -541,111 +535,78 @@ export default function CompleteEmailSystem() {
     }));
   };
 
-  // 📊 DASHBOARD TAB - WITH IMPROVED LAYOUT
+  // 📊 STREAMLINED DASHBOARD TAB
   const DashboardTab = () => (
     <div className="space-y-6">
-      {/* Gmail Integration Status */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${gmailConnection ? 'bg-green-100' : 'bg-yellow-100'}`}>
-                {gmailConnection ? (
+      {/* STREAMLINED Header - Gmail Status + Check Emails + Last Refresh */}
+      {gmailConnection ? (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-100">
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-yellow-600" />
-                )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Gmail AI Connected</h3>
+                  <p className="text-sm text-gray-600">
+                    Connected to {gmailConnection.email} • Auto-monitoring active
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold">
-                  {gmailConnection ? 'Gmail AI Connected' : 'Gmail AI Setup'}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {gmailConnection 
-                    ? `Connected to ${gmailConnection.email}` 
-                    : 'Connect Gmail for AI-powered email automation'
-                  }
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {gmailConnection ? (
-                <>
-                  <Button 
-                    size="sm" 
-                    onClick={() => checkGmailEmails(false)}
-                    disabled={gmailLoading}
-                    className="flex items-center gap-2"
-                  >
-                    {gmailLoading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4" />
-                    )}
-                    Check Emails
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => window.open('/email/test', '_blank')}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-1" />
-                    Advanced Testing
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={connectGmail} className="flex items-center gap-2">
-                  <LinkIcon className="w-4 h-4" />
-                  Connect Gmail
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-500">
+                  Last refreshed: {lastRefresh.toLocaleTimeString()}
+                </span>
+                <Button 
+                  onClick={() => checkGmailEmails(false)}
+                  disabled={gmailLoading}
+                  className="flex items-center gap-2"
+                >
+                  {gmailLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Check Emails
                 </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Dashboard Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Dashboard Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-6">
-            <Button
-              variant={dashboardSettings.autoRefresh ? "default" : "outline"}
-              onClick={() => setDashboardSettings(prev => ({ ...prev, autoRefresh: !prev.autoRefresh }))}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Auto-Refresh ({dashboardSettings.autoRefresh ? 'ON' : 'OFF'})
-            </Button>
-            
-            <Button
-              variant={dashboardSettings.soundNotifications ? "default" : "outline"}
-              onClick={() => setDashboardSettings(prev => ({ ...prev, soundNotifications: !prev.soundNotifications }))}
-              className="flex items-center gap-2"
-            >
-              {dashboardSettings.soundNotifications ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              Sound Notifications
-            </Button>
-            
-            <div className="text-sm text-gray-600">
-              Last refreshed: {lastRefresh.toLocaleTimeString()}
-            </div>
-            
-            {dashboardSettings.autoRefresh && (
-              <div className="text-sm text-green-600">
-                Auto-refresh every {dashboardSettings.refreshInterval}s
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => window.open('/email/test', '_blank')}
+                >
+                  <ExternalLink className="w-4 h-4 mr-1" />
+                  Advanced Testing
+                </Button>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-yellow-100">
+                  <AlertCircle className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Gmail AI Setup Required</h3>
+                  <p className="text-sm text-gray-600">
+                    Connect Gmail for AI-powered email automation
+                  </p>
+                </div>
+              </div>
+              <Button onClick={connectGmail} className="flex items-center gap-2">
+                <LinkIcon className="w-4 h-4" />
+                Connect Gmail
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Basic Metrics */}
+      {/* Metrics - Larger and cleaner */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
@@ -696,10 +657,10 @@ export default function CompleteEmailSystem() {
         </Card>
       </div>
 
-      {/* IMPROVED Real-time Conversations - NOW 60% vs 40% LAYOUT! */}
+      {/* IMPROVED Layout: 40% Conversations / 60% Email Preview */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* CONVERSATIONS LIST - NOW 60% WIDTH (3/5 columns) */}
-        <div className="lg:col-span-3">
+        {/* CONVERSATIONS LIST - NOW 40% WIDTH (2/5 columns) */}
+        <div className="lg:col-span-2">
           <Card className="h-full">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl">
@@ -711,7 +672,7 @@ export default function CompleteEmailSystem() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              {/* IMPROVED Loading State */}
+              {/* Loading State */}
               {(loading || gmailLoading) && (
                 <div className="flex items-center justify-center py-16">
                   <div className="flex items-center gap-4">
@@ -721,7 +682,7 @@ export default function CompleteEmailSystem() {
                 </div>
               )}
 
-              {/* IMPROVED Gmail Emails */}
+              {/* Gmail Emails */}
               {gmailEmails.length > 0 && !loading && (
                 <div className="border-b">
                   <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b">
@@ -750,7 +711,7 @@ export default function CompleteEmailSystem() {
                         }}
                       >
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-lg text-gray-900 truncate max-w-xs">
+                          <h4 className="font-semibold text-lg text-gray-900 truncate">
                             {email.fromName || email.fromEmail}
                           </h4>
                           <Badge variant="default" className="bg-blue-100 text-blue-800 px-3 py-1">
@@ -776,7 +737,7 @@ export default function CompleteEmailSystem() {
                 </div>
               )}
 
-              {/* IMPROVED Empty State */}
+              {/* Empty State */}
               {conversations.length === 0 && gmailEmails.length === 0 && !loading && (
                 <div className="p-12 text-center">
                   <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
@@ -801,8 +762,8 @@ export default function CompleteEmailSystem() {
           </Card>
         </div>
 
-        {/* EMAIL PREVIEW/RESPONSE - NOW 40% WIDTH (2/5 columns) */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* EMAIL PREVIEW/RESPONSE - NOW 60% WIDTH (3/5 columns) */}
+        <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <Card className="h-full">
               <CardHeader className="pb-4">
@@ -819,24 +780,24 @@ export default function CompleteEmailSystem() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Email Content Preview */}
-                <div className="bg-gray-50 rounded-xl p-5 border">
-                  <p className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                {/* Email Content Preview - Much more space now! */}
+                <div className="bg-gray-50 rounded-xl p-6 border">
+                  <p className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
                     Email Content:
                   </p>
-                  <div className="max-h-48 overflow-y-auto text-sm text-gray-600 leading-relaxed">
+                  <div className="max-h-64 overflow-y-auto text-sm text-gray-600 leading-relaxed space-y-2">
                     {selectedGmailEmail.fullBody || selectedGmailEmail.body || 'No content preview available'}
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="space-y-3">
+                {/* Action Buttons - Larger and better spaced */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, true)}
                     disabled={responding}
                     variant="outline"
-                    className="w-full flex items-center justify-center gap-2 h-12"
+                    className="h-14 flex items-center justify-center gap-3 text-base"
                   >
                     <Eye className="w-5 h-5" />
                     Preview AI Response
@@ -844,7 +805,7 @@ export default function CompleteEmailSystem() {
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, false)}
                     disabled={responding}
-                    className="w-full flex items-center justify-center gap-2 h-12 bg-blue-600 hover:bg-blue-700"
+                    className="h-14 flex items-center justify-center gap-3 text-base bg-blue-600 hover:bg-blue-700"
                   >
                     {responding ? (
                       <>
@@ -860,37 +821,63 @@ export default function CompleteEmailSystem() {
                   </Button>
                 </div>
 
-                {/* Info Box */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-blue-600" />
+                {/* Info Box - More detailed */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-base font-medium text-blue-900 mb-2">AI Response Ready</p>
+                      <p className="text-sm text-blue-700 leading-relaxed">
+                        The AI will generate a professional response based on your business knowledge and communication settings. 
+                        You can preview the response before sending to ensure it meets your standards.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email metadata - More space for details */}
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <h4 className="font-medium text-gray-900">Email Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-600">From:</span>
+                      <p className="text-gray-900">{selectedGmailEmail.fromEmail}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-blue-900 mb-1">AI Response Ready</p>
-                      <p className="text-xs text-blue-700">
-                        The AI will generate a professional response based on your business knowledge and communication settings.
-                      </p>
+                      <span className="font-medium text-gray-600">Received:</span>
+                      <p className="text-gray-900">{selectedGmailEmail.receivedTime}</p>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            /* IMPROVED Empty Selection State */
+            /* Empty Selection State - Better use of space */
             <Card className="h-full">
-              <CardContent className="p-12 text-center flex flex-col items-center justify-center h-full">
-                <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <MessageSquare className="w-10 h-10 text-gray-400" />
+              <CardContent className="p-16 text-center flex flex-col items-center justify-center h-full min-h-[500px]">
+                <div className="w-24 h-24 mx-auto mb-8 bg-gray-100 rounded-full flex items-center justify-center">
+                  <MessageSquare className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
-                <p className="text-gray-600 mb-4 max-w-sm">
-                  Choose an email conversation from the list to view details and send AI responses
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Select a conversation</h3>
+                <p className="text-gray-600 mb-8 max-w-md leading-relaxed">
+                  Choose an email conversation from the list to view details and send AI responses. 
+                  The AI will generate professional responses based on your business knowledge.
                 </p>
-                <div className="text-xs text-gray-500 space-y-1">
-                  <p>• Preview AI responses before sending</p>
-                  <p>• Automatic professional formatting</p>
-                  <p>• Real-time conversation monitoring</p>
+                <div className="grid grid-cols-1 gap-3 text-sm text-gray-500 max-w-sm">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Preview AI responses before sending</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Automatic professional formatting</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Real-time conversation monitoring</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -900,7 +887,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE
+  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE (unchanged)
   const AISettingsTab = () => (
     <div className="space-y-6">
       {/* Business Profile */}
@@ -1102,7 +1089,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🔧 AUTOMATION TAB
+  // 🔧 AUTOMATION TAB (unchanged)
   const AutomationTab = () => (
     <div className="space-y-6">
       {/* Gmail Connection */}
