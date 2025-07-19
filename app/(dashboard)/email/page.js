@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +48,6 @@ export default function CompleteEmailSystem() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const refreshIntervalRef = useRef(null);
-  const lastRefreshTimeRef = useRef(new Date());
   
   // Existing functionality states
   const [conversations, setConversations] = useState([]);
@@ -60,6 +59,7 @@ export default function CompleteEmailSystem() {
   const [gmailLoading, setGmailLoading] = useState(false);
   const [responding, setResponding] = useState(false);
   const [gmailConnection, setGmailConnection] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
   const [saving, setSaving] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   
@@ -71,26 +71,29 @@ export default function CompleteEmailSystem() {
   });
 
   // Dashboard Settings (simplified)
-  const [dashboardSettings] = useState({
+  const [dashboardSettings, setDashboardSettings] = useState({
     autoRefresh: true,
     refreshInterval: 30
   });
 
-  // CRITICAL FIX: Separate state for Business Profile - with stable initial values
-  const [businessName, setBusinessName] = useState('');
-  const [businessIndustry, setBusinessIndustry] = useState('');
-  const [businessExpertise, setBusinessExpertise] = useState('');
+  // Business Profile & AI Settings
+  const [businessProfile, setBusinessProfile] = useState({
+    name: '',
+    industry: '',
+    expertise: ''
+  });
 
-  // CRITICAL FIX: Separate state for AI Settings - with stable initial values
-  const [communicationTone, setCommunicationTone] = useState('professional');
-  const [knowledgeBase, setKnowledgeBase] = useState('');
-  const [hotLeadKeywords, setHotLeadKeywords] = useState(['urgent', 'asap', 'budget', 'ready']);
-  
-  // Behavior settings as separate state
-  const [includeAvailability, setIncludeAvailability] = useState(true);
-  const [askQualifyingQuestions, setAskQualifyingQuestions] = useState(true);
-  const [hotLeadAlerts, setHotLeadAlerts] = useState(true);
-  const [smsLeadAlerts, setSmsLeadAlerts] = useState(false);
+  const [aiSettings, setAiSettings] = useState({
+    communicationTone: 'professional',
+    knowledgeBase: '', // NEW: Business Knowledge Base
+    hotLeadKeywords: ['urgent', 'asap', 'budget', 'ready'],
+    behaviors: {
+      includeAvailability: true,
+      askQualifyingQuestions: true,
+      hotLeadAlerts: true,
+      smsLeadAlerts: false
+    }
+  });
 
   // Automation Settings
   const [automationSettings, setAutomationSettings] = useState({
@@ -118,8 +121,8 @@ export default function CompleteEmailSystem() {
   const [newWhitelistItem, setNewWhitelistItem] = useState('');
   const [newCustomKeyword, setNewCustomKeyword] = useState('');
 
-  // Tab configuration - MEMOIZED to prevent recreation
-  const tabs = useMemo(() => [
+  // Tab configuration
+  const tabs = [
     { 
       id: 'dashboard', 
       label: 'Dashboard', 
@@ -144,7 +147,7 @@ export default function CompleteEmailSystem() {
       icon: Settings,
       description: 'Manage Gmail and domain email connections'
     }
-  ], []);
+  ];
 
   // Load data only once on mount and handle URL parameters
   useEffect(() => {
@@ -170,11 +173,13 @@ export default function CompleteEmailSystem() {
     // Handle success messages
     if (success === 'gmail_connected') {
       console.log('✅ Gmail connection successful');
+      // Optionally show a success message or notification
     }
     
     // Handle error messages
     if (error) {
       console.log('❌ OAuth error:', error);
+      // Optionally show an error message or notification
     }
     
     // Clear URL parameters after processing to clean up the URL
@@ -185,7 +190,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // CRITICAL FIX: Completely separate auto-refresh logic
+  // Auto-refresh logic (simplified - always enabled)
   useEffect(() => {
     // Clear any existing interval
     if (refreshIntervalRef.current) {
@@ -193,11 +198,11 @@ export default function CompleteEmailSystem() {
       refreshIntervalRef.current = null;
     }
 
-    // ONLY set up auto-refresh for dashboard tab when Gmail connected
+    // Set up auto-refresh for dashboard tab when Gmail connected
     if (activeTab === 'dashboard' && gmailConnection && !loading) {
       refreshIntervalRef.current = setInterval(() => {
-        // CRITICAL: Use ref to avoid any state dependencies
-        checkGmailEmailsSilent();
+        checkGmailEmails(true); // Silent refresh
+        setLastRefresh(new Date());
       }, dashboardSettings.refreshInterval * 1000);
     }
 
@@ -208,7 +213,7 @@ export default function CompleteEmailSystem() {
         refreshIntervalRef.current = null;
       }
     };
-  }, [activeTab, gmailConnection?.email, loading]); // Minimal dependencies
+  }, [activeTab, gmailConnection?.email, dashboardSettings.refreshInterval, loading]);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -268,18 +273,32 @@ export default function CompleteEmailSystem() {
       if (response.ok) {
         const data = await response.json();
         if (data.settings) {
-          // CRITICAL FIX: Set individual state values instead of objects
-          setBusinessName(data.customer?.business_name || '');
-          setBusinessIndustry(data.settings.expertise || '');
-          setBusinessExpertise(data.settings.specialties || '');
-          setCommunicationTone(data.settings.tone || 'professional');
-          setKnowledgeBase(data.settings.knowledge_base || '');
-          setIncludeAvailability(data.settings.include_availability !== false);
-          setAskQualifyingQuestions(data.settings.ask_qualifying_questions !== false);
-          setHotLeadAlerts(data.settings.alert_hot_leads !== false);
+          // Map the existing settings to our new structure
+          setBusinessProfile({
+            name: data.customer?.business_name || '',
+            industry: data.settings.expertise || '',
+            expertise: data.settings.specialties || ''
+          });
+          
+          setAiSettings(prev => ({
+            ...prev,
+            communicationTone: data.settings.tone || 'professional',
+            knowledgeBase: data.settings.knowledge_base || '', // NEW: Load knowledge base
+            behaviors: {
+              ...prev.behaviors,
+              includeAvailability: data.settings.include_availability !== false,
+              askQualifyingQuestions: data.settings.ask_qualifying_questions !== false,
+              hotLeadAlerts: data.settings.alert_hot_leads !== false
+            }
+          }));
 
-          if (data.settings.hot_lead_keywords && Array.isArray(data.settings.hot_lead_keywords)) {
-            setHotLeadKeywords(data.settings.hot_lead_keywords);
+          if (data.settings.hot_lead_keywords) {
+            setAiSettings(prev => ({
+              ...prev,
+              hotLeadKeywords: Array.isArray(data.settings.hot_lead_keywords) 
+                ? data.settings.hot_lead_keywords 
+                : prev.hotLeadKeywords
+            }));
           }
         }
       } else if (response.status === 404) {
@@ -290,97 +309,25 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // CRITICAL FIX: Completely isolated silent email check
-  const checkGmailEmailsSilent = async () => {
-    if (!gmailConnection) return;
-    
-    try {
-      const response = await fetch('/api/gmail/monitor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'check',
-          emailAddress: gmailConnection.email
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // CRITICAL: Only update emails and stats, no other state changes
-        setGmailEmails(data.emails || []);
-        setStats(prev => ({
-          ...prev,
-          totalConversations: (data.emails?.length || 0) + conversations.length,
-          activeToday: data.emails?.length || 0
-        }));
-      } else if (response.status === 401) {
-        console.log('⚠️ Gmail authentication expired - please reconnect');
-        setGmailConnection(null);
-      }
-    } catch (error) {
-      console.error('Silent email check error:', error);
-    }
-  };
-
-  // Manual refresh with UI updates
-  const checkGmailEmails = async () => {
-    if (!gmailConnection) {
-      console.log('No Gmail connection available');
-      return;
-    }
-    
-    setGmailLoading(true);
-    lastRefreshTimeRef.current = new Date();
-    
-    try {
-      const response = await fetch('/api/gmail/monitor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'check',
-          emailAddress: gmailConnection.email
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setGmailEmails(data.emails || []);
-        setStats(prev => ({
-          ...prev,
-          totalConversations: (data.emails?.length || 0) + conversations.length,
-          activeToday: data.emails?.length || 0
-        }));
-      } else if (response.status === 401) {
-        console.log('⚠️ Gmail authentication expired - please reconnect');
-        setGmailConnection(null);
-      } else if (response.status === 404) {
-        console.log('⚠️ Gmail monitor API not available');
-      } else {
-        console.error('Gmail check failed:', response.status);
-      }
-    } catch (error) {
-      console.error('Error checking Gmail emails:', error);
-    } finally {
-      setGmailLoading(false);
-    }
-  };
-
-  // FIXED: Complete saveAllSettings function
+  // FIXED: Complete saveAllSettings function with proper data format
   const saveAllSettings = async () => {
     setSaving(true);
     try {
+      // Prepare the settings in the correct format for the API
       const settingsToSave = {
-        tone: communicationTone,
-        expertise: businessIndustry,
-        specialties: businessExpertise,
+        tone: aiSettings.communicationTone,
+        expertise: businessProfile.industry,
+        specialties: businessProfile.expertise,
         response_style: 'Knowledge-based responses with business expertise',
-        knowledge_base: knowledgeBase,
-        hot_lead_keywords: hotLeadKeywords,
+        knowledge_base: aiSettings.knowledgeBase, // FIXED: correct field name
+        hot_lead_keywords: aiSettings.hotLeadKeywords,
         auto_response_enabled: automationSettings.responseControl.aiResponses,
-        alert_hot_leads: hotLeadAlerts,
-        include_availability: includeAvailability,
-        ask_qualifying_questions: askQualifyingQuestions,
+        alert_hot_leads: aiSettings.behaviors.hotLeadAlerts,
+        include_availability: aiSettings.behaviors.includeAvailability,
+        ask_qualifying_questions: aiSettings.behaviors.askQualifyingQuestions,
         require_approval: !automationSettings.responseControl.autoSend,
+        
+        // Enhanced settings
         email_filtering: automationSettings.emailFiltering,
         response_rules: automationSettings.responseControl,
         monitoring: dashboardSettings
@@ -425,6 +372,48 @@ export default function CompleteEmailSystem() {
     window.location.href = '/api/auth/google';
   };
 
+  const checkGmailEmails = async (silent = false) => {
+    if (!gmailConnection) {
+      console.log('No Gmail connection available');
+      return;
+    }
+    
+    if (!silent) setGmailLoading(true);
+    try {
+      const response = await fetch('/api/gmail/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check',
+          emailAddress: gmailConnection.email
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGmailEmails(data.emails || []);
+        setStats(prev => ({
+          ...prev,
+          totalConversations: (data.emails?.length || 0) + conversations.length,
+          activeToday: data.emails?.length || 0
+        }));
+        
+        if (!silent) setLastRefresh(new Date());
+      } else if (response.status === 401) {
+        console.log('⚠️ Gmail authentication expired - please reconnect');
+        setGmailConnection(null);
+      } else if (response.status === 404) {
+        console.log('⚠️ Gmail monitor API not available');
+      } else {
+        console.error('Gmail check failed:', response.status);
+      }
+    } catch (error) {
+      console.error('Error checking Gmail emails:', error);
+    } finally {
+      if (!silent) setGmailLoading(false);
+    }
+  };
+
   const sendAIResponse = async (emailId, preview = false) => {
     if (!gmailConnection) return;
     
@@ -444,7 +433,7 @@ export default function CompleteEmailSystem() {
       if (response.ok) {
         const data = await response.json();
         if (!preview) {
-          setTimeout(() => checkGmailEmails(), 1000);
+          setTimeout(() => checkGmailEmails(false), 1000);
         }
         return data;
       }
@@ -529,21 +518,27 @@ export default function CompleteEmailSystem() {
     const input = document.getElementById('hotLeadKeywordInput');
     if (input && input.value.trim()) {
       const newKeyword = input.value.trim();
-      if (!hotLeadKeywords.includes(newKeyword)) {
-        setHotLeadKeywords(prev => [...prev, newKeyword]);
+      if (!aiSettings.hotLeadKeywords.includes(newKeyword)) {
+        setAiSettings(prev => ({
+          ...prev,
+          hotLeadKeywords: [...prev.hotLeadKeywords, newKeyword]
+        }));
       }
       input.value = '';
     }
   };
 
   const removeHotLeadKeyword = (index) => {
-    setHotLeadKeywords(prev => prev.filter((_, i) => i !== index));
+    setAiSettings(prev => ({
+      ...prev,
+      hotLeadKeywords: prev.hotLeadKeywords.filter((_, i) => i !== index)
+    }));
   };
 
-  // 📊 DASHBOARD TAB
+  // 📊 STREAMLINED DASHBOARD TAB
   const DashboardTab = () => (
     <div className="space-y-6">
-      {/* Gmail Status Header */}
+      {/* STREAMLINED Header - Gmail Status + Check Emails + Last Refresh */}
       {gmailConnection ? (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 mb-6">
           <div className="flex items-center justify-between">
@@ -560,10 +555,10 @@ export default function CompleteEmailSystem() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-400">
-                Last refreshed: {lastRefreshTimeRef.current.toLocaleTimeString()}
+                Last refreshed: {lastRefresh.toLocaleTimeString()}
               </span>
               <Button 
-                onClick={checkGmailEmails}
+                onClick={() => checkGmailEmails(false)}
                 disabled={gmailLoading}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
               >
@@ -608,7 +603,7 @@ export default function CompleteEmailSystem() {
         </div>
       )}
 
-      {/* Metrics */}
+      {/* Metrics - Larger and cleaner */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
@@ -659,9 +654,9 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Email Layout */}
+      {/* IMPROVED Layout: 40% Conversations / 60% Email Preview */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Conversations List */}
+        {/* CONVERSATIONS LIST - NOW 40% WIDTH (2/5 columns) */}
         <div className="lg:col-span-2">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full flex flex-col">
             <div className="p-6 pb-4 flex-shrink-0">
@@ -764,7 +759,7 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* Email Preview */}
+        {/* EMAIL PREVIEW/RESPONSE - NOW 60% WIDTH (3/5 columns) */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
@@ -782,7 +777,7 @@ export default function CompleteEmailSystem() {
                 </p>
               </div>
               <div className="px-6 pb-6 space-y-6">
-                {/* Email Content Preview */}
+                {/* Email Content Preview - Much more space now! */}
                 <div className="bg-white/5 rounded-xl p-6 border border-white/10 backdrop-blur-sm">
                   <p className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
@@ -793,7 +788,7 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons - Larger and better spaced */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, true)}
@@ -823,7 +818,7 @@ export default function CompleteEmailSystem() {
                   </Button>
                 </div>
 
-                {/* Info Box */}
+                {/* Info Box - More detailed */}
                 <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
@@ -839,7 +834,7 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* Email metadata */}
+                {/* Email metadata - More space for details */}
                 <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
                   <h4 className="font-medium text-white">Email Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -856,7 +851,7 @@ export default function CompleteEmailSystem() {
               </div>
             </div>
           ) : (
-            /* Empty Selection State */
+            /* Empty Selection State - Better use of space */
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
               <div className="p-16 text-center flex flex-col items-center justify-center h-full min-h-[500px]">
                 <div className="w-24 h-24 mx-auto mb-8 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -889,7 +884,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🤖 AI SETTINGS TAB - COMPLETELY FIXED INPUTS
+  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE (dark theme)
   const AISettingsTab = () => (
     <div className="space-y-6">
       {/* Business Profile */}
@@ -903,9 +898,8 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Business Name</label>
             <Input
-              key="business-name-input"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
+              value={businessProfile.name}
+              onChange={(e) => setBusinessProfile(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Your Business Name"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -913,9 +907,8 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Industry</label>
             <Input
-              key="business-industry-input"
-              value={businessIndustry}
-              onChange={(e) => setBusinessIndustry(e.target.value)}
+              value={businessProfile.industry}
+              onChange={(e) => setBusinessProfile(prev => ({ ...prev, industry: e.target.value }))}
               placeholder="e.g., Real Estate, Consulting"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -923,9 +916,8 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Expertise</label>
             <Input
-              key="business-expertise-input"
-              value={businessExpertise}
-              onChange={(e) => setBusinessExpertise(e.target.value)}
+              value={businessProfile.expertise}
+              onChange={(e) => setBusinessProfile(prev => ({ ...prev, expertise: e.target.value }))}
               placeholder="What you specialize in"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -946,10 +938,10 @@ export default function CompleteEmailSystem() {
             {['professional', 'casual', 'formal'].map(tone => (
               <Button
                 key={tone}
-                variant={communicationTone === tone ? "default" : "outline"}
-                onClick={() => setCommunicationTone(tone)}
+                variant={aiSettings.communicationTone === tone ? "default" : "outline"}
+                onClick={() => setAiSettings(prev => ({ ...prev, communicationTone: tone }))}
                 className={`capitalize ${
-                  communicationTone === tone
+                  aiSettings.communicationTone === tone
                     ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
                     : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
                 }`}
@@ -975,9 +967,8 @@ export default function CompleteEmailSystem() {
             Business Information (200-1000 characters recommended)
           </label>
           <Textarea
-            key="knowledge-base-textarea"
-            value={knowledgeBase}
-            onChange={(e) => setKnowledgeBase(e.target.value)}
+            value={aiSettings.knowledgeBase}
+            onChange={(e) => setAiSettings(prev => ({ ...prev, knowledgeBase: e.target.value }))}
             placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
             rows={8}
             className="resize-none bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
@@ -988,12 +979,12 @@ export default function CompleteEmailSystem() {
               Include: services offered, pricing, coverage areas, processes, specialties, contact hours
             </p>
             <p className="text-xs text-gray-500">
-              {knowledgeBase.length}/2000 characters
+              {aiSettings.knowledgeBase.length}/2000 characters
             </p>
           </div>
         </div>
         
-        {knowledgeBase.length > 0 && (
+        {aiSettings.knowledgeBase.length > 0 && (
           <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3 mt-4">
             <p className="text-sm text-green-300 font-medium">✅ Knowledge Base Active</p>
             <p className="text-xs text-green-400 mt-1">
@@ -1002,7 +993,7 @@ export default function CompleteEmailSystem() {
           </div>
         )}
         
-        {knowledgeBase.length === 0 && (
+        {aiSettings.knowledgeBase.length === 0 && (
           <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 mt-4">
             <p className="text-sm text-yellow-300 font-medium">⚠️ Knowledge Base Empty</p>
             <p className="text-xs text-yellow-400 mt-1">
@@ -1018,7 +1009,7 @@ export default function CompleteEmailSystem() {
         <p className="text-gray-300 mb-6">Keywords that indicate urgent, high-priority leads</p>
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            {hotLeadKeywords.map((keyword, index) => (
+            {aiSettings.hotLeadKeywords.map((keyword, index) => (
               <div 
                 key={index} 
                 onClick={() => removeHotLeadKeyword(index)}
@@ -1050,57 +1041,28 @@ export default function CompleteEmailSystem() {
         <h3 className="text-lg font-semibold text-white mb-2">Behavior Toggles</h3>
         <p className="text-gray-300 mb-6">Control AI behavior and alerts</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-            <input
-              type="checkbox"
-              checked={includeAvailability}
-              onChange={(e) => setIncludeAvailability(e.target.checked)}
-              className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-            />
-            <div>
-              <label className="text-sm font-medium text-white">Include Availability</label>
-              <p className="text-xs text-gray-400">Mention scheduling availability</p>
+          {[
+            { key: 'includeAvailability', label: 'Include Availability', desc: 'Mention scheduling availability' },
+            { key: 'askQualifyingQuestions', label: 'Ask Qualifying Questions', desc: 'AI asks follow-up questions' },
+            { key: 'hotLeadAlerts', label: 'Hot Lead Alerts', desc: 'Get notified about urgent inquiries' },
+            { key: 'smsLeadAlerts', label: 'SMS Lead Alerts', desc: 'Send SMS for hot leads' }
+          ].map(({ key, label, desc }) => (
+            <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+              <input
+                type="checkbox"
+                checked={aiSettings.behaviors[key]}
+                onChange={(e) => setAiSettings(prev => ({
+                  ...prev,
+                  behaviors: { ...prev.behaviors, [key]: e.target.checked }
+                }))}
+                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <label className="text-sm font-medium text-white">{label}</label>
+                <p className="text-xs text-gray-400">{desc}</p>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-            <input
-              type="checkbox"
-              checked={askQualifyingQuestions}
-              onChange={(e) => setAskQualifyingQuestions(e.target.checked)}
-              className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-            />
-            <div>
-              <label className="text-sm font-medium text-white">Ask Qualifying Questions</label>
-              <p className="text-xs text-gray-400">AI asks follow-up questions</p>
-            </div>
-          </div>
-          
-          <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-            <input
-              type="checkbox"
-              checked={hotLeadAlerts}
-              onChange={(e) => setHotLeadAlerts(e.target.checked)}
-              className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-            />
-            <div>
-              <label className="text-sm font-medium text-white">Hot Lead Alerts</label>
-              <p className="text-xs text-gray-400">Get notified about urgent inquiries</p>
-            </div>
-          </div>
-          
-          <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-            <input
-              type="checkbox"
-              checked={smsLeadAlerts}
-              onChange={(e) => setSmsLeadAlerts(e.target.checked)}
-              className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-            />
-            <div>
-              <label className="text-sm font-medium text-white">SMS Lead Alerts</label>
-              <p className="text-xs text-gray-400">Send SMS for hot leads</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -1118,7 +1080,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🔧 AUTOMATION TAB
+  // 🔧 AUTOMATION TAB (dark theme)
   const AutomationTab = () => (
     <div className="space-y-6">
       {/* Gmail Connection */}
