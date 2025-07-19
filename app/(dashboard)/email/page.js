@@ -150,10 +150,46 @@ export default function CompleteEmailSystem() {
     }
   ];
 
-  // Load data only once on mount
+  // Load data only once on mount and handle URL parameters
   useEffect(() => {
     loadInitialData();
+    handleUrlParameters();
   }, []);
+
+  // Handle URL parameters for tab activation and messages
+  const handleUrlParameters = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    
+    console.log('🔍 URL Parameters:', { tab, success, error });
+    
+    // Set active tab if specified in URL
+    if (tab && tabs.some(t => t.id === tab)) {
+      console.log('🎯 Setting active tab to:', tab);
+      setActiveTab(tab);
+    }
+    
+    // Handle success messages
+    if (success === 'gmail_connected') {
+      console.log('✅ Gmail connection successful');
+      // Optionally show a success message or notification
+    }
+    
+    // Handle error messages
+    if (error) {
+      console.log('❌ OAuth error:', error);
+      // Optionally show an error message or notification
+    }
+    
+    // Clear URL parameters after processing to clean up the URL
+    if (tab || success || error) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      console.log('🧹 Cleaned URL parameters');
+    }
+  };
 
   // Auto-refresh logic (properly managed)
   useEffect(() => {
