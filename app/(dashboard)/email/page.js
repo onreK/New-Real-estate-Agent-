@@ -540,144 +540,141 @@ export default function CompleteEmailSystem() {
     <div className="space-y-6">
       {/* STREAMLINED Header - Gmail Status + Check Emails + Last Refresh */}
       {gmailConnection ? (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-100">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Gmail AI Connected</h3>
-                  <p className="text-sm text-gray-600">
-                    Connected to {gmailConnection.email} • Auto-monitoring active
-                  </p>
-                </div>
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-green-500/20 backdrop-blur-sm border border-green-500/30">
+                <CheckCircle className="w-6 h-6 text-green-400" />
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-500">
-                  Last refreshed: {lastRefresh.toLocaleTimeString()}
-                </span>
-                <Button 
-                  onClick={() => checkGmailEmails(false)}
-                  disabled={gmailLoading}
-                  className="flex items-center gap-2"
-                >
-                  {gmailLoading ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  Check Emails
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => window.open('/email/test', '_blank')}
-                >
-                  <ExternalLink className="w-4 h-4 mr-1" />
-                  Advanced Testing
-                </Button>
+              <div>
+                <h3 className="font-semibold text-xl text-white">Gmail AI Connected</h3>
+                <p className="text-gray-300">
+                  Connected to {gmailConnection.email} • Auto-monitoring active
+                </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-100">
-                  <AlertCircle className="w-5 h-5 text-yellow-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Gmail AI Setup Required</h3>
-                  <p className="text-sm text-gray-600">
-                    Connect Gmail for AI-powered email automation
-                  </p>
-                </div>
-              </div>
-              <Button onClick={connectGmail} className="flex items-center gap-2">
-                <LinkIcon className="w-4 h-4" />
-                Connect Gmail
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-400">
+                Last refreshed: {lastRefresh.toLocaleTimeString()}
+              </span>
+              <Button 
+                onClick={() => checkGmailEmails(false)}
+                disabled={gmailLoading}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {gmailLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                Check Emails
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => window.open('/email/test', '_blank')}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg"
+              >
+                <ExternalLink className="w-4 h-4 mr-1" />
+                Advanced Testing
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/30">
+                <AlertCircle className="w-6 h-6 text-yellow-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-xl text-white">Gmail AI Setup Required</h3>
+                <p className="text-gray-300">
+                  Connect Gmail for AI-powered email automation
+                </p>
+              </div>
+            </div>
+            <Button onClick={connectGmail} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+              <LinkIcon className="w-4 h-4" />
+              Connect Gmail
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Metrics - Larger and cleaner */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Conversations</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalConversations}</p>
-              </div>
-              <MessageSquare className="w-10 h-10 text-blue-500" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">Total Conversations</p>
+              <p className="text-3xl font-bold text-white">{stats.totalConversations}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="p-3 rounded-xl bg-blue-500/20">
+              <MessageSquare className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Today</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.activeToday}</p>
-              </div>
-              <Zap className="w-10 h-10 text-green-500" />
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">Active Today</p>
+              <p className="text-3xl font-bold text-white">{stats.activeToday}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="p-3 rounded-xl bg-green-500/20">
+              <Zap className="w-8 h-8 text-green-400" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Response Rate</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.responseRate}%</p>
-              </div>
-              <Target className="w-10 h-10 text-purple-500" />
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">Response Rate</p>
+              <p className="text-3xl font-bold text-white">{stats.responseRate}%</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="p-3 rounded-xl bg-purple-500/20">
+              <Target className="w-8 h-8 text-purple-400" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg Response Time</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.avgResponseTime}m</p>
-              </div>
-              <Clock className="w-10 h-10 text-orange-500" />
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">Avg Response Time</p>
+              <p className="text-3xl font-bold text-white">{stats.avgResponseTime}m</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="p-3 rounded-xl bg-orange-500/20">
+              <Clock className="w-8 h-8 text-orange-400" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* IMPROVED Layout: 40% Conversations / 60% Email Preview */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* CONVERSATIONS LIST - NOW 40% WIDTH (2/5 columns) */}
         <div className="lg:col-span-2">
-          <Card className="h-full flex flex-col">
-            <CardHeader className="pb-4 flex-shrink-0">
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <Inbox className="w-6 h-6 text-blue-600" />
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full flex flex-col">
+            <div className="p-6 pb-4 flex-shrink-0">
+              <div className="flex items-center gap-3 text-xl font-semibold text-white mb-2">
+                <Inbox className="w-6 h-6 text-blue-400" />
                 Email Conversations ({gmailEmails.length + conversations.length})
-              </CardTitle>
-              <CardDescription className="text-base">
+              </div>
+              <p className="text-base text-gray-300">
                 Real-time Gmail monitoring with AI responses
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+              </p>
+            </div>
+            <div className="flex-1 flex flex-col overflow-hidden">
               {/* Loading State */}
               {(loading || gmailLoading) && (
                 <div className="flex items-center justify-center py-16 flex-1">
                   <div className="flex items-center gap-4">
-                    <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-                    <span className="text-lg text-gray-600 font-medium">Loading conversations...</span>
+                    <RefreshCw className="w-8 h-8 animate-spin text-blue-400" />
+                    <span className="text-lg text-gray-300 font-medium">Loading conversations...</span>
                   </div>
                 </div>
               )}
@@ -685,24 +682,24 @@ export default function CompleteEmailSystem() {
               {/* Gmail Emails */}
               {gmailEmails.length > 0 && !loading && (
                 <div className="flex-1 flex flex-col">
-                  <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b flex-shrink-0">
+                  <div className="px-6 py-4 bg-blue-500/20 border-b border-white/10 flex-shrink-0">
                     <div className="flex items-center gap-3">
-                      <Globe className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm font-semibold text-blue-800 uppercase tracking-wide">
+                      <Globe className="w-5 h-5 text-blue-400" />
+                      <span className="text-sm font-semibold text-blue-300 uppercase tracking-wide">
                         Gmail AI ({gmailEmails.length})
                       </span>
-                      <Badge variant="secondary" className="bg-blue-200 text-blue-800">
+                      <div className="px-2 py-1 rounded-full bg-blue-400/20 text-blue-300 text-xs font-medium">
                         Live Monitoring
-                      </Badge>
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-0 flex-1 overflow-y-auto">
                     {gmailEmails.map((email) => (
                       <div
                         key={email.id}
-                        className={`p-6 border-b cursor-pointer transition-all duration-200 hover:bg-gray-50 hover:border-l-4 hover:border-l-blue-500 ${
+                        className={`p-6 border-b border-white/10 cursor-pointer transition-all duration-200 hover:bg-white/10 hover:border-l-4 hover:border-l-blue-400 ${
                           selectedGmailEmail?.id === email.id 
-                            ? 'bg-blue-50 border-l-4 border-l-blue-500 shadow-sm' 
+                            ? 'bg-blue-500/20 border-l-4 border-l-blue-400 shadow-lg' 
                             : ''
                         }`}
                         onClick={() => {
@@ -711,24 +708,24 @@ export default function CompleteEmailSystem() {
                         }}
                       >
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-lg text-gray-900 truncate">
+                          <h4 className="font-semibold text-lg text-white truncate">
                             {email.fromName || email.fromEmail}
                           </h4>
-                          <Badge variant="default" className="bg-blue-100 text-blue-800 px-3 py-1">
+                          <div className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">
                             Gmail
-                          </Badge>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-700 font-medium mb-2 line-clamp-1">
+                        <p className="text-sm text-gray-300 font-medium mb-2 line-clamp-1">
                           {email.subject}
                         </p>
                         <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-400">
                             Received: {email.receivedTime}
                           </p>
                           {selectedGmailEmail?.id === email.id && (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                            <div className="px-2 py-1 rounded-full bg-blue-400/30 text-blue-300 text-xs font-medium border border-blue-400/50">
                               Selected
-                            </Badge>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -740,53 +737,53 @@ export default function CompleteEmailSystem() {
               {/* Empty State */}
               {conversations.length === 0 && gmailEmails.length === 0 && !loading && (
                 <div className="p-12 text-center flex-1 flex flex-col items-center justify-center">
-                  <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                  <div className="w-24 h-24 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
                     <Mail className="w-12 h-12 text-gray-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No email conversations yet</h3>
-                  <p className="text-gray-600 mb-4 max-w-sm mx-auto">
+                  <h3 className="text-lg font-semibold text-white mb-2">No email conversations yet</h3>
+                  <p className="text-gray-300 mb-4 max-w-sm mx-auto">
                     {gmailConnection 
                       ? 'New emails will appear automatically when received'
                       : 'Connect your Gmail account to start receiving and managing conversations'
                     }
                   </p>
                   {!gmailConnection && (
-                    <Button onClick={connectGmail} className="flex items-center gap-2">
+                    <Button onClick={connectGmail} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                       <LinkIcon className="w-4 h-4" />
                       Connect Gmail Now
                     </Button>
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* EMAIL PREVIEW/RESPONSE - NOW 60% WIDTH (3/5 columns) */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
-            <Card className="h-full">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-lg">
-                  <Globe className="w-5 h-5 text-blue-600" />
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
+              <div className="p-6 pb-4">
+                <div className="flex items-center gap-3 text-lg font-semibold text-white mb-2">
+                  <Globe className="w-5 h-5 text-blue-400" />
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-gray-900 truncate">
+                    <div className="text-white truncate">
                       {selectedGmailEmail.fromName || selectedGmailEmail.fromEmail}
                     </div>
                   </div>
-                </CardTitle>
-                <CardDescription className="text-sm">
+                </div>
+                <p className="text-sm text-gray-300">
                   <span className="font-medium">Subject:</span> {selectedGmailEmail.subject}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
+                </p>
+              </div>
+              <div className="px-6 pb-6 space-y-6">
                 {/* Email Content Preview - Much more space now! */}
-                <div className="bg-gray-50 rounded-xl p-6 border">
-                  <p className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
+                <div className="bg-white/5 rounded-xl p-6 border border-white/10 backdrop-blur-sm">
+                  <p className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
                     Email Content:
                   </p>
-                  <div className="max-h-64 overflow-y-auto text-sm text-gray-600 leading-relaxed space-y-2">
+                  <div className="max-h-64 overflow-y-auto text-sm text-gray-300 leading-relaxed space-y-2">
                     {selectedGmailEmail.fullBody || selectedGmailEmail.body || 'No content preview available'}
                   </div>
                 </div>
@@ -797,7 +794,7 @@ export default function CompleteEmailSystem() {
                     onClick={() => sendAIResponse(selectedGmailEmail.id, true)}
                     disabled={responding}
                     variant="outline"
-                    className="h-14 flex items-center justify-center gap-3 text-base"
+                    className="h-14 flex items-center justify-center gap-3 text-base bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg"
                   >
                     <Eye className="w-5 h-5" />
                     Preview AI Response
@@ -805,7 +802,7 @@ export default function CompleteEmailSystem() {
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, false)}
                     disabled={responding}
-                    className="h-14 flex items-center justify-center gap-3 text-base bg-blue-600 hover:bg-blue-700"
+                    className="h-14 flex items-center justify-center gap-3 text-base bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     {responding ? (
                       <>
@@ -822,14 +819,14 @@ export default function CompleteEmailSystem() {
                 </div>
 
                 {/* Info Box - More detailed */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-5 h-5 text-blue-600" />
+                    <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-5 h-5 text-blue-300" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-base font-medium text-blue-900 mb-2">AI Response Ready</p>
-                      <p className="text-sm text-blue-700 leading-relaxed">
+                      <p className="text-base font-medium text-blue-200 mb-2">AI Response Ready</p>
+                      <p className="text-sm text-blue-300 leading-relaxed">
                         The AI will generate a professional response based on your business knowledge and communication settings. 
                         You can preview the response before sending to ensure it meets your standards.
                       </p>
@@ -838,250 +835,244 @@ export default function CompleteEmailSystem() {
                 </div>
 
                 {/* Email metadata - More space for details */}
-                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                  <h4 className="font-medium text-gray-900">Email Details</h4>
+                <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
+                  <h4 className="font-medium text-white">Email Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="font-medium text-gray-600">From:</span>
-                      <p className="text-gray-900">{selectedGmailEmail.fromEmail}</p>
+                      <span className="font-medium text-gray-400">From:</span>
+                      <p className="text-gray-300">{selectedGmailEmail.fromEmail}</p>
                     </div>
                     <div>
-                      <span className="font-medium text-gray-600">Received:</span>
-                      <p className="text-gray-900">{selectedGmailEmail.receivedTime}</p>
+                      <span className="font-medium text-gray-400">Received:</span>
+                      <p className="text-gray-300">{selectedGmailEmail.receivedTime}</p>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : (
             /* Empty Selection State - Better use of space */
-            <Card className="h-full">
-              <CardContent className="p-16 text-center flex flex-col items-center justify-center h-full min-h-[500px]">
-                <div className="w-24 h-24 mx-auto mb-8 bg-gray-100 rounded-full flex items-center justify-center">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
+              <div className="p-16 text-center flex flex-col items-center justify-center h-full min-h-[500px]">
+                <div className="w-24 h-24 mx-auto mb-8 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
                   <MessageSquare className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">Select a conversation</h3>
-                <p className="text-gray-600 mb-8 max-w-md leading-relaxed">
+                <h3 className="text-xl font-semibold text-white mb-3">Select a conversation</h3>
+                <p className="text-gray-300 mb-8 max-w-md leading-relaxed">
                   Choose an email conversation from the list to view details and send AI responses. 
                   The AI will generate professional responses based on your business knowledge.
                 </p>
-                <div className="grid grid-cols-1 gap-3 text-sm text-gray-500 max-w-sm">
+                <div className="grid grid-cols-1 gap-3 text-sm text-gray-400 max-w-sm">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                     <span>Preview AI responses before sending</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                     <span>Automatic professional formatting</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                     <span>Real-time conversation monitoring</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 
-  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE (unchanged)
+  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE (dark theme)
   const AISettingsTab = () => (
     <div className="space-y-6">
       {/* Business Profile */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="w-5 h-5" />
-            Business Profile
-          </CardTitle>
-          <CardDescription>Tell the AI about your business</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Business Name</label>
-              <Input
-                value={businessProfile.name}
-                onChange={(e) => setBusinessProfile(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Your Business Name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Industry</label>
-              <Input
-                value={businessProfile.industry}
-                onChange={(e) => setBusinessProfile(prev => ({ ...prev, industry: e.target.value }))}
-                placeholder="e.g., Real Estate, Consulting"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Expertise</label>
-              <Input
-                value={businessProfile.expertise}
-                onChange={(e) => setBusinessProfile(prev => ({ ...prev, expertise: e.target.value }))}
-                placeholder="What you specialize in"
-              />
-            </div>
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Building className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold text-white">Business Profile</h3>
+        </div>
+        <p className="text-gray-300 mb-6">Tell the AI about your business</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Business Name</label>
+            <Input
+              value={businessProfile.name}
+              onChange={(e) => setBusinessProfile(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Your Business Name"
+              className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Industry</label>
+            <Input
+              value={businessProfile.industry}
+              onChange={(e) => setBusinessProfile(prev => ({ ...prev, industry: e.target.value }))}
+              placeholder="e.g., Real Estate, Consulting"
+              className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Expertise</label>
+            <Input
+              value={businessProfile.expertise}
+              onChange={(e) => setBusinessProfile(prev => ({ ...prev, expertise: e.target.value }))}
+              placeholder="What you specialize in"
+              className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Communication Tone */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5" />
-            Communication Tone
-          </CardTitle>
-          <CardDescription>How should the AI communicate with customers?</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-3">Select Tone</label>
-            <div className="grid grid-cols-3 gap-3">
-              {['professional', 'casual', 'formal'].map(tone => (
-                <Button
-                  key={tone}
-                  variant={aiSettings.communicationTone === tone ? "default" : "outline"}
-                  onClick={() => setAiSettings(prev => ({ ...prev, communicationTone: tone }))}
-                  className="capitalize"
-                >
-                  {tone}
-                </Button>
-              ))}
-            </div>
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageCircle className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold text-white">Communication Tone</h3>
+        </div>
+        <p className="text-gray-300 mb-6">How should the AI communicate with customers?</p>
+        <div>
+          <label className="block text-sm font-medium mb-3 text-gray-300">Select Tone</label>
+          <div className="grid grid-cols-3 gap-3">
+            {['professional', 'casual', 'formal'].map(tone => (
+              <Button
+                key={tone}
+                variant={aiSettings.communicationTone === tone ? "default" : "outline"}
+                onClick={() => setAiSettings(prev => ({ ...prev, communicationTone: tone }))}
+                className={`capitalize ${
+                  aiSettings.communicationTone === tone
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
+                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                }`}
+              >
+                {tone}
+              </Button>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* KNOWLEDGE BASE - REPLACES RESPONSE STYLE */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5" />
-            Business Knowledge Base
-          </CardTitle>
-          <CardDescription>
-            Add specific information about your services, pricing, processes, and policies so the AI can answer customer questions accurately
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-3">
-              Business Information (200-1000 characters recommended)
-            </label>
-            <Textarea
-              value={aiSettings.knowledgeBase}
-              onChange={(e) => setAiSettings(prev => ({ ...prev, knowledgeBase: e.target.value }))}
-              placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
-              rows={8}
-              className="resize-none"
-              maxLength={2000}
-            />
-            <div className="flex justify-between items-center mt-2">
-              <p className="text-xs text-gray-500">
-                Include: services offered, pricing, coverage areas, processes, specialties, contact hours
-              </p>
-              <p className="text-xs text-gray-400">
-                {aiSettings.knowledgeBase.length}/2000 characters
-              </p>
-            </div>
+      {/* KNOWLEDGE BASE */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <BookOpen className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold text-white">Business Knowledge Base</h3>
+        </div>
+        <p className="text-gray-300 mb-6">
+          Add specific information about your services, pricing, processes, and policies so the AI can answer customer questions accurately
+        </p>
+        <div>
+          <label className="block text-sm font-medium mb-3 text-gray-300">
+            Business Information (200-1000 characters recommended)
+          </label>
+          <Textarea
+            value={aiSettings.knowledgeBase}
+            onChange={(e) => setAiSettings(prev => ({ ...prev, knowledgeBase: e.target.value }))}
+            placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
+            rows={8}
+            className="resize-none bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+            maxLength={2000}
+          />
+          <div className="flex justify-between items-center mt-2">
+            <p className="text-xs text-gray-400">
+              Include: services offered, pricing, coverage areas, processes, specialties, contact hours
+            </p>
+            <p className="text-xs text-gray-500">
+              {aiSettings.knowledgeBase.length}/2000 characters
+            </p>
           </div>
-          
-          {aiSettings.knowledgeBase.length > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-sm text-green-700 font-medium">✅ Knowledge Base Active</p>
-              <p className="text-xs text-green-600 mt-1">
-                AI can now answer specific questions about your business based on this information
-              </p>
-            </div>
-          )}
-          
-          {aiSettings.knowledgeBase.length === 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-sm text-yellow-700 font-medium">⚠️ Knowledge Base Empty</p>
-              <p className="text-xs text-yellow-600 mt-1">
-                AI will give generic responses without business-specific knowledge
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        
+        {aiSettings.knowledgeBase.length > 0 && (
+          <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3 mt-4">
+            <p className="text-sm text-green-300 font-medium">✅ Knowledge Base Active</p>
+            <p className="text-xs text-green-400 mt-1">
+              AI can now answer specific questions about your business based on this information
+            </p>
+          </div>
+        )}
+        
+        {aiSettings.knowledgeBase.length === 0 && (
+          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 mt-4">
+            <p className="text-sm text-yellow-300 font-medium">⚠️ Knowledge Base Empty</p>
+            <p className="text-xs text-yellow-400 mt-1">
+              AI will give generic responses without business-specific knowledge
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Hot Lead Keywords */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Hot Lead Keywords</CardTitle>
-          <CardDescription>Keywords that indicate urgent, high-priority leads</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {aiSettings.hotLeadKeywords.map((keyword, index) => (
-                <Badge key={index} variant="outline" className="cursor-pointer flex items-center gap-1"
-                  onClick={() => removeHotLeadKeyword(index)}
-                >
-                  {keyword}
-                  <X className="w-3 h-3" />
-                </Badge>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="hotLeadKeywordInput"
-                placeholder="Add keyword (press Enter)"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    addHotLeadKeyword();
-                  }
-                }}
-              />
-              <Button onClick={addHotLeadKeyword} size="sm">Add</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Behavior Toggles */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Behavior Toggles</CardTitle>
-          <CardDescription>Control AI behavior and alerts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { key: 'includeAvailability', label: 'Include Availability', desc: 'Mention scheduling availability' },
-              { key: 'askQualifyingQuestions', label: 'Ask Qualifying Questions', desc: 'AI asks follow-up questions' },
-              { key: 'hotLeadAlerts', label: 'Hot Lead Alerts', desc: 'Get notified about urgent inquiries' },
-              { key: 'smsLeadAlerts', label: 'SMS Lead Alerts', desc: 'Send SMS for hot leads' }
-            ].map(({ key, label, desc }) => (
-              <div key={key} className="flex items-start space-x-3 p-3 border rounded-lg">
-                <input
-                  type="checkbox"
-                  checked={aiSettings.behaviors[key]}
-                  onChange={(e) => setAiSettings(prev => ({
-                    ...prev,
-                    behaviors: { ...prev.behaviors, [key]: e.target.checked }
-                  }))}
-                  className="mt-1 rounded border-gray-300"
-                />
-                <div>
-                  <label className="text-sm font-medium">{label}</label>
-                  <p className="text-xs text-gray-600">{desc}</p>
-                </div>
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <h3 className="text-lg font-semibold text-white mb-2">Hot Lead Keywords</h3>
+        <p className="text-gray-300 mb-6">Keywords that indicate urgent, high-priority leads</p>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {aiSettings.hotLeadKeywords.map((keyword, index) => (
+              <div 
+                key={index} 
+                onClick={() => removeHotLeadKeyword(index)}
+                className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white hover:bg-red-500/20 hover:border-red-500/30 transition-colors"
+              >
+                {keyword}
+                <X className="w-3 h-3" />
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-2">
+            <Input
+              id="hotLeadKeywordInput"
+              placeholder="Add keyword (press Enter)"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  addHotLeadKeyword();
+                }
+              }}
+              className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+            />
+            <Button onClick={addHotLeadKeyword} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">Add</Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Behavior Toggles */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <h3 className="text-lg font-semibold text-white mb-2">Behavior Toggles</h3>
+        <p className="text-gray-300 mb-6">Control AI behavior and alerts</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { key: 'includeAvailability', label: 'Include Availability', desc: 'Mention scheduling availability' },
+            { key: 'askQualifyingQuestions', label: 'Ask Qualifying Questions', desc: 'AI asks follow-up questions' },
+            { key: 'hotLeadAlerts', label: 'Hot Lead Alerts', desc: 'Get notified about urgent inquiries' },
+            { key: 'smsLeadAlerts', label: 'SMS Lead Alerts', desc: 'Send SMS for hot leads' }
+          ].map(({ key, label, desc }) => (
+            <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+              <input
+                type="checkbox"
+                checked={aiSettings.behaviors[key]}
+                onChange={(e) => setAiSettings(prev => ({
+                  ...prev,
+                  behaviors: { ...prev.behaviors, [key]: e.target.checked }
+                }))}
+                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <label className="text-sm font-medium text-white">{label}</label>
+                <p className="text-xs text-gray-400">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <Button onClick={saveAllSettings} disabled={saving} className="flex items-center gap-2">
+        <Button 
+          onClick={saveAllSettings} 
+          disabled={saving} 
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+        >
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
           Save AI Settings
         </Button>
@@ -1089,137 +1080,129 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🔧 AUTOMATION TAB (unchanged)
+  // 🔧 AUTOMATION TAB (dark theme)
   const AutomationTab = () => (
     <div className="space-y-6">
       {/* Gmail Connection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5" />
-            Gmail Connection
-          </CardTitle>
-          <CardDescription>Status and reconnect options</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${gmailConnection ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <div>
-                <span className="font-medium">
-                  {gmailConnection ? `Connected to ${gmailConnection.email}` : 'Not Connected'}
-                </span>
-                <p className="text-sm text-gray-600">
-                  {gmailConnection 
-                    ? 'Gmail monitoring is active with AI responses' 
-                    : 'Connect Gmail to enable email automation'
-                  }
-                </p>
-              </div>
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Mail className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold text-white">Gmail Connection</h3>
+        </div>
+        <p className="text-gray-300 mb-6">Status and reconnect options</p>
+        <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${gmailConnection ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div>
+              <span className="font-medium text-white">
+                {gmailConnection ? `Connected to ${gmailConnection.email}` : 'Not Connected'}
+              </span>
+              <p className="text-sm text-gray-400">
+                {gmailConnection 
+                  ? 'Gmail monitoring is active with AI responses' 
+                  : 'Connect Gmail to enable email automation'
+                }
+              </p>
             </div>
-            <Button variant="outline" onClick={connectGmail}>
-              {gmailConnection ? 'Reconnect' : 'Connect Gmail'}
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+          <Button 
+            variant="outline" 
+            onClick={connectGmail}
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+          >
+            {gmailConnection ? 'Reconnect' : 'Connect Gmail'}
+          </Button>
+        </div>
+      </div>
 
       {/* Response Control */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bot className="w-5 h-5" />
-            Response Control
-          </CardTitle>
-          <CardDescription>Configure when and how AI responds</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { key: 'aiResponses', label: 'AI Responses', desc: 'Enable AI-generated responses' },
-              { key: 'autoSend', label: 'Auto-Send', desc: 'Automatically send AI responses' },
-              { key: 'businessHours', label: 'Business Hours', desc: 'Only respond during business hours' },
-              { key: 'urgentPriority', label: 'Urgent Priority', desc: 'Prioritize urgent emails' }
-            ].map(({ key, label, desc }) => (
-              <div key={key} className="flex items-start space-x-3 p-3 border rounded-lg">
-                <input
-                  type="checkbox"
-                  checked={automationSettings.responseControl[key]}
-                  onChange={(e) => setAutomationSettings(prev => ({
-                    ...prev,
-                    responseControl: { ...prev.responseControl, [key]: e.target.checked }
-                  }))}
-                  className="mt-1 rounded border-gray-300"
-                />
-                <div>
-                  <label className="text-sm font-medium">{label}</label>
-                  <p className="text-xs text-gray-600">{desc}</p>
-                </div>
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Bot className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold text-white">Response Control</h3>
+        </div>
+        <p className="text-gray-300 mb-6">Configure when and how AI responds</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { key: 'aiResponses', label: 'AI Responses', desc: 'Enable AI-generated responses' },
+            { key: 'autoSend', label: 'Auto-Send', desc: 'Automatically send AI responses' },
+            { key: 'businessHours', label: 'Business Hours', desc: 'Only respond during business hours' },
+            { key: 'urgentPriority', label: 'Urgent Priority', desc: 'Prioritize urgent emails' }
+          ].map(({ key, label, desc }) => (
+            <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+              <input
+                type="checkbox"
+                checked={automationSettings.responseControl[key]}
+                onChange={(e) => setAutomationSettings(prev => ({
+                  ...prev,
+                  responseControl: { ...prev.responseControl, [key]: e.target.checked }
+                }))}
+                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <label className="text-sm font-medium text-white">{label}</label>
+                <p className="text-xs text-gray-400">{desc}</p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Email Filtering */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Email Filtering
-          </CardTitle>
-          <CardDescription>Automatically filter emails to focus on real inquiries</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { key: 'autoArchiveSpam', label: 'Auto-Archive Spam', desc: 'Automatically filter out spam emails' },
-              { key: 'blockMassEmails', label: 'Block Mass Emails', desc: 'Filter newsletters and promotional emails' },
-              { key: 'personalOnly', label: 'Personal Only', desc: 'Only process emails that appear personal' },
-              { key: 'skipAutoGenerated', label: 'Skip Auto-Generated', desc: 'Ignore automated system emails' }
-            ].map(({ key, label, desc }) => (
-              <div key={key} className="flex items-start space-x-3 p-3 border rounded-lg">
-                <input
-                  type="checkbox"
-                  checked={automationSettings.emailFiltering[key]}
-                  onChange={(e) => setAutomationSettings(prev => ({
-                    ...prev,
-                    emailFiltering: { ...prev.emailFiltering, [key]: e.target.checked }
-                  }))}
-                  className="mt-1 rounded border-gray-300"
-                />
-                <div>
-                  <label className="text-sm font-medium">{label}</label>
-                  <p className="text-xs text-gray-600">{desc}</p>
-                </div>
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold text-white">Email Filtering</h3>
+        </div>
+        <p className="text-gray-300 mb-6">Automatically filter emails to focus on real inquiries</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { key: 'autoArchiveSpam', label: 'Auto-Archive Spam', desc: 'Automatically filter out spam emails' },
+            { key: 'blockMassEmails', label: 'Block Mass Emails', desc: 'Filter newsletters and promotional emails' },
+            { key: 'personalOnly', label: 'Personal Only', desc: 'Only process emails that appear personal' },
+            { key: 'skipAutoGenerated', label: 'Skip Auto-Generated', desc: 'Ignore automated system emails' }
+          ].map(({ key, label, desc }) => (
+            <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+              <input
+                type="checkbox"
+                checked={automationSettings.emailFiltering[key]}
+                onChange={(e) => setAutomationSettings(prev => ({
+                  ...prev,
+                  emailFiltering: { ...prev.emailFiltering, [key]: e.target.checked }
+                }))}
+                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <label className="text-sm font-medium text-white">{label}</label>
+                <p className="text-xs text-gray-400">{desc}</p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Business Rules */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5" />
-            Business Rules
-          </CardTitle>
-          <CardDescription>Blacklist, whitelist, and custom keywords</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold text-white">Business Rules</h3>
+        </div>
+        <p className="text-gray-300 mb-6">Blacklist, whitelist, and custom keywords</p>
+        <div className="space-y-6">
           {/* Blacklist */}
           <div>
-            <label className="block text-sm font-medium mb-2">Blacklist (Block these emails/domains)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Blacklist (Block these emails/domains)</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.blacklist.map((item, index) => (
-                  <Badge key={index} variant="destructive" className="cursor-pointer flex items-center gap-1"
+                  <div 
+                    key={index} 
                     onClick={() => removeFromBlacklist(index)}
+                    className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-colors"
                   >
                     {item}
                     <X className="w-3 h-3" />
-                  </Badge>
+                  </div>
                 ))}
               </div>
               <div className="flex gap-2">
@@ -1228,24 +1211,27 @@ export default function CompleteEmailSystem() {
                   onChange={(e) => setNewBlacklistItem(e.target.value)}
                   placeholder="Add email or domain to blacklist"
                   onKeyPress={(e) => e.key === 'Enter' && addToBlacklist()}
+                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
                 />
-                <Button onClick={addToBlacklist} size="sm">Add</Button>
+                <Button onClick={addToBlacklist} size="sm" className="bg-red-600 hover:bg-red-700 text-white">Add</Button>
               </div>
             </div>
           </div>
 
           {/* Whitelist */}
           <div>
-            <label className="block text-sm font-medium mb-2">Whitelist (Always allow these emails/domains)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Whitelist (Always allow these emails/domains)</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.whitelist.map((item, index) => (
-                  <Badge key={index} variant="secondary" className="cursor-pointer flex items-center gap-1"
+                  <div 
+                    key={index} 
                     onClick={() => removeFromWhitelist(index)}
+                    className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition-colors"
                   >
                     {item}
                     <X className="w-3 h-3" />
-                  </Badge>
+                  </div>
                 ))}
               </div>
               <div className="flex gap-2">
@@ -1254,24 +1240,27 @@ export default function CompleteEmailSystem() {
                   onChange={(e) => setNewWhitelistItem(e.target.value)}
                   placeholder="Add email or domain to whitelist"
                   onKeyPress={(e) => e.key === 'Enter' && addToWhitelist()}
+                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
                 />
-                <Button onClick={addToWhitelist} size="sm">Add</Button>
+                <Button onClick={addToWhitelist} size="sm" className="bg-green-600 hover:bg-green-700 text-white">Add</Button>
               </div>
             </div>
           </div>
 
           {/* Custom Keywords */}
           <div>
-            <label className="block text-sm font-medium mb-2">Custom Keywords (Additional filtering)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Custom Keywords (Additional filtering)</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.customKeywords.map((keyword, index) => (
-                  <Badge key={index} variant="outline" className="cursor-pointer flex items-center gap-1"
+                  <div 
+                    key={index} 
                     onClick={() => removeCustomKeyword(index)}
+                    className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white hover:bg-purple-500/20 hover:border-purple-500/30 transition-colors"
                   >
                     {keyword}
                     <X className="w-3 h-3" />
-                  </Badge>
+                  </div>
                 ))}
               </div>
               <div className="flex gap-2">
@@ -1280,17 +1269,22 @@ export default function CompleteEmailSystem() {
                   onChange={(e) => setNewCustomKeyword(e.target.value)}
                   placeholder="Add custom filtering keyword"
                   onKeyPress={(e) => e.key === 'Enter' && addCustomKeyword()}
+                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
                 />
-                <Button onClick={addCustomKeyword} size="sm">Add</Button>
+                <Button onClick={addCustomKeyword} size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">Add</Button>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <Button onClick={saveAllSettings} disabled={saving} className="flex items-center gap-2">
+        <Button 
+          onClick={saveAllSettings} 
+          disabled={saving} 
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+        >
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
           Save Automation Settings
         </Button>
@@ -1300,13 +1294,17 @@ export default function CompleteEmailSystem() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-6">
+        <div className="animate-pulse space-y-4 max-w-7xl mx-auto">
+          <div className="h-8 bg-white/20 rounded-xl w-1/4"></div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[1,2,3,4].map(i => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+              <div key={i} className="h-24 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
             ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-2 h-96 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
+            <div className="lg:col-span-3 h-96 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
           </div>
         </div>
       </div>
@@ -1314,25 +1312,26 @@ export default function CompleteEmailSystem() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button 
-          variant="outline" 
-          onClick={() => router.push('/dashboard')}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Dashboard
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Mail className="w-6 h-6" />
-            Email AI Manager
-          </h1>
-          <p className="text-gray-600">Unified Gmail automation with smart AI responses and filtering</p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Dashboard
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
+              <Mail className="w-6 h-6" />
+              Email AI Manager
+            </h1>
+            <p className="text-gray-300">Unified Gmail automation with smart AI responses and filtering</p>
+          </div>
         </div>
-      </div>
 
       {/* Tab Navigation */}
       <div className="mb-6">
