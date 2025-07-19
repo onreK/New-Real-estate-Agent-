@@ -541,7 +541,7 @@ export default function CompleteEmailSystem() {
     }));
   };
 
-  // 📊 DASHBOARD TAB
+  // 📊 DASHBOARD TAB - WITH IMPROVED LAYOUT
   const DashboardTab = () => (
     <div className="space-y-6">
       {/* Gmail Integration Status */}
@@ -648,174 +648,250 @@ export default function CompleteEmailSystem() {
       {/* Basic Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Conversations</p>
-                <p className="text-2xl font-bold">{stats.totalConversations}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalConversations}</p>
               </div>
-              <MessageSquare className="w-8 h-8 text-blue-500" />
+              <MessageSquare className="w-10 h-10 text-blue-500" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Today</p>
-                <p className="text-2xl font-bold">{stats.activeToday}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.activeToday}</p>
               </div>
-              <Zap className="w-8 h-8 text-green-500" />
+              <Zap className="w-10 h-10 text-green-500" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Response Rate</p>
-                <p className="text-2xl font-bold">{stats.responseRate}%</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.responseRate}%</p>
               </div>
-              <Target className="w-8 h-8 text-purple-500" />
+              <Target className="w-10 h-10 text-purple-500" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg Response Time</p>
-                <p className="text-2xl font-bold">{stats.avgResponseTime}m</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.avgResponseTime}m</p>
               </div>
-              <Clock className="w-8 h-8 text-orange-500" />
+              <Clock className="w-10 h-10 text-orange-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Real-time Conversations */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Inbox className="w-5 h-5" />
+      {/* IMPROVED Real-time Conversations - NOW 60% vs 40% LAYOUT! */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* CONVERSATIONS LIST - NOW 60% WIDTH (3/5 columns) */}
+        <div className="lg:col-span-3">
+          <Card className="h-full">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <Inbox className="w-6 h-6 text-blue-600" />
                 Email Conversations ({gmailEmails.length + conversations.length})
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-base">
                 Real-time Gmail monitoring with AI responses
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              {gmailEmails.length > 0 && (
+              {/* IMPROVED Loading State */}
+              {(loading || gmailLoading) && (
+                <div className="flex items-center justify-center py-16">
+                  <div className="flex items-center gap-4">
+                    <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+                    <span className="text-lg text-gray-600 font-medium">Loading conversations...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* IMPROVED Gmail Emails */}
+              {gmailEmails.length > 0 && !loading && (
                 <div className="border-b">
-                  <div className="px-4 py-2 bg-blue-50 border-b">
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-medium text-blue-700">Gmail AI ({gmailEmails.length})</span>
+                  <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b">
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm font-semibold text-blue-800 uppercase tracking-wide">
+                        Gmail AI ({gmailEmails.length})
+                      </span>
+                      <Badge variant="secondary" className="bg-blue-200 text-blue-800">
+                        Live Monitoring
+                      </Badge>
                     </div>
                   </div>
-                  <div className="space-y-0 max-h-48 overflow-y-auto">
+                  <div className="space-y-0 max-h-96 overflow-y-auto">
                     {gmailEmails.map((email) => (
                       <div
                         key={email.id}
-                        className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-                          selectedGmailEmail?.id === email.id ? 'bg-blue-50 border-blue-200' : ''
+                        className={`p-6 border-b cursor-pointer transition-all duration-200 hover:bg-gray-50 hover:border-l-4 hover:border-l-blue-500 ${
+                          selectedGmailEmail?.id === email.id 
+                            ? 'bg-blue-50 border-l-4 border-l-blue-500 shadow-sm' 
+                            : ''
                         }`}
                         onClick={() => {
                           setSelectedGmailEmail(email);
                           setSelectedConversation(null);
                         }}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-sm">{email.fromName || email.fromEmail}</h4>
-                          <Badge variant="default" className="bg-blue-100 text-blue-800">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-lg text-gray-900 truncate max-w-xs">
+                            {email.fromName || email.fromEmail}
+                          </h4>
+                          <Badge variant="default" className="bg-blue-100 text-blue-800 px-3 py-1">
                             Gmail
                           </Badge>
                         </div>
-                        <p className="text-xs text-gray-600 mb-1">{email.subject}</p>
-                        <p className="text-xs text-gray-500">
-                          Received: {email.receivedTime}
+                        <p className="text-sm text-gray-700 font-medium mb-2 line-clamp-1">
+                          {email.subject}
                         </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">
+                            Received: {email.receivedTime}
+                          </p>
+                          {selectedGmailEmail?.id === email.id && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                              Selected
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {conversations.length === 0 && gmailEmails.length === 0 && (
-                <div className="p-8 text-center">
-                  <Mail className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">No email conversations yet</p>
-                  <p className="text-sm text-gray-500 mt-1">
+              {/* IMPROVED Empty State */}
+              {conversations.length === 0 && gmailEmails.length === 0 && !loading && (
+                <div className="p-12 text-center">
+                  <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                    <Mail className="w-12 h-12 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No email conversations yet</h3>
+                  <p className="text-gray-600 mb-4 max-w-sm mx-auto">
                     {gmailConnection 
-                      ? 'New emails will appear automatically'
-                      : 'Connect Gmail to start receiving conversations'
+                      ? 'New emails will appear automatically when received'
+                      : 'Connect your Gmail account to start receiving and managing conversations'
                     }
                   </p>
+                  {!gmailConnection && (
+                    <Button onClick={connectGmail} className="flex items-center gap-2">
+                      <LinkIcon className="w-4 h-4" />
+                      Connect Gmail Now
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
+        {/* EMAIL PREVIEW/RESPONSE - NOW 40% WIDTH (2/5 columns) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Preview/Send AI Response buttons */}
           {selectedGmailEmail ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="h-full">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-lg">
                   <Globe className="w-5 h-5 text-blue-600" />
-                  Gmail Email from {selectedGmailEmail.fromName || selectedGmailEmail.fromEmail}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-900 truncate">
+                      {selectedGmailEmail.fromName || selectedGmailEmail.fromEmail}
+                    </div>
+                  </div>
                 </CardTitle>
-                <CardDescription>
-                  Subject: {selectedGmailEmail.subject}
+                <CardDescription className="text-sm">
+                  <span className="font-medium">Subject:</span> {selectedGmailEmail.subject}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-2">Email Content:</p>
-                  <div className="max-h-32 overflow-y-auto text-sm">
-                    {selectedGmailEmail.fullBody || selectedGmailEmail.body}
+              <CardContent className="space-y-6">
+                {/* Email Content Preview */}
+                <div className="bg-gray-50 rounded-xl p-5 border">
+                  <p className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Email Content:
+                  </p>
+                  <div className="max-h-48 overflow-y-auto text-sm text-gray-600 leading-relaxed">
+                    {selectedGmailEmail.fullBody || selectedGmailEmail.body || 'No content preview available'}
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                {/* Action Buttons */}
+                <div className="space-y-3">
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, true)}
                     disabled={responding}
                     variant="outline"
-                    className="flex items-center gap-2"
+                    className="w-full flex items-center justify-center gap-2 h-12"
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-5 h-5" />
                     Preview AI Response
                   </Button>
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, false)}
                     disabled={responding}
-                    className="flex items-center gap-2"
+                    className="w-full flex items-center justify-center gap-2 h-12 bg-blue-600 hover:bg-blue-700"
                   >
                     {responding ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <>
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                        Sending Response...
+                      </>
                     ) : (
-                      <Send className="w-4 h-4" />
+                      <>
+                        <Send className="w-5 h-5" />
+                        Send AI Response
+                      </>
                     )}
-                    Send AI Response
                   </Button>
+                </div>
+
+                {/* Info Box */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-900 mb-1">AI Response Ready</p>
+                      <p className="text-xs text-blue-700">
+                        The AI will generate a professional response based on your business knowledge and communication settings.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Mail className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600">Select a conversation to view details</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Gmail conversations will show real-time AI responses
+            /* IMPROVED Empty Selection State */
+            <Card className="h-full">
+              <CardContent className="p-12 text-center flex flex-col items-center justify-center h-full">
+                <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                  <MessageSquare className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
+                <p className="text-gray-600 mb-4 max-w-sm">
+                  Choose an email conversation from the list to view details and send AI responses
                 </p>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>• Preview AI responses before sending</p>
+                  <p>• Automatic professional formatting</p>
+                  <p>• Real-time conversation monitoring</p>
+                </div>
               </CardContent>
             </Card>
           )}
