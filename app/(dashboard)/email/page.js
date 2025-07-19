@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -149,6 +149,22 @@ export default function CompleteEmailSystem() {
     }
   ];
 
+  // FIXED: Memoized functions to prevent unnecessary re-renders
+  const updateBusinessProfile = useCallback((field, value) => {
+    setBusinessProfile(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const updateAiSettings = useCallback((field, value) => {
+    setAiSettings(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const updateAiBehaviors = useCallback((field, value) => {
+    setAiSettings(prev => ({
+      ...prev,
+      behaviors: { ...prev.behaviors, [field]: value }
+    }));
+  }, []);
+
   // Load data only once on mount and handle URL parameters
   useEffect(() => {
     loadInitialData();
@@ -190,7 +206,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // Auto-refresh logic (simplified - always enabled)
+  // FIXED: Auto-refresh logic with proper dependency management
   useEffect(() => {
     // Clear any existing interval
     if (refreshIntervalRef.current) {
@@ -202,7 +218,7 @@ export default function CompleteEmailSystem() {
     if (activeTab === 'dashboard' && gmailConnection && !loading) {
       refreshIntervalRef.current = setInterval(() => {
         checkGmailEmails(true); // Silent refresh
-        setLastRefresh(new Date());
+        // FIXED: Don't update lastRefresh in interval to prevent re-renders
       }, dashboardSettings.refreshInterval * 1000);
     }
 
@@ -378,7 +394,12 @@ export default function CompleteEmailSystem() {
       return;
     }
     
-    if (!silent) setGmailLoading(true);
+    if (!silent) {
+      setGmailLoading(true);
+      // FIXED: Only update lastRefresh for manual refreshes
+      setLastRefresh(new Date());
+    }
+    
     try {
       const response = await fetch('/api/gmail/monitor', {
         method: 'POST',
@@ -397,8 +418,6 @@ export default function CompleteEmailSystem() {
           totalConversations: (data.emails?.length || 0) + conversations.length,
           activeToday: data.emails?.length || 0
         }));
-        
-        if (!silent) setLastRefresh(new Date());
       } else if (response.status === 401) {
         console.log('⚠️ Gmail authentication expired - please reconnect');
         setGmailConnection(null);
@@ -884,7 +903,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE (dark theme)
+  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE (dark theme) - FIXED INPUT HANDLERS
   const AISettingsTab = () => (
     <div className="space-y-6">
       {/* Business Profile */}
@@ -899,7 +918,7 @@ export default function CompleteEmailSystem() {
             <label className="block text-sm font-medium mb-2 text-gray-300">Business Name</label>
             <Input
               value={businessProfile.name}
-              onChange={(e) => setBusinessProfile(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => updateBusinessProfile('name', e.target.value)}
               placeholder="Your Business Name"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -908,7 +927,7 @@ export default function CompleteEmailSystem() {
             <label className="block text-sm font-medium mb-2 text-gray-300">Industry</label>
             <Input
               value={businessProfile.industry}
-              onChange={(e) => setBusinessProfile(prev => ({ ...prev, industry: e.target.value }))}
+              onChange={(e) => updateBusinessProfile('industry', e.target.value)}
               placeholder="e.g., Real Estate, Consulting"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -917,7 +936,7 @@ export default function CompleteEmailSystem() {
             <label className="block text-sm font-medium mb-2 text-gray-300">Expertise</label>
             <Input
               value={businessProfile.expertise}
-              onChange={(e) => setBusinessProfile(prev => ({ ...prev, expertise: e.target.value }))}
+              onChange={(e) => updateBusinessProfile('expertise', e.target.value)}
               placeholder="What you specialize in"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -939,7 +958,7 @@ export default function CompleteEmailSystem() {
               <Button
                 key={tone}
                 variant={aiSettings.communicationTone === tone ? "default" : "outline"}
-                onClick={() => setAiSettings(prev => ({ ...prev, communicationTone: tone }))}
+                onClick={() => updateAiSettings('communicationTone', tone)}
                 className={`capitalize ${
                   aiSettings.communicationTone === tone
                     ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
@@ -968,7 +987,7 @@ export default function CompleteEmailSystem() {
           </label>
           <Textarea
             value={aiSettings.knowledgeBase}
-            onChange={(e) => setAiSettings(prev => ({ ...prev, knowledgeBase: e.target.value }))}
+            onChange={(e) => updateAiSettings('knowledgeBase', e.target.value)}
             placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
             rows={8}
             className="resize-none bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
@@ -1051,10 +1070,7 @@ export default function CompleteEmailSystem() {
               <input
                 type="checkbox"
                 checked={aiSettings.behaviors[key]}
-                onChange={(e) => setAiSettings(prev => ({
-                  ...prev,
-                  behaviors: { ...prev.behaviors, [key]: e.target.checked }
-                }))}
+                onChange={(e) => updateAiBehaviors(key, e.target.checked)}
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
               />
               <div>
