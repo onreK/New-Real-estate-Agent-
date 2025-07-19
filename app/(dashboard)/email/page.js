@@ -661,8 +661,8 @@ export default function CompleteEmailSystem() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* CONVERSATIONS LIST - NOW 40% WIDTH (2/5 columns) */}
         <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader className="pb-4">
+          <Card className="h-full flex flex-col">
+            <CardHeader className="pb-4 flex-shrink-0">
               <CardTitle className="flex items-center gap-3 text-xl">
                 <Inbox className="w-6 h-6 text-blue-600" />
                 Email Conversations ({gmailEmails.length + conversations.length})
@@ -671,10 +671,10 @@ export default function CompleteEmailSystem() {
                 Real-time Gmail monitoring with AI responses
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
               {/* Loading State */}
               {(loading || gmailLoading) && (
-                <div className="flex items-center justify-center py-16">
+                <div className="flex items-center justify-center py-16 flex-1">
                   <div className="flex items-center gap-4">
                     <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
                     <span className="text-lg text-gray-600 font-medium">Loading conversations...</span>
@@ -684,8 +684,8 @@ export default function CompleteEmailSystem() {
 
               {/* Gmail Emails */}
               {gmailEmails.length > 0 && !loading && (
-                <div className="border-b">
-                  <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b">
+                <div className="flex-1 flex flex-col">
+                  <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b flex-shrink-0">
                     <div className="flex items-center gap-3">
                       <Globe className="w-5 h-5 text-blue-600" />
                       <span className="text-sm font-semibold text-blue-800 uppercase tracking-wide">
@@ -696,7 +696,7 @@ export default function CompleteEmailSystem() {
                       </Badge>
                     </div>
                   </div>
-                  <div className="space-y-0 max-h-96 overflow-y-auto">
+                  <div className="space-y-0 flex-1 overflow-y-auto">
                     {gmailEmails.map((email) => (
                       <div
                         key={email.id}
@@ -739,7 +739,7 @@ export default function CompleteEmailSystem() {
 
               {/* Empty State */}
               {conversations.length === 0 && gmailEmails.length === 0 && !loading && (
-                <div className="p-12 text-center">
+                <div className="p-12 text-center flex-1 flex flex-col items-center justify-center">
                   <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
                     <Mail className="w-12 h-12 text-gray-400" />
                   </div>
