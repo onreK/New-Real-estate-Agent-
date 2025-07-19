@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,7 +85,7 @@ export default function CompleteEmailSystem() {
 
   const [aiSettings, setAiSettings] = useState({
     communicationTone: 'professional',
-    knowledgeBase: '', // NEW: Business Knowledge Base
+    knowledgeBase: '', 
     hotLeadKeywords: ['urgent', 'asap', 'budget', 'ready'],
     behaviors: {
       includeAvailability: true,
@@ -120,6 +120,36 @@ export default function CompleteEmailSystem() {
   const [newBlacklistItem, setNewBlacklistItem] = useState('');
   const [newWhitelistItem, setNewWhitelistItem] = useState('');
   const [newCustomKeyword, setNewCustomKeyword] = useState('');
+
+  // FIXED: Memoized onChange handlers to prevent re-renders
+  const handleBusinessProfileChange = useCallback((field, value) => {
+    setBusinessProfile(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleAiSettingsChange = useCallback((field, value) => {
+    setAiSettings(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleAiBehaviorChange = useCallback((field, value) => {
+    setAiSettings(prev => ({
+      ...prev,
+      behaviors: { ...prev.behaviors, [field]: value }
+    }));
+  }, []);
+
+  const handleAutomationControlChange = useCallback((field, value) => {
+    setAutomationSettings(prev => ({
+      ...prev,
+      responseControl: { ...prev.responseControl, [field]: value }
+    }));
+  }, []);
+
+  const handleEmailFilteringChange = useCallback((field, value) => {
+    setAutomationSettings(prev => ({
+      ...prev,
+      emailFiltering: { ...prev.emailFiltering, [field]: value }
+    }));
+  }, []);
 
   // Tab configuration
   const tabs = [
@@ -173,13 +203,11 @@ export default function CompleteEmailSystem() {
     // Handle success messages
     if (success === 'gmail_connected') {
       console.log('✅ Gmail connection successful');
-      // Optionally show a success message or notification
     }
     
     // Handle error messages
     if (error) {
       console.log('❌ OAuth error:', error);
-      // Optionally show an error message or notification
     }
     
     // Clear URL parameters after processing to clean up the URL
@@ -190,7 +218,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // Auto-refresh logic (simplified - always enabled)
+  // FIXED: Auto-refresh logic - only runs when necessary and doesn't affect other tabs
   useEffect(() => {
     // Clear any existing interval
     if (refreshIntervalRef.current) {
@@ -198,7 +226,7 @@ export default function CompleteEmailSystem() {
       refreshIntervalRef.current = null;
     }
 
-    // Set up auto-refresh for dashboard tab when Gmail connected
+    // ONLY set up auto-refresh for dashboard tab when Gmail connected
     if (activeTab === 'dashboard' && gmailConnection && !loading) {
       refreshIntervalRef.current = setInterval(() => {
         checkGmailEmails(true); // Silent refresh
@@ -283,7 +311,7 @@ export default function CompleteEmailSystem() {
           setAiSettings(prev => ({
             ...prev,
             communicationTone: data.settings.tone || 'professional',
-            knowledgeBase: data.settings.knowledge_base || '', // NEW: Load knowledge base
+            knowledgeBase: data.settings.knowledge_base || '',
             behaviors: {
               ...prev.behaviors,
               includeAvailability: data.settings.include_availability !== false,
@@ -319,7 +347,7 @@ export default function CompleteEmailSystem() {
         expertise: businessProfile.industry,
         specialties: businessProfile.expertise,
         response_style: 'Knowledge-based responses with business expertise',
-        knowledge_base: aiSettings.knowledgeBase, // FIXED: correct field name
+        knowledge_base: aiSettings.knowledgeBase,
         hot_lead_keywords: aiSettings.hotLeadKeywords,
         auto_response_enabled: automationSettings.responseControl.aiResponses,
         alert_hot_leads: aiSettings.behaviors.hotLeadAlerts,
@@ -444,8 +472,8 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // Helper functions for business rules
-  const addToBlacklist = () => {
+  // Helper functions for business rules - using useCallback to prevent re-renders
+  const addToBlacklist = useCallback(() => {
     if (newBlacklistItem.trim()) {
       setAutomationSettings(prev => ({
         ...prev,
@@ -456,9 +484,9 @@ export default function CompleteEmailSystem() {
       }));
       setNewBlacklistItem('');
     }
-  };
+  }, [newBlacklistItem]);
 
-  const removeFromBlacklist = (index) => {
+  const removeFromBlacklist = useCallback((index) => {
     setAutomationSettings(prev => ({
       ...prev,
       businessRules: {
@@ -466,9 +494,9 @@ export default function CompleteEmailSystem() {
         blacklist: prev.businessRules.blacklist.filter((_, i) => i !== index)
       }
     }));
-  };
+  }, []);
 
-  const addToWhitelist = () => {
+  const addToWhitelist = useCallback(() => {
     if (newWhitelistItem.trim()) {
       setAutomationSettings(prev => ({
         ...prev,
@@ -479,9 +507,9 @@ export default function CompleteEmailSystem() {
       }));
       setNewWhitelistItem('');
     }
-  };
+  }, [newWhitelistItem]);
 
-  const removeFromWhitelist = (index) => {
+  const removeFromWhitelist = useCallback((index) => {
     setAutomationSettings(prev => ({
       ...prev,
       businessRules: {
@@ -489,9 +517,9 @@ export default function CompleteEmailSystem() {
         whitelist: prev.businessRules.whitelist.filter((_, i) => i !== index)
       }
     }));
-  };
+  }, []);
 
-  const addCustomKeyword = () => {
+  const addCustomKeyword = useCallback(() => {
     if (newCustomKeyword.trim()) {
       setAutomationSettings(prev => ({
         ...prev,
@@ -502,9 +530,9 @@ export default function CompleteEmailSystem() {
       }));
       setNewCustomKeyword('');
     }
-  };
+  }, [newCustomKeyword]);
 
-  const removeCustomKeyword = (index) => {
+  const removeCustomKeyword = useCallback((index) => {
     setAutomationSettings(prev => ({
       ...prev,
       businessRules: {
@@ -512,9 +540,9 @@ export default function CompleteEmailSystem() {
         customKeywords: prev.businessRules.customKeywords.filter((_, i) => i !== index)
       }
     }));
-  };
+  }, []);
 
-  const addHotLeadKeyword = () => {
+  const addHotLeadKeyword = useCallback(() => {
     const input = document.getElementById('hotLeadKeywordInput');
     if (input && input.value.trim()) {
       const newKeyword = input.value.trim();
@@ -526,14 +554,14 @@ export default function CompleteEmailSystem() {
       }
       input.value = '';
     }
-  };
+  }, [aiSettings.hotLeadKeywords]);
 
-  const removeHotLeadKeyword = (index) => {
+  const removeHotLeadKeyword = useCallback((index) => {
     setAiSettings(prev => ({
       ...prev,
       hotLeadKeywords: prev.hotLeadKeywords.filter((_, i) => i !== index)
     }));
-  };
+  }, []);
 
   // 📊 STREAMLINED DASHBOARD TAB
   const DashboardTab = () => (
@@ -884,10 +912,10 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🤖 AI SETTINGS TAB - WITH KNOWLEDGE BASE (dark theme)
+  // 🤖 FIXED AI SETTINGS TAB - WITH STABLE INPUT HANDLERS
   const AISettingsTab = () => (
     <div className="space-y-6">
-      {/* Business Profile */}
+      {/* FIXED Business Profile with stable key props and memoized handlers */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building className="w-5 h-5 text-blue-400" />
@@ -898,8 +926,9 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Business Name</label>
             <Input
+              key="business-name-input" // FIXED: Added stable key
               value={businessProfile.name}
-              onChange={(e) => setBusinessProfile(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => handleBusinessProfileChange('name', e.target.value)} // FIXED: Using memoized handler
               placeholder="Your Business Name"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -907,8 +936,9 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Industry</label>
             <Input
+              key="business-industry-input" // FIXED: Added stable key
               value={businessProfile.industry}
-              onChange={(e) => setBusinessProfile(prev => ({ ...prev, industry: e.target.value }))}
+              onChange={(e) => handleBusinessProfileChange('industry', e.target.value)} // FIXED: Using memoized handler
               placeholder="e.g., Real Estate, Consulting"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -916,8 +946,9 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Expertise</label>
             <Input
+              key="business-expertise-input" // FIXED: Added stable key
               value={businessProfile.expertise}
-              onChange={(e) => setBusinessProfile(prev => ({ ...prev, expertise: e.target.value }))}
+              onChange={(e) => handleBusinessProfileChange('expertise', e.target.value)} // FIXED: Using memoized handler
               placeholder="What you specialize in"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -939,7 +970,7 @@ export default function CompleteEmailSystem() {
               <Button
                 key={tone}
                 variant={aiSettings.communicationTone === tone ? "default" : "outline"}
-                onClick={() => setAiSettings(prev => ({ ...prev, communicationTone: tone }))}
+                onClick={() => handleAiSettingsChange('communicationTone', tone)} // FIXED: Using memoized handler
                 className={`capitalize ${
                   aiSettings.communicationTone === tone
                     ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
@@ -953,7 +984,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* KNOWLEDGE BASE */}
+      {/* FIXED KNOWLEDGE BASE with stable key and memoized handler */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <BookOpen className="w-5 h-5 text-blue-400" />
@@ -967,8 +998,9 @@ export default function CompleteEmailSystem() {
             Business Information (200-1000 characters recommended)
           </label>
           <Textarea
+            key="knowledge-base-textarea" // FIXED: Added stable key
             value={aiSettings.knowledgeBase}
-            onChange={(e) => setAiSettings(prev => ({ ...prev, knowledgeBase: e.target.value }))}
+            onChange={(e) => handleAiSettingsChange('knowledgeBase', e.target.value)} // FIXED: Using memoized handler
             placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
             rows={8}
             className="resize-none bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
@@ -1011,7 +1043,7 @@ export default function CompleteEmailSystem() {
           <div className="flex flex-wrap gap-2">
             {aiSettings.hotLeadKeywords.map((keyword, index) => (
               <div 
-                key={index} 
+                key={`keyword-${index}-${keyword}`} // FIXED: Added stable key with content
                 onClick={() => removeHotLeadKeyword(index)}
                 className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white hover:bg-red-500/20 hover:border-red-500/30 transition-colors"
               >
@@ -1022,6 +1054,7 @@ export default function CompleteEmailSystem() {
           </div>
           <div className="flex gap-2">
             <Input
+              key="hot-lead-keyword-input" // FIXED: Added stable key
               id="hotLeadKeywordInput"
               placeholder="Add keyword (press Enter)"
               onKeyPress={(e) => {
@@ -1047,14 +1080,11 @@ export default function CompleteEmailSystem() {
             { key: 'hotLeadAlerts', label: 'Hot Lead Alerts', desc: 'Get notified about urgent inquiries' },
             { key: 'smsLeadAlerts', label: 'SMS Lead Alerts', desc: 'Send SMS for hot leads' }
           ].map(({ key, label, desc }) => (
-            <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+            <div key={`behavior-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
               <input
                 type="checkbox"
                 checked={aiSettings.behaviors[key]}
-                onChange={(e) => setAiSettings(prev => ({
-                  ...prev,
-                  behaviors: { ...prev.behaviors, [key]: e.target.checked }
-                }))}
+                onChange={(e) => handleAiBehaviorChange(key, e.target.checked)} // FIXED: Using memoized handler
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
               />
               <div>
@@ -1129,14 +1159,11 @@ export default function CompleteEmailSystem() {
             { key: 'businessHours', label: 'Business Hours', desc: 'Only respond during business hours' },
             { key: 'urgentPriority', label: 'Urgent Priority', desc: 'Prioritize urgent emails' }
           ].map(({ key, label, desc }) => (
-            <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+            <div key={`response-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
               <input
                 type="checkbox"
                 checked={automationSettings.responseControl[key]}
-                onChange={(e) => setAutomationSettings(prev => ({
-                  ...prev,
-                  responseControl: { ...prev.responseControl, [key]: e.target.checked }
-                }))}
+                onChange={(e) => handleAutomationControlChange(key, e.target.checked)} // FIXED: Using memoized handler
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
               />
               <div>
@@ -1162,14 +1189,11 @@ export default function CompleteEmailSystem() {
             { key: 'personalOnly', label: 'Personal Only', desc: 'Only process emails that appear personal' },
             { key: 'skipAutoGenerated', label: 'Skip Auto-Generated', desc: 'Ignore automated system emails' }
           ].map(({ key, label, desc }) => (
-            <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+            <div key={`filter-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
               <input
                 type="checkbox"
                 checked={automationSettings.emailFiltering[key]}
-                onChange={(e) => setAutomationSettings(prev => ({
-                  ...prev,
-                  emailFiltering: { ...prev.emailFiltering, [key]: e.target.checked }
-                }))}
+                onChange={(e) => handleEmailFilteringChange(key, e.target.checked)} // FIXED: Using memoized handler
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
               />
               <div>
@@ -1196,7 +1220,7 @@ export default function CompleteEmailSystem() {
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.blacklist.map((item, index) => (
                   <div 
-                    key={index} 
+                    key={`blacklist-${index}-${item}`} // FIXED: Added stable key with content
                     onClick={() => removeFromBlacklist(index)}
                     className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-colors"
                   >
@@ -1207,6 +1231,7 @@ export default function CompleteEmailSystem() {
               </div>
               <div className="flex gap-2">
                 <Input
+                  key="blacklist-input" // FIXED: Added stable key
                   value={newBlacklistItem}
                   onChange={(e) => setNewBlacklistItem(e.target.value)}
                   placeholder="Add email or domain to blacklist"
@@ -1225,7 +1250,7 @@ export default function CompleteEmailSystem() {
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.whitelist.map((item, index) => (
                   <div 
-                    key={index} 
+                    key={`whitelist-${index}-${item}`} // FIXED: Added stable key with content
                     onClick={() => removeFromWhitelist(index)}
                     className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition-colors"
                   >
@@ -1236,6 +1261,7 @@ export default function CompleteEmailSystem() {
               </div>
               <div className="flex gap-2">
                 <Input
+                  key="whitelist-input" // FIXED: Added stable key
                   value={newWhitelistItem}
                   onChange={(e) => setNewWhitelistItem(e.target.value)}
                   placeholder="Add email or domain to whitelist"
@@ -1254,7 +1280,7 @@ export default function CompleteEmailSystem() {
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.customKeywords.map((keyword, index) => (
                   <div 
-                    key={index} 
+                    key={`custom-keyword-${index}-${keyword}`} // FIXED: Added stable key with content
                     onClick={() => removeCustomKeyword(index)}
                     className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white hover:bg-purple-500/20 hover:border-purple-500/30 transition-colors"
                   >
@@ -1265,6 +1291,7 @@ export default function CompleteEmailSystem() {
               </div>
               <div className="flex gap-2">
                 <Input
+                  key="custom-keyword-input" // FIXED: Added stable key
                   value={newCustomKeyword}
                   onChange={(e) => setNewCustomKeyword(e.target.value)}
                   placeholder="Add custom filtering keyword"
