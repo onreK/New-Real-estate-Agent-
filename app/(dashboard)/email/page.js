@@ -1121,38 +1121,6 @@ export default function CompleteEmailSystem() {
   // 🔧 COMPLETE AUTOMATION TAB - FULLY RESTORED
   const AutomationTab = () => (
     <div className="space-y-6">
-      {/* Gmail Connection */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Mail className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">Gmail Connection</h3>
-        </div>
-        <p className="text-gray-300 mb-6">Status and reconnect options</p>
-        <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${gmailConnection ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <div>
-              <span className="font-medium text-white">
-                {gmailConnection ? `Connected to ${gmailConnection.email}` : 'Not Connected'}
-              </span>
-              <p className="text-sm text-gray-400">
-                {gmailConnection 
-                  ? 'Gmail monitoring is active with AI responses' 
-                  : 'Connect Gmail to enable email automation'
-                }
-              </p>
-            </div>
-          </div>
-          <Button 
-            variant="outline" 
-            onClick={connectGmail}
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-          >
-            {gmailConnection ? 'Reconnect' : 'Connect Gmail'}
-          </Button>
-        </div>
-      </div>
-
       {/* Response Control */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
