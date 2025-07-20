@@ -579,7 +579,7 @@ export default function CompleteEmailSystem() {
               <div>
                 <h3 className="font-semibold text-xl text-white">Gmail AI Connected</h3>
                 <p className="text-gray-300">
-                  Connected to {gmailConnection.email} • Auto-monitoring active
+                  {gmailConnection.email} • Auto-monitoring active
                 </p>
               </div>
             </div>
