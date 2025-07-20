@@ -48,6 +48,11 @@ export default function CompleteEmailSystem() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const refreshIntervalRef = useRef(null);
+  const renderCountRef = useRef(0);
+  
+  // 🐛 DEBUG: Component render counter
+  renderCountRef.current += 1;
+  console.log(`🔄 RENDER #${renderCountRef.current} at ${new Date().toLocaleTimeString()}`);
   
   // Existing functionality states
   const [conversations, setConversations] = useState([]);
@@ -121,16 +126,44 @@ export default function CompleteEmailSystem() {
   const [newWhitelistItem, setNewWhitelistItem] = useState('');
   const [newCustomKeyword, setNewCustomKeyword] = useState('');
 
-  // FIXED: Memoized onChange handlers to prevent re-renders
+  // 🐛 DEBUG: Watch state changes
+  useEffect(() => {
+    console.log('🔍 businessProfile changed:', businessProfile);
+  }, [businessProfile]);
+
+  useEffect(() => {
+    console.log('🔍 aiSettings changed:', aiSettings);
+  }, [aiSettings]);
+
+  useEffect(() => {
+    console.log('🔍 automationSettings changed:', automationSettings);
+  }, [automationSettings]);
+
+  useEffect(() => {
+    console.log('🔍 activeTab changed:', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    console.log('🔍 lastRefresh changed:', lastRefresh);
+  }, [lastRefresh]);
+
+  // 🐛 DEBUG: onChange handlers with logging
   const handleBusinessProfileChange = useCallback((field, value) => {
-    setBusinessProfile(prev => ({ ...prev, [field]: value }));
+    console.log(`📝 Business Profile Change: ${field} = "${value}"`);
+    setBusinessProfile(prev => {
+      const newProfile = { ...prev, [field]: value };
+      console.log('📝 New business profile state:', newProfile);
+      return newProfile;
+    });
   }, []);
 
   const handleAiSettingsChange = useCallback((field, value) => {
+    console.log(`📝 AI Settings Change: ${field} = "${value}"`);
     setAiSettings(prev => ({ ...prev, [field]: value }));
   }, []);
 
   const handleAiBehaviorChange = useCallback((field, value) => {
+    console.log(`📝 AI Behavior Change: ${field} = ${value}`);
     setAiSettings(prev => ({
       ...prev,
       behaviors: { ...prev.behaviors, [field]: value }
@@ -138,6 +171,7 @@ export default function CompleteEmailSystem() {
   }, []);
 
   const handleAutomationControlChange = useCallback((field, value) => {
+    console.log(`📝 Automation Control Change: ${field} = ${value}`);
     setAutomationSettings(prev => ({
       ...prev,
       responseControl: { ...prev.responseControl, [field]: value }
@@ -145,6 +179,7 @@ export default function CompleteEmailSystem() {
   }, []);
 
   const handleEmailFilteringChange = useCallback((field, value) => {
+    console.log(`📝 Email Filtering Change: ${field} = ${value}`);
     setAutomationSettings(prev => ({
       ...prev,
       emailFiltering: { ...prev.emailFiltering, [field]: value }
@@ -181,6 +216,7 @@ export default function CompleteEmailSystem() {
 
   // Load data only once on mount and handle URL parameters
   useEffect(() => {
+    console.log('🚀 Initial data load started');
     loadInitialData();
     handleUrlParameters();
   }, []);
@@ -218,24 +254,36 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // FIXED: Auto-refresh logic - only runs when necessary and doesn't affect other tabs
+  // 🐛 DEBUG: Auto-refresh logic with extensive logging
   useEffect(() => {
+    console.log('⏱️ Auto-refresh effect triggered');
+    console.log('⏱️ Current activeTab:', activeTab);
+    console.log('⏱️ Gmail connection:', gmailConnection?.email || 'none');
+    console.log('⏱️ Loading state:', loading);
+    console.log('⏱️ Refresh interval:', dashboardSettings.refreshInterval);
+    
     // Clear any existing interval
     if (refreshIntervalRef.current) {
+      console.log('⏱️ Clearing existing refresh interval');
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
     }
 
     // ONLY set up auto-refresh for dashboard tab when Gmail connected
     if (activeTab === 'dashboard' && gmailConnection && !loading) {
+      console.log('⏱️ Setting up auto-refresh interval');
       refreshIntervalRef.current = setInterval(() => {
+        console.log('⏱️ AUTO-REFRESH TRIGGERED');
         checkGmailEmails(true); // Silent refresh
         setLastRefresh(new Date());
       }, dashboardSettings.refreshInterval * 1000);
+    } else {
+      console.log('⏱️ Auto-refresh NOT set up - conditions not met');
     }
 
     // Cleanup
     return () => {
+      console.log('⏱️ Auto-refresh cleanup');
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
         refreshIntervalRef.current = null;
@@ -244,6 +292,7 @@ export default function CompleteEmailSystem() {
   }, [activeTab, gmailConnection?.email, dashboardSettings.refreshInterval, loading]);
 
   const loadInitialData = async () => {
+    console.log('📡 Loading initial data...');
     setLoading(true);
     try {
       await Promise.all([
@@ -251,32 +300,38 @@ export default function CompleteEmailSystem() {
         checkGmailConnection(),
         loadAISettings()
       ]);
+      console.log('📡 Initial data loaded successfully');
     } catch (error) {
-      console.error('Error loading initial data:', error);
+      console.error('📡 Error loading initial data:', error);
     } finally {
       setLoading(false);
+      console.log('📡 Loading complete');
     }
   };
 
   const loadEmailData = async () => {
+    console.log('📧 Loading email data...');
     try {
       const convResponse = await fetch('/api/customer/email-conversations');
       if (convResponse.ok) {
         const convData = await convResponse.json();
         setConversations(convData.conversations || []);
+        console.log('📧 Conversations loaded:', convData.conversations?.length || 0);
       }
 
       const statsResponse = await fetch('/api/customer/email-stats');
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData.stats || stats);
+        console.log('📧 Stats loaded:', statsData.stats);
       }
     } catch (error) {
-      console.error('Error loading email data:', error);
+      console.error('📧 Error loading email data:', error);
     }
   };
 
   const checkGmailConnection = async () => {
+    console.log('🔗 Checking Gmail connection...');
     try {
       const response = await fetch('/api/gmail/status');
       if (response.ok) {
@@ -285,22 +340,26 @@ export default function CompleteEmailSystem() {
         if (data.connected && data.connection) {
           setGmailConnection(data.connection);
           setStats(prev => ({ ...prev, responseRate: 95 }));
+          console.log('🔗 Gmail connected:', data.connection.email);
         } else {
           setGmailConnection(null);
+          console.log('🔗 Gmail not connected');
         }
       }
     } catch (error) {
-      console.error('Error checking Gmail connection:', error);
+      console.error('🔗 Error checking Gmail connection:', error);
       setGmailConnection(null);
     }
   };
 
   const loadAISettings = async () => {
+    console.log('🤖 Loading AI settings...');
     try {
       const response = await fetch('/api/customer/ai-settings');
       if (response.ok) {
         const data = await response.json();
         if (data.settings) {
+          console.log('🤖 AI settings loaded:', data.settings);
           // Map the existing settings to our new structure
           setBusinessProfile({
             name: data.customer?.business_name || '',
@@ -330,15 +389,15 @@ export default function CompleteEmailSystem() {
           }
         }
       } else if (response.status === 404) {
-        console.log('AI settings API not found - using defaults');
+        console.log('🤖 AI settings API not found - using defaults');
       }
     } catch (error) {
-      console.log('AI settings not available - using defaults');
+      console.log('🤖 AI settings not available - using defaults');
     }
   };
 
-  // FIXED: Complete saveAllSettings function with proper data format
   const saveAllSettings = async () => {
+    console.log('💾 Saving all settings...');
     setSaving(true);
     try {
       // Prepare the settings in the correct format for the API
@@ -387,6 +446,7 @@ export default function CompleteEmailSystem() {
       alert('❌ Error saving settings. Please try again.');
     } finally {
       setSaving(false);
+      console.log('💾 Save operation complete');
     }
   };
 
@@ -402,10 +462,11 @@ export default function CompleteEmailSystem() {
 
   const checkGmailEmails = async (silent = false) => {
     if (!gmailConnection) {
-      console.log('No Gmail connection available');
+      console.log('📧 No Gmail connection available');
       return;
     }
     
+    console.log(`📧 Checking Gmail emails (silent: ${silent})`);
     if (!silent) setGmailLoading(true);
     try {
       const response = await fetch('/api/gmail/monitor', {
@@ -427,16 +488,17 @@ export default function CompleteEmailSystem() {
         }));
         
         if (!silent) setLastRefresh(new Date());
+        console.log(`📧 Gmail emails updated: ${data.emails?.length || 0} emails`);
       } else if (response.status === 401) {
         console.log('⚠️ Gmail authentication expired - please reconnect');
         setGmailConnection(null);
       } else if (response.status === 404) {
         console.log('⚠️ Gmail monitor API not available');
       } else {
-        console.error('Gmail check failed:', response.status);
+        console.error('📧 Gmail check failed:', response.status);
       }
     } catch (error) {
-      console.error('Error checking Gmail emails:', error);
+      console.error('📧 Error checking Gmail emails:', error);
     } finally {
       if (!silent) setGmailLoading(false);
     }
@@ -445,6 +507,7 @@ export default function CompleteEmailSystem() {
   const sendAIResponse = async (emailId, preview = false) => {
     if (!gmailConnection) return;
     
+    console.log(`🤖 Sending AI response (preview: ${preview})`);
     setResponding(true);
     try {
       const response = await fetch('/api/gmail/monitor', {
@@ -463,10 +526,11 @@ export default function CompleteEmailSystem() {
         if (!preview) {
           setTimeout(() => checkGmailEmails(false), 1000);
         }
+        console.log('🤖 AI response sent successfully');
         return data;
       }
     } catch (error) {
-      console.error('Error sending AI response:', error);
+      console.error('🤖 Error sending AI response:', error);
     } finally {
       setResponding(false);
     }
@@ -474,6 +538,7 @@ export default function CompleteEmailSystem() {
 
   // Helper functions for business rules - using useCallback to prevent re-renders
   const addToBlacklist = useCallback(() => {
+    console.log('➕ Adding to blacklist:', newBlacklistItem);
     if (newBlacklistItem.trim()) {
       setAutomationSettings(prev => ({
         ...prev,
@@ -487,6 +552,7 @@ export default function CompleteEmailSystem() {
   }, [newBlacklistItem]);
 
   const removeFromBlacklist = useCallback((index) => {
+    console.log('➖ Removing from blacklist:', index);
     setAutomationSettings(prev => ({
       ...prev,
       businessRules: {
@@ -497,6 +563,7 @@ export default function CompleteEmailSystem() {
   }, []);
 
   const addToWhitelist = useCallback(() => {
+    console.log('➕ Adding to whitelist:', newWhitelistItem);
     if (newWhitelistItem.trim()) {
       setAutomationSettings(prev => ({
         ...prev,
@@ -510,6 +577,7 @@ export default function CompleteEmailSystem() {
   }, [newWhitelistItem]);
 
   const removeFromWhitelist = useCallback((index) => {
+    console.log('➖ Removing from whitelist:', index);
     setAutomationSettings(prev => ({
       ...prev,
       businessRules: {
@@ -520,6 +588,7 @@ export default function CompleteEmailSystem() {
   }, []);
 
   const addCustomKeyword = useCallback(() => {
+    console.log('➕ Adding custom keyword:', newCustomKeyword);
     if (newCustomKeyword.trim()) {
       setAutomationSettings(prev => ({
         ...prev,
@@ -533,6 +602,7 @@ export default function CompleteEmailSystem() {
   }, [newCustomKeyword]);
 
   const removeCustomKeyword = useCallback((index) => {
+    console.log('➖ Removing custom keyword:', index);
     setAutomationSettings(prev => ({
       ...prev,
       businessRules: {
@@ -543,6 +613,7 @@ export default function CompleteEmailSystem() {
   }, []);
 
   const addHotLeadKeyword = useCallback(() => {
+    console.log('➕ Adding hot lead keyword');
     const input = document.getElementById('hotLeadKeywordInput');
     if (input && input.value.trim()) {
       const newKeyword = input.value.trim();
@@ -557,15 +628,32 @@ export default function CompleteEmailSystem() {
   }, [aiSettings.hotLeadKeywords]);
 
   const removeHotLeadKeyword = useCallback((index) => {
+    console.log('➖ Removing hot lead keyword:', index);
     setAiSettings(prev => ({
       ...prev,
       hotLeadKeywords: prev.hotLeadKeywords.filter((_, i) => i !== index)
     }));
   }, []);
 
-  // 📊 STREAMLINED DASHBOARD TAB
+  // 🐛 DEBUG: Input focus tracking
+  const handleInputFocus = useCallback((fieldName) => {
+    console.log(`🎯 Input FOCUSED: ${fieldName}`);
+  }, []);
+
+  const handleInputBlur = useCallback((fieldName) => {
+    console.log(`👻 Input BLURRED: ${fieldName}`);
+  }, []);
+
+  // 📊 COMPLETE DASHBOARD TAB WITH DEBUG
   const DashboardTab = () => (
     <div className="space-y-6">
+      {/* DEBUG INFO */}
+      <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4 mb-6">
+        <p className="text-yellow-300 font-medium">🐛 DEBUG MODE ACTIVE - Dashboard Tab</p>
+        <p className="text-yellow-400 text-sm">Check browser console for detailed logs. Render count: {renderCountRef.current}</p>
+        <p className="text-yellow-400 text-sm">Auto-refresh: {refreshIntervalRef.current ? 'ACTIVE' : 'INACTIVE'}</p>
+      </div>
+
       {/* STREAMLINED Header - Gmail Status + Check Emails + Last Refresh */}
       {gmailConnection ? (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 mb-6">
@@ -586,7 +674,10 @@ export default function CompleteEmailSystem() {
                 Last refreshed: {lastRefresh.toLocaleTimeString()}
               </span>
               <Button 
-                onClick={() => checkGmailEmails(false)}
+                onClick={() => {
+                  console.log('🔄 Manual email check triggered');
+                  checkGmailEmails(false);
+                }}
                 disabled={gmailLoading}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
               >
@@ -731,6 +822,7 @@ export default function CompleteEmailSystem() {
                             : ''
                         }`}
                         onClick={() => {
+                          console.log('📧 Email selected:', email.id);
                           setSelectedGmailEmail(email);
                           setSelectedConversation(null);
                         }}
@@ -912,23 +1004,41 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🤖 FIXED AI SETTINGS TAB - WITH STABLE INPUT HANDLERS
+  // 🤖 DEBUG AI SETTINGS TAB - WITH EXTENSIVE LOGGING AND COMPLETE FUNCTIONALITY
   const AISettingsTab = () => (
     <div className="space-y-6">
-      {/* FIXED Business Profile with stable key props and memoized handlers */}
+      {/* DEBUG INFO */}
+      <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 mb-6">
+        <p className="text-blue-300 font-medium">🐛 DEBUG MODE - AI Settings Tab</p>
+        <div className="text-blue-400 text-sm space-y-1 mt-2">
+          <p>• Render count: {renderCountRef.current}</p>
+          <p>• Business name: "{businessProfile.name}"</p>
+          <p>• Industry: "{businessProfile.industry}"</p>
+          <p>• Expertise: "{businessProfile.expertise}"</p>
+          <p>• Knowledge base length: {aiSettings.knowledgeBase.length}</p>
+          <p>• Auto-refresh active: {refreshIntervalRef.current ? 'YES' : 'NO'}</p>
+        </div>
+      </div>
+
+      {/* Business Profile with DEBUG logging */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Business Profile</h3>
         </div>
-        <p className="text-gray-300 mb-6">Tell the AI about your business</p>
+        <p className="text-gray-300 mb-6">Tell the AI about your business (watch console for logs)</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Business Name</label>
             <Input
-              key="business-name-input" // FIXED: Added stable key
+              key="debug-business-name-input"
               value={businessProfile.name}
-              onChange={(e) => handleBusinessProfileChange('name', e.target.value)} // FIXED: Using memoized handler
+              onChange={(e) => {
+                console.log(`🎯 TYPING in Business Name: "${e.target.value}"`);
+                handleBusinessProfileChange('name', e.target.value);
+              }}
+              onFocus={() => handleInputFocus('Business Name')}
+              onBlur={() => handleInputBlur('Business Name')}
               placeholder="Your Business Name"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -936,9 +1046,14 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Industry</label>
             <Input
-              key="business-industry-input" // FIXED: Added stable key
+              key="debug-business-industry-input"
               value={businessProfile.industry}
-              onChange={(e) => handleBusinessProfileChange('industry', e.target.value)} // FIXED: Using memoized handler
+              onChange={(e) => {
+                console.log(`🎯 TYPING in Industry: "${e.target.value}"`);
+                handleBusinessProfileChange('industry', e.target.value);
+              }}
+              onFocus={() => handleInputFocus('Industry')}
+              onBlur={() => handleInputBlur('Industry')}
               placeholder="e.g., Real Estate, Consulting"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -946,9 +1061,14 @@ export default function CompleteEmailSystem() {
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Expertise</label>
             <Input
-              key="business-expertise-input" // FIXED: Added stable key
+              key="debug-business-expertise-input"
               value={businessProfile.expertise}
-              onChange={(e) => handleBusinessProfileChange('expertise', e.target.value)} // FIXED: Using memoized handler
+              onChange={(e) => {
+                console.log(`🎯 TYPING in Expertise: "${e.target.value}"`);
+                handleBusinessProfileChange('expertise', e.target.value);
+              }}
+              onFocus={() => handleInputFocus('Expertise')}
+              onBlur={() => handleInputBlur('Expertise')}
               placeholder="What you specialize in"
               className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             />
@@ -970,7 +1090,10 @@ export default function CompleteEmailSystem() {
               <Button
                 key={tone}
                 variant={aiSettings.communicationTone === tone ? "default" : "outline"}
-                onClick={() => handleAiSettingsChange('communicationTone', tone)} // FIXED: Using memoized handler
+                onClick={() => {
+                  console.log(`🎯 Tone button clicked: ${tone}`);
+                  handleAiSettingsChange('communicationTone', tone);
+                }}
                 className={`capitalize ${
                   aiSettings.communicationTone === tone
                     ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
@@ -984,24 +1107,29 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* FIXED KNOWLEDGE BASE with stable key and memoized handler */}
+      {/* Knowledge Base with DEBUG */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <BookOpen className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Business Knowledge Base</h3>
         </div>
         <p className="text-gray-300 mb-6">
-          Add specific information about your services, pricing, processes, and policies so the AI can answer customer questions accurately
+          Add specific information about your services, pricing, processes, and policies
         </p>
         <div>
           <label className="block text-sm font-medium mb-3 text-gray-300">
-            Business Information (200-1000 characters recommended)
+            Business Information (watch console for typing logs)
           </label>
           <Textarea
-            key="knowledge-base-textarea" // FIXED: Added stable key
+            key="debug-knowledge-base-textarea"
             value={aiSettings.knowledgeBase}
-            onChange={(e) => handleAiSettingsChange('knowledgeBase', e.target.value)} // FIXED: Using memoized handler
-            placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
+            onChange={(e) => {
+              console.log(`🎯 TYPING in Knowledge Base: "${e.target.value}" (length: ${e.target.value.length})`);
+              handleAiSettingsChange('knowledgeBase', e.target.value);
+            }}
+            onFocus={() => handleInputFocus('Knowledge Base')}
+            onBlur={() => handleInputBlur('Knowledge Base')}
+            placeholder="Example: We offer full-service real estate including buying, selling, and property management..."
             rows={8}
             className="resize-none bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
             maxLength={2000}
@@ -1043,8 +1171,11 @@ export default function CompleteEmailSystem() {
           <div className="flex flex-wrap gap-2">
             {aiSettings.hotLeadKeywords.map((keyword, index) => (
               <div 
-                key={`keyword-${index}-${keyword}`} // FIXED: Added stable key with content
-                onClick={() => removeHotLeadKeyword(index)}
+                key={`keyword-${index}-${keyword}`}
+                onClick={() => {
+                  console.log(`➖ Removing hot lead keyword: ${keyword}`);
+                  removeHotLeadKeyword(index);
+                }}
                 className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white hover:bg-red-500/20 hover:border-red-500/30 transition-colors"
               >
                 {keyword}
@@ -1054,11 +1185,12 @@ export default function CompleteEmailSystem() {
           </div>
           <div className="flex gap-2">
             <Input
-              key="hot-lead-keyword-input" // FIXED: Added stable key
+              key="debug-hot-lead-keyword-input"
               id="hotLeadKeywordInput"
               placeholder="Add keyword (press Enter)"
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
+                  console.log('🎯 Enter pressed on hot lead keyword input');
                   addHotLeadKeyword();
                 }
               }}
@@ -1084,7 +1216,10 @@ export default function CompleteEmailSystem() {
               <input
                 type="checkbox"
                 checked={aiSettings.behaviors[key]}
-                onChange={(e) => handleAiBehaviorChange(key, e.target.checked)} // FIXED: Using memoized handler
+                onChange={(e) => {
+                  console.log(`🎯 Behavior toggle changed: ${key} = ${e.target.checked}`);
+                  handleAiBehaviorChange(key, e.target.checked);
+                }}
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
               />
               <div>
@@ -1099,7 +1234,10 @@ export default function CompleteEmailSystem() {
       {/* Save Button */}
       <div className="flex justify-end">
         <Button 
-          onClick={saveAllSettings} 
+          onClick={() => {
+            console.log('💾 Save button clicked');
+            saveAllSettings();
+          }}
           disabled={saving} 
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
         >
@@ -1110,9 +1248,15 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🔧 AUTOMATION TAB (dark theme)
+  // 🔧 AUTOMATION TAB WITH DEBUG
   const AutomationTab = () => (
     <div className="space-y-6">
+      {/* DEBUG INFO */}
+      <div className="bg-purple-500/20 border border-purple-500/30 rounded-lg p-4 mb-6">
+        <p className="text-purple-300 font-medium">🐛 DEBUG MODE - Automation Tab</p>
+        <p className="text-purple-400 text-sm">Auto-refresh should NOT be active on this tab. Current: {refreshIntervalRef.current ? 'ACTIVE (BUG!)' : 'INACTIVE (GOOD)'}</p>
+      </div>
+
       {/* Gmail Connection */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
@@ -1163,7 +1307,10 @@ export default function CompleteEmailSystem() {
               <input
                 type="checkbox"
                 checked={automationSettings.responseControl[key]}
-                onChange={(e) => handleAutomationControlChange(key, e.target.checked)} // FIXED: Using memoized handler
+                onChange={(e) => {
+                  console.log(`🎯 Response control changed: ${key} = ${e.target.checked}`);
+                  handleAutomationControlChange(key, e.target.checked);
+                }}
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
               />
               <div>
@@ -1193,7 +1340,10 @@ export default function CompleteEmailSystem() {
               <input
                 type="checkbox"
                 checked={automationSettings.emailFiltering[key]}
-                onChange={(e) => handleEmailFilteringChange(key, e.target.checked)} // FIXED: Using memoized handler
+                onChange={(e) => {
+                  console.log(`🎯 Email filtering changed: ${key} = ${e.target.checked}`);
+                  handleEmailFilteringChange(key, e.target.checked);
+                }}
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
               />
               <div>
@@ -1220,8 +1370,11 @@ export default function CompleteEmailSystem() {
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.blacklist.map((item, index) => (
                   <div 
-                    key={`blacklist-${index}-${item}`} // FIXED: Added stable key with content
-                    onClick={() => removeFromBlacklist(index)}
+                    key={`blacklist-${index}-${item}`}
+                    onClick={() => {
+                      console.log(`➖ Removing from blacklist: ${item}`);
+                      removeFromBlacklist(index);
+                    }}
                     className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-colors"
                   >
                     {item}
@@ -1231,9 +1384,12 @@ export default function CompleteEmailSystem() {
               </div>
               <div className="flex gap-2">
                 <Input
-                  key="blacklist-input" // FIXED: Added stable key
+                  key="debug-blacklist-input"
                   value={newBlacklistItem}
-                  onChange={(e) => setNewBlacklistItem(e.target.value)}
+                  onChange={(e) => {
+                    console.log(`🎯 Typing in blacklist: "${e.target.value}"`);
+                    setNewBlacklistItem(e.target.value);
+                  }}
                   placeholder="Add email or domain to blacklist"
                   onKeyPress={(e) => e.key === 'Enter' && addToBlacklist()}
                   className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
@@ -1250,8 +1406,11 @@ export default function CompleteEmailSystem() {
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.whitelist.map((item, index) => (
                   <div 
-                    key={`whitelist-${index}-${item}`} // FIXED: Added stable key with content
-                    onClick={() => removeFromWhitelist(index)}
+                    key={`whitelist-${index}-${item}`}
+                    onClick={() => {
+                      console.log(`➖ Removing from whitelist: ${item}`);
+                      removeFromWhitelist(index);
+                    }}
                     className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition-colors"
                   >
                     {item}
@@ -1261,9 +1420,12 @@ export default function CompleteEmailSystem() {
               </div>
               <div className="flex gap-2">
                 <Input
-                  key="whitelist-input" // FIXED: Added stable key
+                  key="debug-whitelist-input"
                   value={newWhitelistItem}
-                  onChange={(e) => setNewWhitelistItem(e.target.value)}
+                  onChange={(e) => {
+                    console.log(`🎯 Typing in whitelist: "${e.target.value}"`);
+                    setNewWhitelistItem(e.target.value);
+                  }}
                   placeholder="Add email or domain to whitelist"
                   onKeyPress={(e) => e.key === 'Enter' && addToWhitelist()}
                   className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
@@ -1280,8 +1442,11 @@ export default function CompleteEmailSystem() {
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.customKeywords.map((keyword, index) => (
                   <div 
-                    key={`custom-keyword-${index}-${keyword}`} // FIXED: Added stable key with content
-                    onClick={() => removeCustomKeyword(index)}
+                    key={`custom-keyword-${index}-${keyword}`}
+                    onClick={() => {
+                      console.log(`➖ Removing custom keyword: ${keyword}`);
+                      removeCustomKeyword(index);
+                    }}
                     className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white hover:bg-purple-500/20 hover:border-purple-500/30 transition-colors"
                   >
                     {keyword}
@@ -1291,9 +1456,12 @@ export default function CompleteEmailSystem() {
               </div>
               <div className="flex gap-2">
                 <Input
-                  key="custom-keyword-input" // FIXED: Added stable key
+                  key="debug-custom-keyword-input"
                   value={newCustomKeyword}
-                  onChange={(e) => setNewCustomKeyword(e.target.value)}
+                  onChange={(e) => {
+                    console.log(`🎯 Typing in custom keyword: "${e.target.value}"`);
+                    setNewCustomKeyword(e.target.value);
+                  }}
                   placeholder="Add custom filtering keyword"
                   onKeyPress={(e) => e.key === 'Enter' && addCustomKeyword()}
                   className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
@@ -1308,7 +1476,10 @@ export default function CompleteEmailSystem() {
       {/* Save Button */}
       <div className="flex justify-end">
         <Button 
-          onClick={saveAllSettings} 
+          onClick={() => {
+            console.log('💾 Save automation settings clicked');
+            saveAllSettings();
+          }}
           disabled={saving} 
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
         >
@@ -1320,23 +1491,18 @@ export default function CompleteEmailSystem() {
   );
 
   if (loading) {
+    console.log('⏳ Component in loading state');
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-6">
         <div className="animate-pulse space-y-4 max-w-7xl mx-auto">
           <div className="h-8 bg-white/20 rounded-xl w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="h-24 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-2 h-96 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
-            <div className="lg:col-span-3 h-96 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
-          </div>
+          <div className="text-white text-center">Loading debug mode...</div>
         </div>
       </div>
     );
   }
+
+  console.log('🎨 Rendering main component');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
@@ -1345,7 +1511,10 @@ export default function CompleteEmailSystem() {
         <div className="flex items-center gap-4 mb-6">
           <Button 
             variant="outline" 
-            onClick={() => router.push('/dashboard')}
+            onClick={() => {
+              console.log('🔙 Back to dashboard clicked');
+              router.push('/dashboard');
+            }}
             className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -1354,9 +1523,9 @@ export default function CompleteEmailSystem() {
           <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
               <Mail className="w-6 h-6" />
-              Email AI Manager
+              Email AI Manager (DEBUG MODE)
             </h1>
-            <p className="text-gray-300">Unified Gmail automation with smart AI responses and filtering</p>
+            <p className="text-gray-300">Debugging input focus issues - check browser console</p>
           </div>
         </div>
 
@@ -1369,7 +1538,10 @@ export default function CompleteEmailSystem() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      console.log(`🎯 Tab clicked: ${tab.id}`);
+                      setActiveTab(tab.id);
+                    }}
                     className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === tab.id
                         ? 'border-blue-400 text-blue-300'
@@ -1387,7 +1559,7 @@ export default function CompleteEmailSystem() {
           </div>
           <div className="mt-2">
             <p className="text-sm text-gray-400">
-              {tabs.find(tab => tab.id === activeTab)?.description}
+              {tabs.find(tab => tab.id === activeTab)?.description} (DEBUG MODE)
             </p>
           </div>
         </div>
