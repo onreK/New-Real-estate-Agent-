@@ -1,24 +1,21 @@
-// app/api/email/webhook/route.js
+// app/api/email/webhook/route.js - COMPATIBLE WITH YOUR EXISTING DATABASE.JS
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { Resend } from 'resend';
+// Use YOUR existing database functions
 import { 
   getCustomerByClerkId,
-  createEmailConversation,
-  getEmailConversationByAddress,
-  getEmailConversationByThreadId,
-  createEmailMessage,
-  createHotLeadAlert,
-  getEmailMessages
-} from '../../../../lib/database';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+  createConversation,
+  addMessage,
+  getConversationMessages,
+  createHotLead,
+  query
+} from '../../../../lib/database.js';
+// Import centralized AI service
+import { generateAIResponse } from '../../../../lib/ai-service.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Hot lead detection keywords (same as your SMS system)
+// Hot lead detection keywords (for backward compatibility)
 const HOT_LEAD_KEYWORDS = [
   'urgent', 'asap', 'immediately', 'emergency', 'deadline',
   'budget', 'price', 'cost', 'money', 'payment', 'buy', 'purchase',
@@ -29,9 +26,9 @@ const HOT_LEAD_KEYWORDS = [
 ];
 
 export async function POST(request) {
+  console.log('📧 === EMAIL WEBHOOK WITH CENTRALIZED AI SERVICE ===');
+  
   try {
-    console.log('📧 Email webhook received');
-    
     const body = await request.json();
     console.log('📧 Email webhook body:', JSON.stringify(body, null, 2));
 
@@ -53,15 +50,22 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Get customer from the business email or clerkUserId
+    // Get customer using YOUR existing function
     let customer;
     if (clerkUserId) {
       customer = await getCustomerByClerkId(clerkUserId);
     } else {
-      // If no clerkUserId, you might need to find customer by business email
-      // This would require adding business_email to your customers table
-      console.log('❌ No customer identification method provided');
-      return NextResponse.json({ error: 'Cannot identify customer' }, { status: 400 });
+      // Try to find customer by business email using YOUR existing table
+      try {
+        const customerResult = await query(
+          'SELECT * FROM customers WHERE email = $1 LIMIT 1',
+          [to]
+        );
+        customer = customerResult.rows[0] || null;
+      } catch (error) {
+        console.log('❌ No customer identification method provided');
+        return NextResponse.json({ error: 'Cannot identify customer' }, { status: 400 });
+      }
     }
 
     if (!customer) {
@@ -69,102 +73,180 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
-    console.log('✅ Customer found:', customer.business_name);
+    console.log('✅ Customer found:', customer.business_name || customer.name);
 
-    // Find or create email conversation
-    let emailConversation;
+    // Find or create email conversation using YOUR existing conversation system
+    let conversation;
     
-    if (threadId) {
-      // Try to find existing conversation by thread ID
-      emailConversation = await getEmailConversationByThreadId(threadId);
+    try {
+      // Check if conversation already exists for this customer/email combo
+      const existingConvResult = await query(`
+        SELECT c.*, COUNT(m.id) as message_count
+        FROM conversations c
+        LEFT JOIN messages m ON c.id = m.conversation_id
+        WHERE c.customer_id = $1 AND c.type = 'email'
+        GROUP BY c.id
+        ORDER BY c.created_at DESC
+        LIMIT 1
+      `, [customer.id]);
+      
+      if (existingConvResult.rows.length > 0) {
+        conversation = existingConvResult.rows[0];
+        console.log('✅ Found existing email conversation:', conversation.id);
+      } else {
+        // Create new conversation using YOUR existing function
+        conversation = await createConversation(customer.clerk_user_id || customer.user_id, customer.id, 'email');
+        console.log('✅ Created new email conversation:', conversation.id);
+      }
+    } catch (convError) {
+      console.error('❌ Error with conversation:', convError);
+      return NextResponse.json({ error: 'Failed to process conversation' }, { status: 500 });
     }
-    
-    if (!emailConversation) {
-      // Try to find existing conversation by customer email
-      emailConversation = await getEmailConversationByAddress(from, customer.id);
+
+    if (!conversation) {
+      console.error('❌ Failed to create or find conversation');
+      return NextResponse.json({ error: 'Failed to process conversation' }, { status: 500 });
     }
-    
-    if (!emailConversation) {
-      // Create new email conversation
-      emailConversation = await createEmailConversation({
-        customer_id: customer.id,
-        customer_email: from,
-        business_email: to,
-        subject: subject || 'New Email Conversation',
+
+    // Save incoming email message using YOUR existing function
+    const incomingMessage = await addMessage(
+      conversation.id,
+      'customer', // sender_type
+      text, // content
+      { 
+        subject: subject,
+        html_content: html,
+        message_id: messageId,
+        in_reply_to: inReplyTo,
         thread_id: threadId,
-        status: 'active'
-      });
+        from_email: from,
+        to_email: to
+      } // metadata
+    );
+
+    if (incomingMessage) {
+      console.log('✅ Incoming email message saved:', incomingMessage.id);
     }
 
-    console.log('✅ Email conversation:', emailConversation.id);
+    // 🎯 USE CENTRALIZED AI SERVICE FOR EMAIL RESPONSE
+    console.log('🧠 Using centralized AI service for email...');
+    
+    // Get conversation history for context using YOUR existing function
+    const messages = await getConversationMessages(conversation.id, 10);
+    const conversationHistory = messages.map(msg => ({
+      role: msg.sender_type === 'customer' ? 'user' : 'assistant',
+      content: msg.content,
+      sender_type: msg.sender_type
+    }));
 
-    // Save incoming email message
-    const incomingMessage = await createEmailMessage({
-      conversation_id: emailConversation.id,
-      sender: 'customer',
-      content: text,
-      html_content: html,
-      message_id: messageId,
-      in_reply_to: inReplyTo
+    // Use centralized AI service to generate response
+    const aiResult = await generateAIResponse({
+      userMessage: text,
+      channel: 'email',
+      customerEmail: to, // business email to identify customer config
+      clerkUserId: clerkUserId,
+      conversationHistory: conversationHistory,
+      channelSpecificData: { subject: subject }
     });
 
-    console.log('✅ Incoming email message saved');
+    console.log('✅ Centralized AI service result:', {
+      success: aiResult.success,
+      hotLead: aiResult.hotLead?.isHotLead || false,
+      score: aiResult.hotLead?.score || 0,
+      knowledgeBaseUsed: aiResult.metadata?.knowledgeBaseUsed || false
+    });
 
-    // Hot lead detection
+    // Handle hot lead detection using YOUR existing function
     const messageText = text.toLowerCase();
-    const matchedKeywords = HOT_LEAD_KEYWORDS.filter(keyword => 
+    const keywordMatches = HOT_LEAD_KEYWORDS.filter(keyword => 
       messageText.includes(keyword.toLowerCase())
     );
 
-    if (matchedKeywords.length > 0) {
-      await createHotLeadAlert({
-        conversation_id: emailConversation.id,
-        customer_id: customer.id,
-        trigger_message: text,
-        keywords_matched: matchedKeywords,
-        status: 'new'
+    // Use centralized AI hot lead detection (more advanced) OR fallback to keywords
+    const isHotLead = aiResult.hotLead?.isHotLead || keywordMatches.length > 0;
+    const hotLeadScore = aiResult.hotLead?.score || (keywordMatches.length * 25);
+
+    if (isHotLead) {
+      // Create hot lead using YOUR existing function
+      const hotLeadAlert = await createHotLead(
+        customer.clerk_user_id || customer.user_id, // userId
+        customer.id, // customerId
+        conversation.id, // conversationId
+        hotLeadScore, // urgencyScore
+        [...keywordMatches, ...(aiResult.hotLead?.keywords || [])], // keywords
+        `Email Hot Lead: ${aiResult.hotLead?.reasoning || 'Keywords detected'}\nFrom: ${from}\nSubject: ${subject}\nMessage: ${text.substring(0, 200)}` // aiAnalysis
+      );
+      
+      console.log('🔥 Hot lead detected in email!', {
+        alertId: hotLeadAlert?.id,
+        keywords: keywordMatches,
+        aiScore: aiResult.hotLead?.score,
+        reasoning: aiResult.hotLead?.reasoning
       });
       
-      console.log('🔥 Hot lead detected in email!', matchedKeywords);
-      
-      // Send business owner alert (you can integrate with your existing SMS alert system)
+      // Send business owner alert
       try {
-        await sendBusinessOwnerEmailAlert(customer, emailConversation, matchedKeywords, text);
+        await sendBusinessOwnerEmailAlert(customer, from, subject, keywordMatches, text, aiResult.hotLead);
       } catch (alertError) {
         console.error('❌ Error sending business owner alert:', alertError);
       }
     }
 
-    // Generate AI response
-    const aiResponse = await generateEmailResponse(customer, emailConversation.id, text);
-    
-    if (aiResponse) {
-      // Save AI response message
-      const responseMessage = await createEmailMessage({
-        conversation_id: emailConversation.id,
-        sender: 'ai',
-        content: aiResponse.text,
-        html_content: aiResponse.html
-      });
+    // Generate and send AI response if centralized service succeeded
+    if (aiResult.success) {
+      // Save AI response message using YOUR existing function
+      const responseMessage = await addMessage(
+        conversation.id,
+        'assistant', // sender_type
+        aiResult.response, // content
+        {
+          subject: inReplyTo ? `Re: ${subject}` : subject,
+          html_content: convertTextToHtml(aiResult.response, customer),
+          in_reply_to: messageId,
+          is_ai_response: true,
+          ai_model: aiResult.metadata?.model || 'gpt-4o-mini',
+          thread_id: threadId
+        } // metadata
+      );
+
+      if (responseMessage) {
+        console.log('✅ AI response message saved:', responseMessage.id);
+      }
 
       // Send AI response email
-      await sendEmailResponse({
+      const emailSent = await sendEmailResponse({
         to: from,
         from: to,
         subject: inReplyTo ? `Re: ${subject}` : subject,
-        text: aiResponse.text,
-        html: aiResponse.html,
+        text: aiResult.response,
+        html: convertTextToHtml(aiResult.response, customer),
         inReplyTo: messageId,
-        threadId: threadId || emailConversation.thread_id
+        threadId: threadId
       });
 
-      console.log('✅ AI response sent');
+      if (emailSent) {
+        console.log('✅ AI response sent using centralized service');
+      }
+    } else {
+      console.error('❌ Centralized AI service failed:', aiResult.error);
     }
 
     return NextResponse.json({ 
       success: true, 
-      conversationId: emailConversation.id,
-      hotLead: matchedKeywords.length > 0 
+      conversationId: conversation.id,
+      messageId: incomingMessage?.id,
+      hotLead: isHotLead,
+      hotLeadScore: hotLeadScore,
+      centralizedAI: aiResult.success,
+      tokensUsed: aiResult.metadata?.tokensUsed || 0,
+      knowledgeBaseUsed: aiResult.metadata?.knowledgeBaseUsed || false,
+      aiResponseSent: aiResult.success,
+      database: {
+        conversationSaved: !!conversation,
+        messageSaved: !!incomingMessage,
+        hotLeadAlerted: isHotLead,
+        usingExistingFunctions: true
+      }
     });
 
   } catch (error) {
@@ -176,74 +258,26 @@ export async function POST(request) {
   }
 }
 
-async function generateEmailResponse(customer, conversationId, customerMessage) {
-  try {
-    // Get conversation history
-    const messages = await getEmailMessages(conversationId);
-    
-    // Build conversation context
-    const conversationHistory = messages.map(msg => ({
-      role: msg.sender === 'customer' ? 'user' : 'assistant',
-      content: msg.content
-    })).slice(-10); // Last 10 messages for context
+// Convert text to HTML (helper function)
+function convertTextToHtml(aiText, customer) {
+  const aiHtml = aiText
+    .split('\n\n')
+    .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
+    .join('');
 
-    // AI personality prompt (same style as your chat system)
-    const systemPrompt = `You are an AI assistant representing ${customer.business_name}. You are professional, helpful, and knowledgeable about the business.
-
-Key guidelines:
-- Be friendly but professional in email communication
-- Provide helpful information about the business services
-- If you cannot answer something specific, offer to connect them with a human team member
-- Keep responses concise but thorough
-- Always maintain a positive, solution-oriented tone
-- Sign emails appropriately for the business
-
-Business: ${customer.business_name}
-Communication method: Email`;
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...conversationHistory,
-        { role: 'user', content: customerMessage }
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-
-    const aiText = response.choices[0]?.message?.content;
-    
-    if (!aiText) {
-      throw new Error('No AI response generated');
-    }
-
-    // Convert to HTML for email
-    const aiHtml = aiText
-      .split('\n\n')
-      .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
-      .join('');
-
-    return {
-      text: aiText,
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          ${aiHtml}
-          <br>
-          <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 12px;">
-            This email was generated by AI on behalf of ${customer.business_name}. 
-            If you need to speak with a human team member, please let us know.
-          </p>
-        </div>
-      `
-    };
-
-  } catch (error) {
-    console.error('❌ Error generating AI email response:', error);
-    return null;
-  }
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      ${aiHtml}
+      <br>
+      <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 12px;">
+        This email was generated by AI on behalf of ${customer.business_name || customer.name}. 
+        If you need to speak with a human team member, please let us know.
+      </p>
+    </div>
+  `;
 }
 
+// Send email response using Resend
 async function sendEmailResponse(emailData) {
   try {
     const result = await resend.emails.send({
@@ -259,7 +293,7 @@ async function sendEmailResponse(emailData) {
       }
     });
 
-    console.log('✅ Email sent via Resend:', result);
+    console.log('✅ Email sent via Resend:', result.id);
     return result;
   } catch (error) {
     console.error('❌ Error sending email:', error);
@@ -267,15 +301,23 @@ async function sendEmailResponse(emailData) {
   }
 }
 
-async function sendBusinessOwnerEmailAlert(customer, emailConversation, keywords, triggerMessage) {
+// Send business owner alert
+async function sendBusinessOwnerEmailAlert(customer, fromEmail, subject, keywords, triggerMessage, aiHotLead) {
   try {
     const alertHtml = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
         <h2 style="color: #e74c3c;">🔥 Hot Lead Alert - Email</h2>
-        <p><strong>Business:</strong> ${customer.business_name}</p>
-        <p><strong>Customer Email:</strong> ${emailConversation.customer_email}</p>
-        <p><strong>Subject:</strong> ${emailConversation.subject}</p>
+        <p><strong>Business:</strong> ${customer.business_name || customer.name}</p>
+        <p><strong>Customer Email:</strong> ${fromEmail}</p>
+        <p><strong>Subject:</strong> ${subject}</p>
         <p><strong>Keywords Detected:</strong> ${keywords.join(', ')}</p>
+        ${aiHotLead ? `
+        <div style="background: #e8f5e8; padding: 10px; border-radius: 5px; margin: 10px 0;">
+          <strong>🤖 AI Analysis:</strong><br>
+          Score: ${aiHotLead.score}/100<br>
+          Reasoning: ${aiHotLead.reasoning}
+        </div>
+        ` : ''}
         
         <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
           <strong>Customer Message:</strong><br>
@@ -283,29 +325,45 @@ async function sendBusinessOwnerEmailAlert(customer, emailConversation, keywords
         </div>
         
         <p style="color: #666; font-size: 14px;">
-          Log in to your IntelliHub dashboard to respond to this hot lead.
+          Log in to your dashboard to respond to this hot lead.
+        </p>
+        <p style="color: #888; font-size: 12px;">
+          Powered by Centralized AI Service v2.0
         </p>
       </div>
     `;
 
     await resend.emails.send({
-      from: 'alerts@intellihub.ai',
+      from: 'alerts@bizzybot.ai',
       to: customer.email,
-      subject: `🔥 Hot Lead Alert: ${customer.business_name}`,
+      subject: `🔥 Hot Lead Alert: ${customer.business_name || customer.name}`,
       html: alertHtml
     });
 
     console.log('✅ Business owner email alert sent');
+    return true;
   } catch (error) {
     console.error('❌ Error sending business owner email alert:', error);
-    throw error;
+    return false;
   }
 }
 
 // GET method for testing
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Email webhook endpoint is active',
+    message: 'Email webhook endpoint with Centralized AI Service',
+    status: 'Active',
+    version: '2.0 - Compatible',
+    features: [
+      '🎯 Centralized AI Service Integration',
+      '📧 Uses existing database functions',
+      '📨 Conversation threading with YOUR functions',
+      '🔥 Advanced hot lead detection',
+      '💾 Compatible with YOUR database schema',
+      '📊 No additional database tables needed',
+      '🤖 AI-powered responses'
+    ],
+    compatibility: 'Uses your existing database.js functions',
     timestamp: new Date().toISOString()
   });
 }
