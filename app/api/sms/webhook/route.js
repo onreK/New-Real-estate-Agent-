@@ -1,8 +1,8 @@
 // app/api/sms/webhook/route.js - UPDATED TO USE CENTRALIZED AI SERVICE
 import { NextResponse } from 'next/server';
 import twilio from 'twilio';
-// 🎯 IMPORT THE CENTRALIZED AI SERVICE
-import { generateSMSResponse } from '../../../lib/ai-service.js';
+// 🎯 IMPORT THE CENTRALIZED AI SERVICE - FIXED IMPORT PATH
+import { generateSMSResponse } from '../../../../lib/ai-service.js';
 
 // Initialize Twilio
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
