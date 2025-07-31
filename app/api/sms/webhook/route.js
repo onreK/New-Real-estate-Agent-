@@ -1,11 +1,8 @@
+// app/api/sms/webhook/route.js - UPDATED TO USE CENTRALIZED AI SERVICE
 import { NextResponse } from 'next/server';
 import twilio from 'twilio';
-import OpenAI from 'openai';
-
-// Initialize OpenAI
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-}) : null;
+// 🎯 IMPORT THE CENTRALIZED AI SERVICE
+import { generateSMSResponse } from '../../../lib/ai-service.js';
 
 // Initialize Twilio
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
@@ -16,56 +13,7 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
 const conversations = new Map();
 const customerConfigs = new Map();
 
-// Hot lead scoring function
-async function analyzeHotLead(messageContent, conversationHistory = []) {
-  if (!openai) {
-    return { isHotLead: false, score: 0, reasoning: 'OpenAI not configured' };
-  }
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a hot lead detection AI. Analyze the customer message and conversation history to determine if this is a hot lead (someone ready to buy/engage).
-
-Score from 0-10 where:
-- 0-3: Just browsing, low intent
-- 4-6: Interested, medium intent  
-- 7-8: Strong interest, high intent
-- 9-10: Ready to buy NOW, urgent intent
-
-Look for:
-🔥 HIGH INTENT (8-10): "want to buy", "ready to purchase", "budget is X", "call me", "need ASAP", "when can we meet"
-🔥 MEDIUM INTENT (5-7): "interested in", "tell me more", "pricing", "available", "schedule"
-🔥 LOW INTENT (1-4): "just looking", "browsing", "general info", "what are your hours"
-
-Respond with JSON: {"score": number, "isHotLead": boolean, "reasoning": "brief explanation", "keywords": ["detected", "keywords"]}`
-        },
-        {
-          role: "user",
-          content: `Current message: "${messageContent}"\n\nConversation history: ${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}`
-        }
-      ],
-      max_tokens: 200,
-      temperature: 0.3
-    });
-
-    const analysis = JSON.parse(completion.choices[0].message.content);
-    return {
-      isHotLead: analysis.score >= 7,
-      score: analysis.score,
-      reasoning: analysis.reasoning,
-      keywords: analysis.keywords || []
-    };
-  } catch (error) {
-    console.error('Hot lead analysis error:', error);
-    return { isHotLead: false, score: 0, reasoning: 'Analysis failed' };
-  }
-}
-
-// Send hot lead alert to business owner
+// Send hot lead alert to business owner (unchanged)
 async function sendHotLeadAlert(customerConfig, leadInfo, messageContent) {
   if (!twilioClient || !customerConfig.businessOwnerPhone || !customerConfig.enableHotLeadAlerts) {
     return false;
@@ -107,46 +55,9 @@ async function sendHotLeadAlert(customerConfig, leadInfo, messageContent) {
   }
 }
 
-// Get AI response with customer configuration
-async function getAIResponse(message, customerConfig, conversationHistory = []) {
-  if (!openai) {
-    return "I'm here to help! However, my AI capabilities are currently being configured. Please try again in a moment.";
-  }
-
-  try {
-    const systemPrompt = `You are ${customerConfig.businessName}'s AI assistant with a ${customerConfig.personality} personality.
-
-Business Information:
-${customerConfig.businessInfo || 'Professional service business focused on helping customers.'}
-
-Key Instructions:
-- Keep responses under 160 characters for SMS
-- Be helpful and ${customerConfig.personality}
-- Focus on ${customerConfig.businessName}
-- If asked about services, mention: "${customerConfig.businessInfo}"
-- Always aim to help and provide value
-- For complex inquiries, offer to connect them with a human representative
-
-Conversation history context: ${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}`;
-
-    const completion = await openai.chat.completions.create({
-      model: customerConfig.model || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
-      max_tokens: 150,
-      temperature: customerConfig.creativity || 0.7
-    });
-
-    return completion.choices[0].message.content.trim();
-  } catch (error) {
-    console.error('AI Response Error:', error);
-    return "Thanks for your message! I'm experiencing some technical difficulties right now, but I'll make sure someone gets back to you soon.";
-  }
-}
-
 export async function POST(request) {
+  console.log('📱 === SMS WEBHOOK WITH CENTRALIZED AI SERVICE ===');
+  
   try {
     const formData = await request.formData();
     const messageBody = formData.get('Body');
@@ -194,22 +105,59 @@ export async function POST(request) {
       direction: 'inbound'
     });
 
-    // Analyze for hot lead
+    // 🎯 USE CENTRALIZED AI SERVICE FOR SMS RESPONSE
+    console.log('🧠 Using centralized AI service for SMS...');
+    
+    // Build conversation history for context
     const conversationHistory = conversation.messages.slice(-6).map(msg => ({
       role: msg.from === fromNumber ? 'user' : 'assistant',
-      content: msg.body
+      content: msg.body,
+      sender_type: msg.from === fromNumber ? 'user' : 'assistant'
     }));
 
-    const hotLeadAnalysis = await analyzeHotLead(messageBody, conversationHistory);
+    let aiResult;
     
-    console.log('🔥 Hot lead analysis:', hotLeadAnalysis);
+    // Check if this is the first message and we have a welcome message
+    if (conversation.messages.length === 1 && customerConfig.welcomeMessage) {
+      // For welcome messages, we still use centralized service for consistency and hot lead detection
+      aiResult = await generateSMSResponse(
+        fromNumber, // phone number
+        messageBody, // user message
+        conversationHistory // conversation history
+      );
+      // But override the response with welcome message if it's the first interaction
+      aiResult.response = customerConfig.welcomeMessage;
+    } else {
+      // Use centralized AI service for regular responses
+      aiResult = await generateSMSResponse(
+        fromNumber, // phone number  
+        messageBody, // user message
+        conversationHistory // conversation history
+      );
+    }
 
-    // Send alert if hot lead detected
-    if (hotLeadAnalysis.isHotLead) {
+    console.log('✅ Centralized AI service result:', {
+      success: aiResult.success,
+      hotLead: aiResult.hotLead?.isHotLead,
+      score: aiResult.hotLead?.score,
+      knowledgeBaseUsed: aiResult.metadata?.knowledgeBaseUsed
+    });
+
+    // Get AI response (fallback if service fails)
+    let aiResponse;
+    if (aiResult.success) {
+      aiResponse = aiResult.response;
+    } else {
+      console.error('❌ Centralized AI service failed:', aiResult.error);
+      aiResponse = "Thanks for your message! I'm experiencing some technical difficulties right now, but I'll make sure someone gets back to you soon.";
+    }
+
+    // Send alert if hot lead detected by centralized service
+    if (aiResult.hotLead?.isHotLead) {
       const alertSent = await sendHotLeadAlert(customerConfig, {
         phone: fromNumber,
-        score: hotLeadAnalysis.score,
-        reasoning: hotLeadAnalysis.reasoning
+        score: aiResult.hotLead.score,
+        reasoning: aiResult.hotLead.reasoning
       }, messageBody);
       
       console.log('📢 Hot lead alert sent:', alertSent);
@@ -217,24 +165,14 @@ export async function POST(request) {
 
     // Capture lead if not already captured
     if (!conversation.leadCaptured) {
-      // Simple lead capture logic
       conversation.leadCaptured = true;
       console.log('📝 New lead captured:', {
         phone: fromNumber,
         source: 'SMS',
         firstMessage: messageBody,
-        hotLeadScore: hotLeadAnalysis.score
+        hotLeadScore: aiResult.hotLead?.score || 0,
+        centralizedAI: true
       });
-    }
-
-    // Get AI response
-    let aiResponse;
-    
-    // Check if this is the first message and we have a welcome message
-    if (conversation.messages.length === 1 && customerConfig.welcomeMessage) {
-      aiResponse = customerConfig.welcomeMessage;
-    } else {
-      aiResponse = await getAIResponse(messageBody, customerConfig, conversationHistory);
     }
 
     // Add AI response to conversation
@@ -245,17 +183,21 @@ export async function POST(request) {
       to: fromNumber,
       timestamp: new Date().toISOString(),
       direction: 'outbound',
-      hotLeadScore: hotLeadAnalysis.score
+      hotLeadScore: aiResult.hotLead?.score || 0,
+      aiServiceUsed: aiResult.success
     });
 
     // Update conversation in storage
     conversations.set(conversationKey, conversation);
 
-    console.log('✅ SMS processed successfully:', {
+    console.log('✅ SMS processed successfully with centralized AI service:', {
       conversationId: conversationKey,
       messageCount: conversation.messages.length,
       aiResponse: aiResponse.slice(0, 50) + '...',
-      hotLeadScore: hotLeadAnalysis.score
+      hotLeadScore: aiResult.hotLead?.score || 0,
+      centralizedAI: aiResult.success,
+      tokensUsed: aiResult.metadata?.tokensUsed || 0,
+      knowledgeBaseUsed: aiResult.metadata?.knowledgeBaseUsed || false
     });
 
     // Return TwiML response (no actual SMS sending yet due to A2P registration)
@@ -263,6 +205,7 @@ export async function POST(request) {
 <Response>
   <!-- SMS Response will be sent once A2P 10DLC registration is complete -->
   <!-- For now, response is logged and stored for testing -->
+  <!-- Powered by Centralized AI Service v2.0 -->
 </Response>`;
 
     return new Response(twimlResponse, {
@@ -298,7 +241,9 @@ export async function GET(request) {
       success: true,
       conversations: conversationArray,
       totalConversations: conversationArray.length,
-      totalMessages: conversationArray.reduce((total, conv) => total + conv.messages.length, 0)
+      totalMessages: conversationArray.reduce((total, conv) => total + conv.messages.length, 0),
+      centralizedAI: true,
+      version: '2.0'
     });
   } catch (error) {
     console.error('❌ SMS GET Error:', error);
