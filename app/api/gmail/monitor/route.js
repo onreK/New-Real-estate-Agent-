@@ -1,9 +1,9 @@
 // app/api/gmail/monitor/route.js - UPDATED TO USE CENTRALIZED AI SERVICE
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { query } from '../../../lib/database.js';
-// 🎯 IMPORT THE CENTRALIZED AI SERVICE
-import { generateGmailResponse } from '../../../lib/ai-service.js';
+import { query } from '../../../../lib/database.js';
+// 🎯 IMPORT THE CENTRALIZED AI SERVICE - FIXED IMPORT PATH
+import { generateGmailResponse } from '../../../../lib/ai-service.js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
