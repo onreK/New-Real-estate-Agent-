@@ -17,10 +17,27 @@ export default function EmailAISettings() {
     alert_hot_leads: true,
     include_availability: true,
     ask_qualifying_questions: true,
-    require_approval: false
+    require_approval: false,
+    // 🎯 NEW: AI Behavior Settings
+    ai_system_prompt: '',
+    custom_instructions: '',
+    always_ask_phone: false,
+    schedule_within_24h: false,
+    highlight_advantages: false,
+    include_call_to_action: true,
+    offer_callback_urgent: true,
+    // ⚙️ NEW: AI Model Settings  
+    ai_model: 'gpt-4o-mini',
+    ai_temperature: 0.7,
+    ai_max_tokens: 350,
+    response_length: 'medium',
+    enable_hot_lead_analysis: true,
+    enable_ai_responses: true
   });
   const [customKeyword, setCustomKeyword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const [customer, setCustomer] = useState(null);
 
   useEffect(() => {
@@ -50,7 +67,12 @@ export default function EmailAISettings() {
         setSettings({
           ...settings,
           ...data.settings,
-          hot_lead_keywords: data.settings.hot_lead_keywords || settings.hot_lead_keywords
+          hot_lead_keywords: data.settings.hot_lead_keywords || settings.hot_lead_keywords,
+          // Map any existing database values
+          ai_system_prompt: data.settings.ai_system_prompt || data.settings.custom_instructions || '',
+          ai_model: data.settings.ai_model || 'gpt-4o-mini',
+          ai_temperature: data.settings.ai_temperature || 0.7,
+          ai_max_tokens: data.settings.ai_max_tokens || 350
         });
       }
     } catch (error) {
@@ -99,25 +121,29 @@ export default function EmailAISettings() {
   };
 
   const testAIResponse = async () => {
+    setTesting(true);
+    setTestResult(null);
     try {
       const response = await fetch('/api/customer/test-ai-response', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: "Hi, I'm urgently looking for a 3-bedroom house under $500K. Can you help me find something ASAP?",
+          message: "Hi, I'm urgently looking for a 3-bedroom house under $500K. Can you help me find something ASAP? I'm ready to buy immediately.",
           settings: settings
         })
       });
 
       const data = await response.json();
       if (data.success) {
-        alert('Test Response:\n\n' + data.response);
+        setTestResult(data);
       } else {
         alert('Error testing AI: ' + data.error);
       }
     } catch (error) {
       console.error('Error testing AI:', error);
       alert('Error testing AI response');
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -134,9 +160,10 @@ export default function EmailAISettings() {
             <div className="flex items-center space-x-4">
               <button
                 onClick={testAIResponse}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                disabled={testing}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                🧪 Test AI Response
+                {testing ? '🧪 Testing...' : '🧪 Test AI Response'}
               </button>
               <Link 
                 href="/email"
@@ -253,6 +280,194 @@ export default function EmailAISettings() {
                 <p className="text-xs text-gray-500 mt-1">
                   Provide specific instructions about how the AI should behave, what to emphasize, etc.
                 </p>
+              </div>
+            </div>
+
+            {/* 🎯 NEW: AI Behavior Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">🎯 AI Behavior Settings</h2>
+              
+              {/* Custom AI Instructions */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Custom AI Instructions
+                </label>
+                <textarea
+                  value={settings.ai_system_prompt}
+                  onChange={(e) => setSettings({...settings, ai_system_prompt: e.target.value})}
+                  rows={6}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Example instructions:
+- Always ask for phone numbers when customers show interest
+- Be enthusiastic about our services and pricing  
+- Try to schedule appointments within 24 hours
+- If someone mentions competitors, highlight our unique advantages
+- Always end responses with a call-to-action
+- For urgent inquiries, offer immediate callback options"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Specific instructions for how the AI should behave and respond to customers
+                </p>
+              </div>
+
+              {/* Response Goals */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Response Goals
+                </label>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={settings.always_ask_phone}
+                      onChange={(e) => setSettings({...settings, always_ask_phone: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">Always ask for phone numbers</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={settings.schedule_within_24h}
+                      onChange={(e) => setSettings({...settings, schedule_within_24h: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">Try to schedule appointments within 24 hours</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={settings.highlight_advantages}
+                      onChange={(e) => setSettings({...settings, highlight_advantages: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">Highlight advantages over competitors</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={settings.include_call_to_action}
+                      onChange={(e) => setSettings({...settings, include_call_to_action: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">Always end with call-to-action</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={settings.offer_callback_urgent}
+                      onChange={(e) => setSettings({...settings, offer_callback_urgent: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">Offer callback for urgent inquiries</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ⚙️ NEW: AI Model Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">⚙️ AI Model Settings</h2>
+              
+              {/* AI Model Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  AI Model
+                </label>
+                <select
+                  value={settings.ai_model}
+                  onChange={(e) => setSettings({...settings, ai_model: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cost-effective)</option>
+                  <option value="gpt-4o">GPT-4o (Most Advanced)</option>
+                  <option value="gpt-4">GPT-4 (Balanced)</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Higher models cost more but provide better responses
+                </p>
+              </div>
+
+              {/* Creativity Level */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Creativity Level: {settings.ai_temperature}
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.1"
+                  value={settings.ai_temperature}
+                  onChange={(e) => setSettings({...settings, ai_temperature: parseFloat(e.target.value)})}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Consistent (0.1)</span>
+                  <span>Balanced (0.7)</span>
+                  <span>Creative (1.0)</span>
+                </div>
+              </div>
+
+              {/* Response Length */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Response Length
+                </label>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { value: 'short', label: 'Short', tokens: '150' },
+                    { value: 'medium', label: 'Medium', tokens: '350' },
+                    { value: 'long', label: 'Long', tokens: '500' }
+                  ].map((length) => (
+                    <button
+                      key={length.value}
+                      onClick={() => {
+                        setSettings({
+                          ...settings, 
+                          response_length: length.value,
+                          ai_max_tokens: parseInt(length.tokens)
+                        });
+                      }}
+                      className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                        settings.response_length === length.value
+                          ? 'border-blue-500 bg-blue-50 text-blue-600'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                      }`}
+                    >
+                      <div className="font-medium">{length.label}</div>
+                      <div className="text-xs text-gray-500">{length.tokens} tokens</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI Features */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  AI Features
+                </label>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={settings.enable_hot_lead_analysis}
+                      onChange={(e) => setSettings({...settings, enable_hot_lead_analysis: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">Enable Hot Lead Analysis</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={settings.enable_ai_responses}
+                      onChange={(e) => setSettings({...settings, enable_ai_responses: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">Enable AI Responses</label>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -410,15 +625,64 @@ export default function EmailAISettings() {
               </button>
             </div>
 
+            {/* 🧪 NEW: AI Testing Panel */}
+            {testResult && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">🧪 Test Results</h3>
+                
+                {/* Hot Lead Analysis */}
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">Hot Lead Score</span>
+                    <span className={`text-sm font-bold ${testResult.hotLead?.score > 60 ? 'text-red-600' : 'text-gray-600'}`}>
+                      {testResult.hotLead?.score || 0}/100
+                    </span>
+                  </div>
+                  <div className={`text-xs px-2 py-1 rounded ${testResult.hotLead?.isHotLead ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {testResult.hotLead?.isHotLead ? '🔥 HOT LEAD' : '❄️ Regular Lead'}
+                  </div>
+                </div>
+
+                {/* AI Response */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">AI Response</label>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+                    {testResult.response}
+                  </div>
+                </div>
+
+                {/* Performance Metrics */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="font-medium text-gray-700">Model</div>
+                    <div className="text-gray-600">{testResult.metadata?.model || settings.ai_model}</div>
+                  </div>
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="font-medium text-gray-700">Tokens</div>
+                    <div className="text-gray-600">{testResult.metadata?.tokensUsed || 0}</div>
+                  </div>
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="font-medium text-gray-700">Knowledge Base</div>
+                    <div className="text-gray-600">{testResult.metadata?.knowledgeBaseUsed ? '✅ Used' : '❌ Not Used'}</div>
+                  </div>
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="font-medium text-gray-700">Channel</div>
+                    <div className="text-gray-600">Email Test</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Quick Actions */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <button
                   onClick={testAIResponse}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                  disabled={testing}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded-lg text-sm font-medium transition-colors"
                 >
-                  🧪 Test AI Response
+                  {testing ? '🧪 Testing...' : '🧪 Test AI Response'}
                 </button>
                 <Link
                   href="/email/manage-templates"
@@ -435,14 +699,46 @@ export default function EmailAISettings() {
               </div>
             </div>
 
+            {/* Current Settings Summary */}
+            <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">⚙️ Current Settings</h3>
+              <div className="space-y-2 text-sm text-blue-800">
+                <div className="flex justify-between">
+                  <span>AI Model:</span>
+                  <span className="font-medium">{settings.ai_model}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Creativity:</span>
+                  <span className="font-medium">{settings.ai_temperature}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Response Length:</span>
+                  <span className="font-medium capitalize">{settings.response_length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Auto-Response:</span>
+                  <span className={`font-medium ${settings.auto_response_enabled ? 'text-green-600' : 'text-red-600'}`}>
+                    {settings.auto_response_enabled ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Hot Lead Analysis:</span>
+                  <span className={`font-medium ${settings.enable_hot_lead_analysis ? 'text-green-600' : 'text-red-600'}`}>
+                    {settings.enable_hot_lead_analysis ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Help */}
             <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
               <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Tips</h3>
               <div className="space-y-3 text-sm text-blue-800">
-                <p>• Be specific about your expertise and specialties</p>
-                <p>• Add keywords customers use when they're ready to buy</p>
-                <p>• Test your AI responses regularly to ensure quality</p>
-                <p>• Enable hot lead alerts to never miss urgent inquiries</p>
+                <p>• Higher creativity = more personality, lower = more consistent</p>
+                <p>• GPT-4o models provide better responses but cost more</p>
+                <p>• Test your AI regularly to ensure quality responses</p>
+                <p>• Custom instructions help the AI follow your business style</p>
+                <p>• Hot lead keywords help identify urgent customers</p>
               </div>
             </div>
           </div>
