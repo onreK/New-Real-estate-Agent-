@@ -1,18 +1,14 @@
-// app/api/facebook/webhook/route.js
+// app/api/facebook/webhook/route.js - UPDATED TO USE CENTRALIZED AI SERVICE
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import OpenAI from 'openai';
-
-// Initialize OpenAI
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-}) : null;
+// 🎯 IMPORT THE CENTRALIZED AI SERVICE
+import { generateFacebookResponse } from '../../../lib/ai-service.js';
 
 // In-memory storage for conversations and customer configs (use database in production)
 const conversations = new Map();
 const customerConfigs = new Map();
 
-// Verify webhook signature
+// Verify webhook signature (unchanged)
 function verifySignature(payload, signature) {
   if (!process.env.FACEBOOK_APP_SECRET || !signature) {
     return true; // Skip verification in development if secret not set
@@ -29,7 +25,7 @@ function verifySignature(payload, signature) {
   );
 }
 
-// Send message via Facebook Messenger
+// Send message via Facebook Messenger (unchanged)
 async function sendFacebookMessage(recipientId, messageText) {
   if (!process.env.FACEBOOK_PAGE_ACCESS_TOKEN) {
     console.log('📨 Demo mode - would send:', messageText);
@@ -64,102 +60,7 @@ async function sendFacebookMessage(recipientId, messageText) {
   }
 }
 
-// Generate AI response
-async function generateAIResponse(messageText, customerConfig, conversationHistory = []) {
-  if (!openai) {
-    return "I'm having a brief technical issue, but I'd be happy to help you. Please try again in a moment.";
-  }
-
-  try {
-    const businessName = customerConfig.businessName || 'My Business';
-    const personality = customerConfig.personality || 'professional';
-    const industry = customerConfig.industry || 'General Business';
-    
-    const systemPrompt = `You are an AI assistant representing ${businessName} via Facebook Messenger.
-
-Business Details:
-- Name: ${businessName}
-- Industry: ${industry}
-- Personality: ${personality}
-
-Guidelines:
-- Keep responses concise (under 160 characters when possible) for Messenger
-- Be ${personality} and helpful
-- If you can't answer something, offer to connect them with a human
-- Use emojis sparingly but appropriately for Messenger
-- Ask clarifying questions to better assist them
-- Focus on ${industry} expertise
-${customerConfig.welcomeMessage ? `- Welcome message: ${customerConfig.welcomeMessage}` : ''}
-
-Previous conversation:
-${conversationHistory.map(msg => `${msg.sender}: ${msg.text}`).join('\n')}`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: messageText }
-      ],
-      max_tokens: 300,
-      temperature: 0.7,
-    });
-
-    return completion.choices[0].message.content.trim();
-  } catch (error) {
-    console.error('❌ AI Generation Error:', error);
-    return "I'm having a brief technical issue, but I'd be happy to help you. Please try again in a moment.";
-  }
-}
-
-// Hot lead analysis
-async function analyzeHotLead(messageContent, conversationHistory = []) {
-  if (!openai) {
-    return { isHotLead: false, score: 0, reasoning: 'OpenAI not configured' };
-  }
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a hot lead detection AI for Facebook Messenger conversations. Analyze if this customer is ready to buy/engage.
-
-Hot lead indicators:
-- Ready to purchase/book/schedule
-- Asking about pricing, availability, timeline
-- Expressing urgency ("need this soon", "ASAP")
-- Providing contact information
-- Asking to speak with someone
-- Specific product/service inquiries
-
-Score 0-10 (10 = extremely hot lead ready to buy)
-Respond with JSON: {"score": X, "reasoning": "brief explanation"}`
-        },
-        {
-          role: "user",
-          content: `Current message: "${messageContent}"\n\nConversation history:\n${conversationHistory.map(msg => `${msg.sender}: ${msg.text}`).join('\n')}`
-        }
-      ],
-      max_tokens: 100,
-      temperature: 0.3,
-    });
-
-    const response = completion.choices[0].message.content.trim();
-    const hotLeadData = JSON.parse(response);
-    
-    return {
-      isHotLead: hotLeadData.score >= 7,
-      score: hotLeadData.score,
-      reasoning: hotLeadData.reasoning
-    };
-  } catch (error) {
-    console.error('❌ Hot Lead Analysis Error:', error);
-    return { isHotLead: false, score: 0, reasoning: 'Analysis failed' };
-  }
-}
-
-// GET endpoint for webhook verification
+// GET endpoint for webhook verification (unchanged)
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('hub.mode');
@@ -177,8 +78,10 @@ export async function GET(request) {
   }
 }
 
-// POST endpoint for receiving messages
+// POST endpoint for receiving messages - UPDATED TO USE CENTRALIZED AI
 export async function POST(request) {
+  console.log('📘 === FACEBOOK WEBHOOK WITH CENTRALIZED AI SERVICE ===');
+  
   try {
     const body = await request.text();
     const signature = request.headers.get('x-hub-signature-256');
@@ -251,18 +154,55 @@ async function handleMessengerEvent(event) {
       welcomeMessage: 'Hi! How can I help you today?'
     };
 
-    // Analyze for hot leads
-    const conversationHistory = conversation.messages.slice(-5); // Last 5 messages
-    const hotLeadAnalysis = await analyzeHotLead(messageText, conversationHistory);
+    // 🎯 USE CENTRALIZED AI SERVICE FOR FACEBOOK RESPONSE
+    console.log('🧠 Using centralized AI service for Facebook...');
+    
+    // Build conversation history for context
+    const conversationHistory = conversation.messages.slice(-5).map(msg => ({
+      role: msg.sender === 'customer' ? 'user' : 'assistant',
+      content: msg.text,
+      sender_type: msg.sender === 'customer' ? 'user' : 'assistant'
+    }));
 
-    // Generate AI response
+    let aiResult;
     let aiResponse;
+    
     if (conversation.messages.length === 1) {
-      // First message - use welcome message
-      aiResponse = customerConfig.welcomeMessage;
+      // First message - use centralized service but might override with welcome message
+      aiResult = await generateFacebookResponse(
+        recipientId, // pageId
+        messageText, // user message
+        conversationHistory // conversation history
+      );
+      
+      // Use welcome message for first interaction if configured
+      if (customerConfig.welcomeMessage) {
+        aiResponse = customerConfig.welcomeMessage;
+      } else {
+        aiResponse = aiResult.success ? aiResult.response : "Hi! How can I help you today?";
+      }
     } else {
-      aiResponse = await generateAIResponse(messageText, customerConfig, conversationHistory);
+      // Regular message - use centralized AI service
+      aiResult = await generateFacebookResponse(
+        recipientId, // pageId
+        messageText, // user message
+        conversationHistory // conversation history
+      );
+      
+      if (aiResult.success) {
+        aiResponse = aiResult.response;
+      } else {
+        console.error('❌ Centralized AI service failed:', aiResult.error);
+        aiResponse = "I'm having a brief technical issue, but I'd be happy to help you. Please try again in a moment.";
+      }
     }
+
+    console.log('✅ Centralized AI service result:', {
+      success: aiResult?.success || false,
+      hotLead: aiResult?.hotLead?.isHotLead || false,
+      score: aiResult?.hotLead?.score || 0,
+      knowledgeBaseUsed: aiResult?.metadata?.knowledgeBaseUsed || false
+    });
 
     // Add AI response to conversation
     conversation.messages.push({
@@ -271,7 +211,8 @@ async function handleMessengerEvent(event) {
       sender: 'ai',
       timestamp: new Date().toISOString(),
       direction: 'outbound',
-      hotLeadScore: hotLeadAnalysis.score
+      hotLeadScore: aiResult?.hotLead?.score || 0,
+      aiServiceUsed: aiResult?.success || false
     });
 
     // Update conversation
@@ -281,28 +222,33 @@ async function handleMessengerEvent(event) {
     // Send AI response via Facebook
     try {
       await sendFacebookMessage(senderId, aiResponse);
-      console.log('✅ Facebook AI response sent successfully');
+      console.log('✅ Facebook AI response sent successfully with centralized service');
     } catch (error) {
       console.error('❌ Failed to send Facebook response:', error);
     }
 
-    // Log hot lead if detected
-    if (hotLeadAnalysis.isHotLead) {
-      console.log('🔥 HOT LEAD DETECTED on Facebook:', {
+    // Log hot lead if detected by centralized service
+    if (aiResult?.hotLead?.isHotLead) {
+      console.log('🔥 HOT LEAD DETECTED on Facebook (centralized AI):', {
         senderId,
-        score: hotLeadAnalysis.score,
-        reasoning: hotLeadAnalysis.reasoning,
-        message: messageText.substring(0, 100)
+        score: aiResult.hotLead.score,
+        reasoning: aiResult.hotLead.reasoning,
+        message: messageText.substring(0, 100),
+        knowledgeBaseUsed: aiResult.metadata?.knowledgeBaseUsed,
+        tokensUsed: aiResult.metadata?.tokensUsed
       });
       
       // TODO: Send notification to business owner
       // You can integrate this with your existing hot lead notification system
     }
 
-    console.log('✅ Facebook message processed successfully:', {
+    console.log('✅ Facebook message processed successfully with centralized AI:', {
       conversationId: conversationKey,
       messageCount: conversation.messages.length,
-      hotLeadScore: hotLeadAnalysis.score
+      hotLeadScore: aiResult?.hotLead?.score || 0,
+      centralizedAI: aiResult?.success || false,
+      tokensUsed: aiResult?.metadata?.tokensUsed || 0,
+      knowledgeBaseUsed: aiResult?.metadata?.knowledgeBaseUsed || false
     });
   }
 
