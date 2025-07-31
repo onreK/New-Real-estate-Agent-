@@ -1,8 +1,8 @@
 // app/api/facebook/webhook/route.js - UPDATED TO USE CENTRALIZED AI SERVICE
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-// 🎯 IMPORT THE CENTRALIZED AI SERVICE
-import { generateFacebookResponse } from '../../../lib/ai-service.js';
+// 🎯 IMPORT THE CENTRALIZED AI SERVICE - FIXED IMPORT PATH
+import { generateFacebookResponse } from '../../../../lib/ai-service.js';
 
 // In-memory storage for conversations and customer configs (use database in production)
 const conversations = new Map();
