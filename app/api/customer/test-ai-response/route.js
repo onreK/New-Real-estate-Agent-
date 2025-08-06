@@ -1,7 +1,9 @@
-// app/api/customer/test-ai-response/route.js - Test AI Response with Current Settings
+// app/api/customer/test-ai-response/route.js - UPDATED WITH EVENT TRACKING
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
 import { generateEmailResponse } from '@/lib/ai-service.js';
+import { analyzeBehaviors, trackBehaviorEvents } from '@/lib/behavior-analyzer.js';
+import { query } from '@/lib/database.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,8 +26,21 @@ export async function POST(request) {
     console.log('🧪 Testing AI response for user:', user.emailAddresses?.[0]?.emailAddress);
 
     try {
-      // Use your centralized AI service to generate response
+      // Get customer ID for tracking
       const customerEmail = user.emailAddresses?.[0]?.emailAddress;
+      let customerId = null;
+      
+      try {
+        const customerResult = await query(
+          'SELECT id FROM customers WHERE email = $1 OR clerk_user_id = $2 LIMIT 1',
+          [customerEmail, user.id]
+        );
+        if (customerResult.rows.length > 0) {
+          customerId = customerResult.rows[0].id;
+        }
+      } catch (dbError) {
+        console.log('Could not get customer ID:', dbError.message);
+      }
       
       // Generate AI response using centralized service
       const aiResult = await generateEmailResponse(
@@ -39,11 +54,36 @@ export async function POST(request) {
         throw new Error(aiResult.error || 'AI service failed');
       }
 
+      // 🎯 TRACK BEHAVIOR EVENTS
+      let eventsTracked = 0;
+      let trackedEvents = [];
+      let detectedBehaviors = [];
+      
+      if (customerId) {
+        // Track events in database
+        const trackingResult = await trackBehaviorEvents(
+          customerId,
+          aiResult.response,
+          message,
+          'email_test'
+        );
+        eventsTracked = trackingResult.eventsTracked || 0;
+        trackedEvents = trackingResult.events || [];
+        console.log(`📊 Test tracked ${eventsTracked} events`);
+      } else {
+        // Just analyze behaviors without saving (no customer ID)
+        detectedBehaviors = analyzeBehaviors(aiResult.response, message, 'email_test');
+        console.log(`📊 Detected ${detectedBehaviors.length} behaviors (not saved - no customer ID)`);
+      }
+
       console.log('✅ AI test response generated successfully');
 
       return NextResponse.json({
         success: true,
         response: aiResult.response,
+        eventsTracked: eventsTracked, // 🎯 NOW INCLUDED
+        trackedEvents: trackedEvents, // 🎯 NOW INCLUDED
+        detectedBehaviors: customerId ? trackedEvents : detectedBehaviors, // Show what was detected
         hotLead: {
           isHotLead: aiResult.hotLead?.isHotLead || false,
           score: aiResult.hotLead?.score || 0,
@@ -57,7 +97,8 @@ export async function POST(request) {
           responseTime: Date.now(),
           temperature: settings?.ai_temperature || 0.7,
           maxTokens: settings?.ai_max_tokens || 350,
-          channel: 'email_test'
+          channel: 'email_test',
+          customerId: customerId // Show if customer was found
         },
         testSettings: {
           ai_model: settings?.ai_model || 'gpt-4o-mini',
@@ -79,6 +120,8 @@ export async function POST(request) {
       return NextResponse.json({
         success: true,
         response: fallbackResponse.response,
+        eventsTracked: 0,
+        trackedEvents: [],
         hotLead: fallbackResponse.hotLead,
         metadata: {
           model: 'fallback',
@@ -141,21 +184,14 @@ function generateFallbackTestResponse(message, settings) {
     response += `I'd love to schedule a time to discuss this within the next 24 hours. `;
   }
 
-  // Add call to action
-  if (settings?.include_call_to_action !== false) {
-    response += `Would you like to schedule a brief consultation to discuss your needs in more detail?`;
-  } else {
-    response += `Please let me know how I can best assist you.`;
-  }
+  response += `How can I best assist you today?`;
 
   return {
-    response: response.trim(),
+    response: response,
     hotLead: {
-      isHotLead,
-      score,
-      reasoning: isHotLead 
-        ? `Detected hot lead keywords: ${foundKeywords.join(', ')}` 
-        : 'No urgent keywords detected'
+      isHotLead: isHotLead,
+      score: score,
+      reasoning: isHotLead ? `Hot lead detected: ${foundKeywords.join(', ')}` : 'Standard inquiry'
     }
   };
 }
