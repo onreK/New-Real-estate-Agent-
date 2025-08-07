@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { SignOutButton, useUser } from '@clerk/nextjs';
-import AnalyticsDashboard from '@/components/AnalyticsDashboard'; // ADD THIS IMPORT
+// REMOVED: import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { 
   Users, MessageCircle, TrendingUp, Zap, Phone, Mail, 
   Calendar, BarChart3, DollarSign, Clock, Target, Sparkles,
   ArrowUpRight, ArrowDownRight, Activity, Star, Shield,
   Crown, CheckCircle, AlertTriangle, Settings, RefreshCw,
-  Send, FileText, Bot, Inbox, AlertCircle
+  Send, FileText, Bot, Inbox, AlertCircle, ChevronRight, Info
 } from 'lucide-react';
 
 export default function MainDashboard() {
@@ -742,10 +742,56 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* NEW: Analytics Tab */}
+        {/* UPDATED: Analytics Tab - Now Links to Dedicated Page */}
         {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            <AnalyticsDashboard />
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-12">
+              <div className="text-center max-w-2xl mx-auto">
+                <Activity className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+                <h2 className="text-3xl font-bold text-white mb-4">AI Analytics Dashboard</h2>
+                <p className="text-gray-300 mb-8">
+                  Track your AI&apos;s behavior patterns, measure effectiveness, and understand the business value generated across all channels.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <TrendingUp className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                    <h3 className="text-white font-medium">Effectiveness Score</h3>
+                    <p className="text-gray-400 text-sm">Measure AI performance</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <DollarSign className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                    <h3 className="text-white font-medium">Business Value</h3>
+                    <p className="text-gray-400 text-sm">Track ROI & revenue impact</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <BarChart3 className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                    <h3 className="text-white font-medium">Behavior Tracking</h3>
+                    <p className="text-gray-400 text-sm">See what AI actually does</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => window.location.href = '/analytics'}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-lg font-medium transition-all transform hover:scale-105"
+                >
+                  Open Analytics Dashboard
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
+                <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-left">
+                      <p className="text-blue-400 font-medium mb-1">Event-Based Analytics</p>
+                      <p className="text-gray-300 text-sm">
+                        Analytics tracks actual AI behaviors instead of predicted settings. Every interaction is analyzed for phone requests, appointments, hot leads, and more.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
