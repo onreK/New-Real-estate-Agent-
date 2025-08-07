@@ -41,7 +41,10 @@ import {
   Phone,
   Archive,
   X,
-  BookOpen
+  BookOpen,
+  Power,
+  Brain,
+  Info
 } from 'lucide-react';
 
 export default function CompleteEmailSystem() {
@@ -72,7 +75,7 @@ export default function CompleteEmailSystem() {
   const [saving, setSaving] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   
-  // 🧪 NEW: AI Testing states
+  // 🧪 AI Testing states
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
   
@@ -89,39 +92,34 @@ export default function CompleteEmailSystem() {
     refreshInterval: 30
   });
 
-  // 🎯 ENHANCED AI Settings - Added all new fields
+  // 🎯 SIMPLIFIED AI Settings - Removed all conflicting toggles
   const [aiSettings, setAiSettings] = useState({
-    // ✅ Existing fields - preserved
+    // ✅ MASTER TOGGLE - The only one that matters
+    enableAIResponses: true,
+    
+    // Communication basics
     communicationTone: 'professional',
     knowledgeBase: '',
     hotLeadKeywords: ['urgent', 'asap', 'budget', 'ready'],
-    behaviors: {
-      includeAvailability: true,
-      askQualifyingQuestions: true,
-      hotLeadAlerts: true,
-      smsLeadAlerts: false
-    },
     
-    // 🎯 NEW: AI Behavior Settings
+    // 🎯 SIMPLIFIED: Custom instructions replace all toggles
     customInstructions: '',
-    alwaysAskPhone: false,
-    scheduleWithin24h: false,
-    highlightAdvantages: false,
-    includeCallToAction: true,
-    offerCallbackUrgent: true,
     
-    // ⚙️ NEW: AI Model Settings
+    // ⚙️ AI Model Settings (kept)
     aiModel: 'gpt-4o-mini',
     creativity: 0.7,
     responseLength: 'medium',
-    enableHotLeadAnalysis: true,
-    enableAIResponses: true
+    
+    // Basic behavior flags (simplified)
+    behaviors: {
+      hotLeadAlerts: true,
+      smsLeadAlerts: false
+    }
   });
 
   // Automation Settings - FULLY PRESERVED
   const [automationSettings, setAutomationSettings] = useState({
     responseControl: {
-      aiResponses: true,
       autoSend: false,
       businessHours: true,
       urgentPriority: true
@@ -314,7 +312,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 ENHANCED: Load AI Settings with new fields
+  // 🎯 SIMPLIFIED: Load AI Settings
   const loadAISettings = async () => {
     try {
       const response = await fetch('/api/customer/ai-settings');
@@ -330,33 +328,20 @@ export default function CompleteEmailSystem() {
           
           knowledgeBaseRef.current = data.settings.knowledge_base || '';
           
-          // Update normal state for non-problematic inputs including NEW fields
+          // SIMPLIFIED: Only load essential settings
           setAiSettings(prev => ({
             ...prev,
-            // ✅ Existing fields
+            enableAIResponses: data.settings.enable_ai_responses !== false,
             communicationTone: data.settings.tone || 'professional',
             knowledgeBase: data.settings.knowledge_base || '',
-            behaviors: {
-              ...prev.behaviors,
-              includeAvailability: data.settings.include_availability !== false,
-              askQualifyingQuestions: data.settings.ask_qualifying_questions !== false,
-              hotLeadAlerts: data.settings.alert_hot_leads !== false
-            },
-            
-            // 🎯 NEW: AI Behavior Settings
-            customInstructions: data.settings.ai_system_prompt || data.settings.custom_instructions || '',
-            alwaysAskPhone: data.settings.always_ask_phone === true,
-            scheduleWithin24h: data.settings.schedule_within_24h === true,
-            highlightAdvantages: data.settings.highlight_advantages === true,
-            includeCallToAction: data.settings.include_call_to_action !== false,
-            offerCallbackUrgent: data.settings.offer_callback_urgent !== false,
-            
-            // ⚙️ NEW: AI Model Settings
+            customInstructions: data.settings.custom_instructions || data.settings.ai_system_prompt || '',
             aiModel: data.settings.ai_model || 'gpt-4o-mini',
             creativity: parseFloat(data.settings.ai_temperature) || 0.7,
             responseLength: data.settings.response_length || 'medium',
-            enableHotLeadAnalysis: data.settings.enable_hot_lead_analysis !== false,
-            enableAIResponses: data.settings.enable_ai_responses !== false
+            behaviors: {
+              hotLeadAlerts: data.settings.alert_hot_leads !== false,
+              smsLeadAlerts: data.settings.sms_lead_alerts === true
+            }
           }));
 
           if (data.settings.hot_lead_keywords) {
@@ -376,49 +361,42 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 ENHANCED: Save All Settings with new fields
+  // 🎯 SIMPLIFIED: Save Settings
   const saveAllSettings = async () => {
     setSaving(true);
     try {
-      // Prepare the settings using both refs and state including NEW fields
+      // SIMPLIFIED settings to save
       const settingsToSave = {
-        // ✅ Existing fields
+        // Master control
+        enable_ai_responses: aiSettings.enableAIResponses,
+        
+        // Business basics
         tone: aiSettings.communicationTone,
         expertise: businessProfileRef.current.industry,
         specialties: businessProfileRef.current.expertise,
-        response_style: 'Knowledge-based responses with business expertise',
         knowledge_base: knowledgeBaseRef.current,
-        hot_lead_keywords: aiSettings.hotLeadKeywords,
-        auto_response_enabled: automationSettings.responseControl.aiResponses,
-        alert_hot_leads: aiSettings.behaviors.hotLeadAlerts,
-        include_availability: aiSettings.behaviors.includeAvailability,
-        ask_qualifying_questions: aiSettings.behaviors.askQualifyingQuestions,
-        require_approval: !automationSettings.responseControl.autoSend,
         
-        // 🎯 NEW: AI Behavior Settings
-        ai_system_prompt: aiSettings.customInstructions,
+        // Custom instructions (replaces all toggles)
         custom_instructions: aiSettings.customInstructions,
-        always_ask_phone: aiSettings.alwaysAskPhone,
-        schedule_within_24h: aiSettings.scheduleWithin24h,
-        highlight_advantages: aiSettings.highlightAdvantages,
-        include_call_to_action: aiSettings.includeCallToAction,
-        offer_callback_urgent: aiSettings.offerCallbackUrgent,
+        ai_system_prompt: aiSettings.customInstructions,
         
-        // ⚙️ NEW: AI Model Settings
+        // AI Model Settings
         ai_model: aiSettings.aiModel,
         ai_temperature: aiSettings.creativity,
-        ai_max_tokens: aiSettings.responseLength === 'short' ? 150 : aiSettings.responseLength === 'long' ? 500 : 350,
         response_length: aiSettings.responseLength,
-        enable_hot_lead_analysis: aiSettings.enableHotLeadAnalysis,
-        enable_ai_responses: aiSettings.enableAIResponses,
         
-        // Enhanced settings
+        // Basic alerts
+        alert_hot_leads: aiSettings.behaviors.hotLeadAlerts,
+        sms_lead_alerts: aiSettings.behaviors.smsLeadAlerts,
+        hot_lead_keywords: aiSettings.hotLeadKeywords,
+        
+        // Automation
+        require_approval: !automationSettings.responseControl.autoSend,
         email_filtering: automationSettings.emailFiltering,
-        response_rules: automationSettings.responseControl,
-        monitoring: dashboardSettings
+        response_rules: automationSettings.responseControl
       };
 
-      console.log('💾 Saving enhanced settings:', settingsToSave);
+      console.log('💾 Saving simplified settings:', settingsToSave);
 
       const response = await fetch('/api/customer/ai-settings', {
         method: 'POST',
@@ -428,16 +406,12 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Enhanced settings saved successfully:', result);
-        alert('✅ Enhanced AI settings saved successfully! Your AI now has advanced behavior and model configurations.');
+        console.log('✅ Settings saved successfully:', result);
+        alert('✅ AI settings saved successfully! Your AI will follow your custom instructions.');
       } else {
         const errorData = await response.json();
         console.error('❌ Failed to save settings:', errorData);
-        if (errorData.missing_column === 'knowledge_base') {
-          alert('❌ Database needs to be updated! Please contact support.');
-        } else {
-          alert(`❌ Failed to save settings: ${errorData.error || 'Unknown error'}`);
-        }
+        alert(`❌ Failed to save settings: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Error saving settings:', error);
@@ -447,7 +421,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🧪 NEW: Test AI Response function
+  // 🧪 Test AI Response function
   const testAIResponse = async () => {
     setTesting(true);
     setTestResult(null);
@@ -461,12 +435,10 @@ export default function CompleteEmailSystem() {
             ...aiSettings,
             business_name: businessProfileRef.current.name,
             knowledge_base: knowledgeBaseRef.current,
-            ai_system_prompt: aiSettings.customInstructions,
+            custom_instructions: aiSettings.customInstructions,
             ai_model: aiSettings.aiModel,
             ai_temperature: aiSettings.creativity,
-            ai_max_tokens: aiSettings.responseLength === 'short' ? 150 : aiSettings.responseLength === 'long' ? 500 : 350,
             response_length: aiSettings.responseLength,
-            enable_hot_lead_analysis: aiSettings.enableHotLeadAnalysis,
             enable_ai_responses: aiSettings.enableAIResponses
           }
         })
@@ -778,9 +750,9 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* IMPROVED Layout: 40% Conversations / 60% Email Preview - FULLY RESTORED */}
+      {/* Email conversations and preview sections - ALL PRESERVED */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* CONVERSATIONS LIST - NOW 40% WIDTH (2/5 columns) */}
+        {/* CONVERSATIONS LIST - 40% WIDTH */}
         <div className="lg:col-span-2">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full flex flex-col">
             <div className="p-6 pb-4 flex-shrink-0">
@@ -883,7 +855,7 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* EMAIL PREVIEW/RESPONSE - NOW 60% WIDTH (3/5 columns) - FULLY RESTORED */}
+        {/* EMAIL PREVIEW/RESPONSE - 60% WIDTH - FULLY PRESERVED */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
@@ -901,7 +873,7 @@ export default function CompleteEmailSystem() {
                 </p>
               </div>
               <div className="px-6 pb-6 space-y-6">
-                {/* Email Content Preview - Much more space now! */}
+                {/* Email Content Preview */}
                 <div className="bg-white/5 rounded-xl p-6 border border-white/10 backdrop-blur-sm">
                   <p className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
@@ -912,21 +884,21 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* Action Buttons - Larger and better spaced */}
+                {/* Action Buttons */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, true)}
-                    disabled={responding}
+                    disabled={responding || !aiSettings.enableAIResponses}
                     variant="outline"
-                    className="h-14 flex items-center justify-center gap-3 text-base bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg"
+                    className="h-14 flex items-center justify-center gap-3 text-base bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg disabled:opacity-50"
                   >
                     <Eye className="w-5 h-5" />
                     Preview AI Response
                   </Button>
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, false)}
-                    disabled={responding}
-                    className="h-14 flex items-center justify-center gap-3 text-base bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={responding || !aiSettings.enableAIResponses}
+                    className="h-14 flex items-center justify-center gap-3 text-base bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                   >
                     {responding ? (
                       <>
@@ -942,7 +914,19 @@ export default function CompleteEmailSystem() {
                   </Button>
                 </div>
 
-                {/* Info Box - More detailed */}
+                {/* AI Status Warning */}
+                {!aiSettings.enableAIResponses && (
+                  <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-yellow-400" />
+                      <p className="text-yellow-300 text-sm">
+                        AI responses are currently disabled. Enable them in AI Settings to send responses.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Info Box */}
                 <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
@@ -951,14 +935,14 @@ export default function CompleteEmailSystem() {
                     <div className="flex-1">
                       <p className="text-base font-medium text-blue-200 mb-2">AI Response Ready</p>
                       <p className="text-sm text-blue-300 leading-relaxed">
-                        The AI will generate a professional response based on your business knowledge and communication settings. 
+                        The AI will generate a professional response based on your business knowledge and custom instructions. 
                         You can preview the response before sending to ensure it meets your standards.
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Email metadata - More space for details */}
+                {/* Email metadata */}
                 <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
                   <h4 className="font-medium text-white">Email Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -975,7 +959,7 @@ export default function CompleteEmailSystem() {
               </div>
             </div>
           ) : (
-            /* Empty Selection State - Better use of space */
+            /* Empty Selection State */
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
               <div className="p-16 text-center flex flex-col items-center justify-center h-full min-h-[500px]">
                 <div className="w-24 h-24 mx-auto mb-8 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -1008,10 +992,40 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🎯 ENHANCED AI SETTINGS TAB - With all new sections
+  // 🎯 SIMPLIFIED AI SETTINGS TAB
   const AISettingsTab = () => (
     <div className="space-y-6">
-      {/* Business Profile - FIXED inputs using refs */}
+      {/* MASTER AI TOGGLE - The Main Control */}
+      <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Power className={`w-8 h-8 ${aiSettings.enableAIResponses ? 'text-green-400' : 'text-gray-400'}`} />
+            <div>
+              <h3 className="text-xl font-semibold text-white">AI Auto-Response</h3>
+              <p className="text-gray-300">Master switch to enable or disable AI email responses</p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={aiSettings.enableAIResponses}
+              onChange={(e) => handleAiSettingsChange('enableAIResponses', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-14 h-7 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-500"></div>
+          </label>
+        </div>
+        {!aiSettings.enableAIResponses && (
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-yellow-400 text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              AI responses are currently disabled. Enable to start automated responses.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Business Profile */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building className="w-5 h-5 text-blue-400" />
@@ -1058,227 +1072,112 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Communication Tone - Normal state management (no focus issues here) */}
+      {/* Communication Tone */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <MessageCircle className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">Communication Tone</h3>
+          <h3 className="text-lg font-semibold text-white">Communication Settings</h3>
         </div>
-        <p className="text-gray-300 mb-6">How should the AI communicate with customers?</p>
-        <div>
-          <label className="block text-sm font-medium mb-3 text-gray-300">Select Tone</label>
-          <div className="grid grid-cols-3 gap-3">
-            {['professional', 'casual', 'formal'].map(tone => (
-              <Button
-                key={tone}
-                variant={aiSettings.communicationTone === tone ? "default" : "outline"}
-                onClick={() => handleAiSettingsChange('communicationTone', tone)}
-                className={`capitalize ${
-                  aiSettings.communicationTone === tone
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                }`}
-              >
-                {tone}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 🎯 NEW: AI Behavior Settings */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Target className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">AI Behavior Settings</h3>
-        </div>
-        <p className="text-gray-300 mb-6">Configure how the AI should behave and respond to customers</p>
         
-        {/* Custom AI Instructions */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2 text-gray-300">
-            Custom AI Instructions
-          </label>
-          <textarea
-            value={aiSettings.customInstructions || ''}
-            onChange={(e) => handleAiSettingsChange('customInstructions', e.target.value)}
-            rows={6}
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
-            placeholder="Example instructions:
-- Always ask for phone numbers when customers show interest
-- Be enthusiastic about our services and pricing  
-- Try to schedule appointments within 24 hours
-- If someone mentions competitors, highlight our unique advantages
-- Always end responses with a call-to-action
-- For urgent inquiries, offer immediate callback options"
-          />
-          <p className="text-xs text-gray-400 mt-1">
-            Specific instructions for how the AI should behave and respond to customers
-          </p>
-        </div>
-
-        {/* Response Goals */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-3 text-gray-300">
-            Response Goals
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[
-              { key: 'alwaysAskPhone', label: 'Always ask for phone numbers', desc: 'Request contact info from interested customers' },
-              { key: 'scheduleWithin24h', label: 'Schedule within 24 hours', desc: 'Try to book appointments quickly' },
-              { key: 'highlightAdvantages', label: 'Highlight advantages', desc: 'Emphasize benefits over competitors' },
-              { key: 'includeCallToAction', label: 'Include call-to-action', desc: 'Always end with next steps' },
-              { key: 'offerCallbackUrgent', label: 'Offer callback for urgent', desc: 'Provide immediate response options' }
-            ].map(({ key, label, desc }) => (
-              <div key={key} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-                <input
-                  type="checkbox"
-                  checked={aiSettings[key] || false}
-                  onChange={(e) => handleAiSettingsChange(key, e.target.checked)}
-                  className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <label className="text-sm font-medium text-white">{label}</label>
-                  <p className="text-xs text-gray-400">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ⚙️ NEW: AI Model Settings */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Settings className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">AI Model Settings</h3>
-        </div>
-        <p className="text-gray-300 mb-6">Configure AI model behavior and performance</p>
-        
-        {/* AI Model Selection */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2 text-gray-300">
-            AI Model
-          </label>
-          <select
-            value={aiSettings.aiModel || 'gpt-4o-mini'}
-            onChange={(e) => handleAiSettingsChange('aiModel', e.target.value)}
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:border-blue-400 focus:outline-none"
-          >
-            <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cost-effective)</option>
-            <option value="gpt-4o">GPT-4o (Most Advanced)</option>
-            <option value="gpt-4">GPT-4 (Balanced)</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
-          </select>
-          <p className="text-xs text-gray-400 mt-1">
-            Higher models cost more but provide better responses
-          </p>
-        </div>
-
-        {/* Creativity Level */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2 text-gray-300">
-            Creativity Level: {aiSettings.creativity || 0.7}
-          </label>
-          <input
-            type="range"
-            min="0.1"
-            max="1.0"
-            step="0.1"
-            value={aiSettings.creativity || 0.7}
-            onChange={(e) => handleAiSettingsChange('creativity', parseFloat(e.target.value))}
-            className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
-          />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>Consistent (0.1)</span>
-            <span>Balanced (0.7)</span>
-            <span>Creative (1.0)</span>
-          </div>
-        </div>
-
-        {/* Response Length */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2 text-gray-300">
-            Response Length
-          </label>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { value: 'short', label: 'Short', tokens: '150' },
-              { value: 'medium', label: 'Medium', tokens: '350' },
-              { value: 'long', label: 'Long', tokens: '500' }
-            ].map((length) => (
-              <Button
-                key={length.value}
-                variant={aiSettings.responseLength === length.value ? "default" : "outline"}
-                onClick={() => handleAiSettingsChange('responseLength', length.value)}
-                className={`${
-                  aiSettings.responseLength === length.value
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="font-medium">{length.label}</div>
-                  <div className="text-xs opacity-75">{length.tokens} tokens</div>
-                </div>
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* AI Features */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-3 text-gray-300">
-            AI Features
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-              <input
-                type="checkbox"
-                checked={aiSettings.enableHotLeadAnalysis !== false}
-                onChange={(e) => handleAiSettingsChange('enableHotLeadAnalysis', e.target.checked)}
-                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-              />
-              <div>
-                <label className="text-sm font-medium text-white">Enable Hot Lead Analysis</label>
-                <p className="text-xs text-gray-400">AI analyzes messages for buying intent</p>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium mb-3 text-gray-300">Tone</label>
+            <div className="grid grid-cols-3 gap-3">
+              {['professional', 'casual', 'formal'].map(tone => (
+                <Button
+                  key={tone}
+                  variant={aiSettings.communicationTone === tone ? "default" : "outline"}
+                  onClick={() => handleAiSettingsChange('communicationTone', tone)}
+                  className={`capitalize ${
+                    aiSettings.communicationTone === tone
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
+                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                  }`}
+                >
+                  {tone}
+                </Button>
+              ))}
             </div>
-            <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-              <input
-                type="checkbox"
-                checked={aiSettings.enableAIResponses !== false}
-                onChange={(e) => handleAiSettingsChange('enableAIResponses', e.target.checked)}
-                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-              />
-              <div>
-                <label className="text-sm font-medium text-white">Enable AI Responses</label>
-                <p className="text-xs text-gray-400">Allow AI to generate automatic responses</p>
-              </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-3 text-gray-300">Response Length</label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { value: 'short', label: 'Short' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'long', label: 'Long' }
+              ].map((length) => (
+                <Button
+                  key={length.value}
+                  variant={aiSettings.responseLength === length.value ? "default" : "outline"}
+                  onClick={() => handleAiSettingsChange('responseLength', length.value)}
+                  className={`${
+                    aiSettings.responseLength === length.value
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
+                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                  }`}
+                >
+                  {length.label}
+                </Button>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* FIXED KNOWLEDGE BASE - Using ref to prevent re-renders */}
+      {/* 🎯 SIMPLIFIED: Custom AI Instructions (Replaces ALL toggles) */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="w-5 h-5 text-green-400" />
+          <h3 className="text-lg font-semibold text-white">Custom AI Instructions</h3>
+        </div>
+        <p className="text-gray-300 mb-4">
+          Tell the AI exactly how to behave. Be specific about when to ask for phone numbers, 
+          schedule appointments, identify hot leads, etc.
+        </p>
+        
+        <textarea
+          value={aiSettings.customInstructions || ''}
+          onChange={(e) => handleAiSettingsChange('customInstructions', e.target.value)}
+          rows={8}
+          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
+          placeholder={`Example instructions:
+- Always ask for phone numbers when someone expresses interest
+- Schedule appointments within 24 hours when possible  
+- Identify hot leads by urgency keywords like "ASAP" or "immediately"
+- Keep responses under 3 sentences unless detailed information is requested
+- Always mention our 24/7 availability
+- Include pricing only when directly asked
+- Highlight our unique advantages over competitors
+- End every response with a clear call-to-action
+- For urgent inquiries, offer immediate callback options`}
+        />
+        
+        <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <p className="text-blue-400 text-sm flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            The AI will follow these instructions for every email response. Be clear and specific.
+          </p>
+        </div>
+      </div>
+
+      {/* Business Knowledge Base */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <BookOpen className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Business Knowledge Base</h3>
         </div>
         <p className="text-gray-300 mb-6">
-          Add specific information about your services, pricing, processes, and policies so the AI can answer customer questions accurately
+          Add specific information about your services, pricing, processes, and policies
         </p>
         <div>
-          <label className="block text-sm font-medium mb-3 text-gray-300">
-            Business Information (200-1000 characters recommended)
-          </label>
           <textarea
             defaultValue={knowledgeBaseRef.current}
             onChange={(e) => {
               knowledgeBaseRef.current = e.target.value;
             }}
-            placeholder="Example: We offer full-service real estate including buying, selling, and property management in downtown and suburban areas. Our process includes free market analysis, professional photography, and 24/7 client support. We charge 3% commission for sellers and our buyers get services free. We specialize in first-time homebuyers and luxury properties over $500k. Our office hours are Monday-Friday 9am-6pm, weekends by appointment. We serve the Greater Metro area and surrounding counties..."
+            placeholder="Example: We offer full-service real estate including buying, selling, and property management. Our commission is 3% for sellers. We specialize in luxury properties over $500k. Office hours: Mon-Fri 9am-6pm, weekends by appointment. We serve the Greater Metro area..."
             rows={8}
             maxLength={2000}
             className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none resize-none"
@@ -1292,27 +1191,59 @@ export default function CompleteEmailSystem() {
             </p>
           </div>
         </div>
-        
-        {knowledgeBaseRef.current.length > 0 && (
-          <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3 mt-4">
-            <p className="text-sm text-green-300 font-medium">✅ Knowledge Base Active</p>
-            <p className="text-xs text-green-400 mt-1">
-              AI can now answer specific questions about your business based on this information
-            </p>
-          </div>
-        )}
-        
-        {knowledgeBaseRef.current.length === 0 && (
-          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 mt-4">
-            <p className="text-sm text-yellow-300 font-medium">⚠️ Knowledge Base Empty</p>
-            <p className="text-xs text-yellow-400 mt-1">
-              AI will give generic responses without business-specific knowledge
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* Hot Lead Keywords - Normal state management */}
+      {/* AI Model Settings */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Bot className="w-5 h-5 text-indigo-400" />
+          <h3 className="text-lg font-semibold text-white">AI Model Settings</h3>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* AI Model Selection */}
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">
+              AI Model
+            </label>
+            <select
+              value={aiSettings.aiModel || 'gpt-4o-mini'}
+              onChange={(e) => handleAiSettingsChange('aiModel', e.target.value)}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:border-blue-400 focus:outline-none"
+            >
+              <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cost-effective)</option>
+              <option value="gpt-4o">GPT-4o (Most Advanced)</option>
+              <option value="gpt-4">GPT-4 (Balanced)</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Higher models cost more but provide better responses
+            </p>
+          </div>
+
+          {/* Creativity Level */}
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">
+              Creativity Level: {aiSettings.creativity || 0.7}
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="1.0"
+              step="0.1"
+              value={aiSettings.creativity || 0.7}
+              onChange={(e) => handleAiSettingsChange('creativity', parseFloat(e.target.value))}
+              className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>Consistent</span>
+              <span>Creative</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hot Lead Keywords */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold text-white mb-2">Hot Lead Keywords</h3>
         <p className="text-gray-300 mb-6">Keywords that indicate urgent, high-priority leads</p>
@@ -1345,53 +1276,43 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Behavior Toggles - Normal state management */}
+      {/* Simple Alert Settings */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-        <h3 className="text-lg font-semibold text-white mb-2">Behavior Toggles</h3>
-        <p className="text-gray-300 mb-6">Control AI behavior and alerts</p>
+        <h3 className="text-lg font-semibold text-white mb-2">Alert Settings</h3>
+        <p className="text-gray-300 mb-6">Get notified about important leads</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { key: 'includeAvailability', label: 'Include Availability', desc: 'Mention scheduling availability' },
-            { key: 'askQualifyingQuestions', label: 'Ask Qualifying Questions', desc: 'AI asks follow-up questions' },
-            { key: 'hotLeadAlerts', label: 'Hot Lead Alerts', desc: 'Get notified about urgent inquiries' },
-            { key: 'smsLeadAlerts', label: 'SMS Lead Alerts', desc: 'Send SMS for hot leads' }
-          ].map(({ key, label, desc }) => (
-            <div key={`behavior-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-              <input
-                type="checkbox"
-                checked={aiSettings.behaviors[key]}
-                onChange={(e) => handleAiBehaviorChange(key, e.target.checked)}
-                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-              />
-              <div>
-                <label className="text-sm font-medium text-white">{label}</label>
-                <p className="text-xs text-gray-400">{desc}</p>
-              </div>
+          <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+            <input
+              type="checkbox"
+              checked={aiSettings.behaviors.hotLeadAlerts}
+              onChange={(e) => handleAiBehaviorChange('hotLeadAlerts', e.target.checked)}
+              className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <label className="text-sm font-medium text-white">Hot Lead Alerts</label>
+              <p className="text-xs text-gray-400">Get notified about urgent inquiries</p>
             </div>
-          ))}
+          </div>
+          <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+            <input
+              type="checkbox"
+              checked={aiSettings.behaviors.smsLeadAlerts}
+              onChange={(e) => handleAiBehaviorChange('smsLeadAlerts', e.target.checked)}
+              className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <label className="text-sm font-medium text-white">SMS Lead Alerts</label>
+              <p className="text-xs text-gray-400">Send SMS for hot leads</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 🧪 NEW: AI Testing Panel */}
+      {/* Test Results */}
       {testResult && (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">🧪 AI Test Results</h3>
           
-          {/* Hot Lead Analysis */}
-          <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-300">Hot Lead Score</span>
-              <span className={`text-sm font-bold ${testResult.hotLead?.score > 60 ? 'text-red-400' : 'text-gray-400'}`}>
-                {testResult.hotLead?.score || 0}/100
-              </span>
-            </div>
-            <div className={`text-xs px-2 py-1 rounded ${testResult.hotLead?.isHotLead ? 'bg-red-500/20 text-red-300' : 'bg-gray-500/20 text-gray-400'}`}>
-              {testResult.hotLead?.isHotLead ? '🔥 HOT LEAD' : '❄️ Regular Lead'}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">{testResult.hotLead?.reasoning}</p>
-          </div>
-
-          {/* AI Response */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">AI Response</label>
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-200">
@@ -1399,52 +1320,26 @@ export default function CompleteEmailSystem() {
             </div>
           </div>
 
-          {/* Performance Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <div className="bg-white/5 p-2 rounded border border-white/10">
+              <div className="font-medium text-gray-300">Status</div>
+              <div className="text-gray-400">{aiSettings.enableAIResponses ? '✅ Enabled' : '❌ Disabled'}</div>
+            </div>
+            <div className="bg-white/5 p-2 rounded border border-white/10">
               <div className="font-medium text-gray-300">Model</div>
-              <div className="text-gray-400">{testResult.metadata?.model || aiSettings.aiModel}</div>
+              <div className="text-gray-400">{aiSettings.aiModel}</div>
             </div>
             <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="font-medium text-gray-300">Tokens</div>
-              <div className="text-gray-400">{testResult.metadata?.tokensUsed || 0}</div>
+              <div className="font-medium text-gray-300">Creativity</div>
+              <div className="text-gray-400">{aiSettings.creativity}</div>
             </div>
             <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="font-medium text-gray-300">Knowledge Base</div>
-              <div className="text-gray-400">{testResult.metadata?.knowledgeBaseUsed ? '✅ Used' : '❌ Not Used'}</div>
-            </div>
-            <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="font-medium text-gray-300">Temperature</div>
-              <div className="text-gray-400">{aiSettings.creativity || 0.7}</div>
+              <div className="font-medium text-gray-300">Length</div>
+              <div className="text-gray-400">{aiSettings.responseLength}</div>
             </div>
           </div>
         </div>
       )}
-
-      {/* 📊 NEW: Current Settings Summary */}
-      <div className="bg-blue-500/10 backdrop-blur-lg rounded-2xl border border-blue-500/20 p-6">
-        <h3 className="text-lg font-semibold text-blue-200 mb-3">⚙️ Current AI Configuration</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="flex justify-between">
-            <span className="text-blue-300">Model:</span>
-            <span className="font-medium text-blue-200">{aiSettings.aiModel || 'gpt-4o-mini'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-blue-300">Creativity:</span>
-            <span className="font-medium text-blue-200">{aiSettings.creativity || 0.7}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-blue-300">Length:</span>
-            <span className="font-medium text-blue-200 capitalize">{aiSettings.responseLength || 'medium'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-blue-300">Hot Leads:</span>
-            <span className={`font-medium ${aiSettings.enableHotLeadAnalysis !== false ? 'text-green-400' : 'text-red-400'}`}>
-              {aiSettings.enableHotLeadAnalysis !== false ? 'ON' : 'OFF'}
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* Save and Test Actions */}
       <div className="flex gap-4 pt-4">
@@ -1468,7 +1363,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🔧 COMPLETE AUTOMATION TAB - FULLY RESTORED
+  // 🔧 AUTOMATION TAB - FULLY PRESERVED (minus the redundant AI toggle)
   const AutomationTab = () => (
     <div className="space-y-6">
       {/* Response Control */}
@@ -1478,12 +1373,11 @@ export default function CompleteEmailSystem() {
           <h3 className="text-lg font-semibold text-white">Response Control</h3>
         </div>
         <p className="text-gray-300 mb-6">Configure when and how AI responds</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { key: 'aiResponses', label: 'AI Responses', desc: 'Enable AI-generated responses' },
-            { key: 'autoSend', label: 'Auto-Send', desc: 'Automatically send AI responses' },
-            { key: 'businessHours', label: 'Business Hours', desc: 'Only respond during business hours' },
-            { key: 'urgentPriority', label: 'Urgent Priority', desc: 'Prioritize urgent emails' }
+            { key: 'autoSend', label: 'Auto-Send', desc: 'Automatically send AI responses without preview' },
+            { key: 'businessHours', label: 'Business Hours Only', desc: 'Only respond during business hours' },
+            { key: 'urgentPriority', label: 'Prioritize Urgent', desc: 'Respond to urgent emails first' }
           ].map(({ key, label, desc }) => (
             <div key={`response-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
               <input
@@ -1501,7 +1395,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Email Filtering */}
+      {/* Email Filtering - FULLY PRESERVED */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-blue-400" />
@@ -1531,7 +1425,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Business Rules - FULLY RESTORED */}
+      {/* Business Rules - FULLY PRESERVED */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-blue-400" />
@@ -1642,6 +1536,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-6">
@@ -1661,6 +1556,7 @@ export default function CompleteEmailSystem() {
     );
   }
 
+  // Main render
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
       <div className="p-6 max-w-7xl mx-auto">
