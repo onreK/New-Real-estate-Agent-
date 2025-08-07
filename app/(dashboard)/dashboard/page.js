@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { SignOutButton, useUser } from '@clerk/nextjs';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard'; // ADD THIS IMPORT
 import { 
   Users, MessageCircle, TrendingUp, Zap, Phone, Mail, 
   Calendar, BarChart3, DollarSign, Clock, Target, Sparkles,
@@ -84,9 +85,10 @@ export default function MainDashboard() {
     }
   });
 
-  // Tab configuration with social media tabs
+  // Tab configuration with social media tabs AND ANALYTICS
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'analytics', label: 'AI Analytics', icon: Activity }, // ADD THIS TAB
     { id: 'webchat', label: 'Web Chat', icon: MessageCircle },
     { id: 'sms', label: 'SMS', icon: Phone },
     { id: 'email', label: 'Email AI', icon: Mail },
@@ -391,7 +393,7 @@ export default function MainDashboard() {
           
           {/* Navigation Tabs */}
           <div className="mt-6">
-            <nav className="flex space-x-1">
+            <nav className="flex space-x-1 flex-wrap gap-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -456,6 +458,44 @@ export default function MainDashboard() {
                 subtitle="High intent"
                 color="orange"
               />
+            </div>
+
+            {/* NEW: AI Analytics Quick View */}
+            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <Activity className="w-8 h-8 text-purple-400" />
+                  <div>
+                    <h3 className="text-xl font-bold text-white">AI Performance Analytics</h3>
+                    <p className="text-sm text-gray-300">Track real AI behaviors across all channels</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  View Full Analytics
+                  <ArrowUpRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                <div className="bg-white/10 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-green-400">0</div>
+                  <div className="text-sm text-gray-300">Phone Requests Today</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-orange-400">0</div>
+                  <div className="text-sm text-gray-300">Hot Leads This Month</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-blue-400">0</div>
+                  <div className="text-sm text-gray-300">Appointments Scheduled</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-purple-400">$0</div>
+                  <div className="text-sm text-gray-300">Est. Business Value</div>
+                </div>
+              </div>
             </div>
 
             {/* Channel Status Overview */}
@@ -699,6 +739,13 @@ export default function MainDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* NEW: Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            <AnalyticsDashboard />
           </div>
         )}
 
