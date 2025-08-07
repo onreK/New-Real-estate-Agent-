@@ -117,13 +117,8 @@ export default function CompleteEmailSystem() {
     }
   });
 
-  // Automation Settings - FULLY PRESERVED
+  // SIMPLIFIED Automation Settings - Removed Response Control
   const [automationSettings, setAutomationSettings] = useState({
-    responseControl: {
-      autoSend: false,
-      businessHours: true,
-      urgentPriority: true
-    },
     emailFiltering: {
       autoArchiveSpam: true,
       blockMassEmails: true,
@@ -154,13 +149,6 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  const handleAutomationControlChange = useCallback((field, value) => {
-    setAutomationSettings(prev => ({
-      ...prev,
-      responseControl: { ...prev.responseControl, [field]: value }
-    }));
-  }, []);
-
   const handleEmailFilteringChange = useCallback((field, value) => {
     setAutomationSettings(prev => ({
       ...prev,
@@ -186,7 +174,7 @@ export default function CompleteEmailSystem() {
       id: 'automation', 
       label: 'Automation', 
       icon: Wrench,
-      description: 'Gmail connection, email filtering, and automation rules'
+      description: 'Email filtering rules and business controls'
     },
     { 
       id: 'connections', 
@@ -390,10 +378,9 @@ export default function CompleteEmailSystem() {
         sms_lead_alerts: aiSettings.behaviors.smsLeadAlerts,
         hot_lead_keywords: aiSettings.hotLeadKeywords,
         
-        // Automation
-        require_approval: !automationSettings.responseControl.autoSend,
+        // Automation (simplified - no response control)
         email_filtering: automationSettings.emailFiltering,
-        response_rules: automationSettings.responseControl
+        business_rules: automationSettings.businessRules
       };
 
       console.log('💾 Saving simplified settings:', settingsToSave);
@@ -1151,7 +1138,10 @@ export default function CompleteEmailSystem() {
 - Include pricing only when directly asked
 - Highlight our unique advantages over competitors
 - End every response with a clear call-to-action
-- For urgent inquiries, offer immediate callback options`}
+- For urgent inquiries, offer immediate callback options
+- Only respond during business hours (9am-6pm EST)
+- Always preview responses before sending (don't auto-send)
+- Prioritize emails with words like "urgent" or "emergency"`}
         />
         
         <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
@@ -1363,45 +1353,24 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🔧 AUTOMATION TAB - FULLY PRESERVED (minus the redundant AI toggle)
+  // 🔧 SIMPLIFIED AUTOMATION TAB - Removed Response Control
   const AutomationTab = () => (
     <div className="space-y-6">
-      {/* Response Control */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Bot className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">Response Control</h3>
-        </div>
-        <p className="text-gray-300 mb-6">Configure when and how AI responds</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { key: 'autoSend', label: 'Auto-Send', desc: 'Automatically send AI responses without preview' },
-            { key: 'businessHours', label: 'Business Hours Only', desc: 'Only respond during business hours' },
-            { key: 'urgentPriority', label: 'Prioritize Urgent', desc: 'Respond to urgent emails first' }
-          ].map(({ key, label, desc }) => (
-            <div key={`response-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-              <input
-                type="checkbox"
-                checked={automationSettings.responseControl[key]}
-                onChange={(e) => handleAutomationControlChange(key, e.target.checked)}
-                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
-              />
-              <div>
-                <label className="text-sm font-medium text-white">{label}</label>
-                <p className="text-xs text-gray-400">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Email Filtering - FULLY PRESERVED */}
+      {/* Email Filtering - Keep for now even if not implemented */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Email Filtering</h3>
         </div>
         <p className="text-gray-300 mb-6">Automatically filter emails to focus on real inquiries</p>
+        
+        <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+          <p className="text-yellow-400 text-sm flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            Note: These filters are planned features and not yet implemented. Use Custom Instructions to specify filtering behavior.
+          </p>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             { key: 'autoArchiveSpam', label: 'Auto-Archive Spam', desc: 'Automatically filter out spam emails' },
@@ -1409,12 +1378,13 @@ export default function CompleteEmailSystem() {
             { key: 'personalOnly', label: 'Personal Only', desc: 'Only process emails that appear personal' },
             { key: 'skipAutoGenerated', label: 'Skip Auto-Generated', desc: 'Ignore automated system emails' }
           ].map(({ key, label, desc }) => (
-            <div key={`filter-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+            <div key={`filter-${key}`} className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg opacity-50">
               <input
                 type="checkbox"
                 checked={automationSettings.emailFiltering[key]}
                 onChange={(e) => handleEmailFilteringChange(key, e.target.checked)}
                 className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+                disabled
               />
               <div>
                 <label className="text-sm font-medium text-white">{label}</label>
@@ -1425,17 +1395,17 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Business Rules - FULLY PRESERVED */}
+      {/* Business Rules - FULLY FUNCTIONAL */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Business Rules</h3>
         </div>
-        <p className="text-gray-300 mb-6">Blacklist, whitelist, and custom keywords</p>
+        <p className="text-gray-300 mb-6">Control which emails get AI responses</p>
         <div className="space-y-6">
           {/* Blacklist */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Blacklist (Block these emails/domains)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Blacklist (Never respond to these)</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.blacklist.map((item, index) => (
@@ -1464,7 +1434,7 @@ export default function CompleteEmailSystem() {
 
           {/* Whitelist */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Whitelist (Always allow these emails/domains)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Whitelist (Always respond to these)</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.whitelist.map((item, index) => (
@@ -1493,7 +1463,7 @@ export default function CompleteEmailSystem() {
 
           {/* Custom Keywords */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Custom Keywords (Additional filtering)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Priority Keywords (Respond to these first)</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {automationSettings.businessRules.customKeywords.map((keyword, index) => (
@@ -1511,7 +1481,7 @@ export default function CompleteEmailSystem() {
                 <Input
                   value={newCustomKeyword}
                   onChange={(e) => setNewCustomKeyword(e.target.value)}
-                  placeholder="Add custom filtering keyword"
+                  placeholder="Add priority keyword"
                   onKeyPress={(e) => e.key === 'Enter' && addCustomKeyword()}
                   className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
                 />
