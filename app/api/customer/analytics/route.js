@@ -1,16 +1,17 @@
 // app/api/customer/analytics/route.js
-// Complete Customer Analytics API - Real AI behavior tracking with business value
+// Complete Customer Analytics API - Fixed with proper auth
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/database.js';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    const user = await currentUser();
+    // Get authenticated user ID
+    const { userId } = auth();
     
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -18,17 +19,17 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'month'; // month, week, today, all
     
-    // Get customer ID
+    // Get customer ID using the userId from auth
     const customerResult = await query(`
       SELECT id, business_name, created_at
       FROM customers 
-      WHERE clerk_user_id = $1 OR email = $2
+      WHERE clerk_user_id = $1 OR user_id = $1
       LIMIT 1
-    `, [user.id, user.emailAddresses?.[0]?.emailAddress]);
+    `, [userId]);
     
     if (customerResult.rows.length === 0) {
       return NextResponse.json({ 
-        error: 'Customer not found',
+        error: 'Customer not found. Please complete your setup first.',
         analytics: getEmptyAnalytics()
       }, { status: 404 });
     }
@@ -43,8 +44,7 @@ export async function GET(request) {
     const behaviorCounts = await query(`
       SELECT 
         event_type,
-        COUNT(*) as count,
-        AVG(confidence_score) as avg_confidence
+        COUNT(*) as count
       FROM ai_analytics_events
       WHERE customer_id = $1
         AND created_at >= $2
@@ -338,16 +338,16 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    const user = await currentUser();
+    const { userId } = auth();
     
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get customer
     const customerResult = await query(
-      'SELECT id FROM customers WHERE clerk_user_id = $1 OR email = $2 LIMIT 1',
-      [user.id, user.emailAddresses?.[0]?.emailAddress]
+      'SELECT id FROM customers WHERE clerk_user_id = $1 OR user_id = $1 LIMIT 1',
+      [userId]
     );
 
     if (customerResult.rows.length === 0) {
