@@ -78,6 +78,10 @@ export default function CompleteEmailSystem() {
   // 🧪 AI Testing states
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
+
+  // ✨ NEW: Email view and sent email states
+  const [activeEmailView, setActiveEmailView] = useState('inbox');
+  const [sentEmails, setSentEmails] = useState([]);
   
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -506,6 +510,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
+  // ✨ UPDATED: Send AI Response with tracking
   const sendAIResponse = async (emailId, preview = false) => {
     if (!gmailConnection) return;
     
@@ -524,6 +529,24 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         const data = await response.json();
+        
+        // 🎯 NEW: Track sent emails
+        if (!preview && data.response) {
+          const sentEmail = {
+            id: `sent-${Date.now()}`,
+            originalEmailId: emailId,
+            to: selectedGmailEmail?.fromEmail || 'unknown',
+            toName: selectedGmailEmail?.fromName || 'Unknown',
+            originalSubject: selectedGmailEmail?.subject || 'No Subject',
+            response: data.response,
+            sentTime: new Date().toLocaleString(),
+            timestamp: new Date()
+          };
+          
+          setSentEmails(prev => [sentEmail, ...prev]); // Add to beginning
+          console.log('📤 Sent email tracked:', sentEmail);
+        }
+        
         if (!preview) {
           setTimeout(() => checkGmailEmails(false), 1000);
         }
@@ -627,7 +650,7 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  // 📊 COMPLETE DASHBOARD TAB - FULLY RESTORED
+  // ✨ UPDATED DASHBOARD TAB WITH SENT TAB + SCROLLING
   const DashboardTab = () => (
     <div className="space-y-6">
       {/* STREAMLINED Header - Gmail Status + Check Emails + Last Refresh */}
@@ -746,37 +769,64 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Email conversations and preview sections - ALL PRESERVED */}
+      {/* ✨ NEW: IMPROVED EMAIL LAYOUT WITH SENT TAB + SCROLLING */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* CONVERSATIONS LIST - 40% WIDTH */}
+        
+        {/* 📧 EMAIL LIST WITH INBOX/SENT TABS - 40% WIDTH */}
         <div className="lg:col-span-2">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full flex flex-col">
+            
+            {/* Header with Inbox/Sent Toggle */}
             <div className="p-6 pb-4 flex-shrink-0">
-              <div className="flex items-center gap-3 text-xl font-semibold text-white mb-2">
-                <Inbox className="w-6 h-6 text-blue-400" />
-                Email Conversations ({gmailEmails.length + conversations.length})
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3 text-xl font-semibold text-white">
+                  <Inbox className="w-6 h-6 text-blue-400" />
+                  Email Conversations ({gmailEmails.length + sentEmails.length})
+                </div>
+                
+                {/* 🎯 INBOX/SENT TOGGLE BUTTONS */}
+                <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg">
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveEmailView('inbox')}
+                    className={`text-xs px-3 py-2 transition-all ${
+                      activeEmailView === 'inbox' 
+                        ? 'bg-blue-600 text-white shadow-lg' 
+                        : 'bg-transparent text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    📥 Inbox ({gmailEmails.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveEmailView('sent')}
+                    className={`text-xs px-3 py-2 transition-all ${
+                      activeEmailView === 'sent' 
+                        ? 'bg-green-600 text-white shadow-lg' 
+                        : 'bg-transparent text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    📤 Sent ({sentEmails.length})
+                  </Button>
+                </div>
               </div>
               <p className="text-base text-gray-300">
-                Real-time Gmail monitoring with AI responses
+                {activeEmailView === 'inbox' 
+                  ? 'Real-time Gmail monitoring with AI responses'
+                  : 'AI responses sent to customers'
+                }
               </p>
             </div>
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Loading State */}
-              {(loading || gmailLoading) && (
-                <div className="flex items-center justify-center py-16 flex-1">
-                  <div className="flex items-center gap-4">
-                    <RefreshCw className="w-8 h-8 animate-spin text-blue-400" />
-                    <span className="text-lg text-gray-300 font-medium">Loading conversations...</span>
-                  </div>
-                </div>
-              )}
 
-              {/* Gmail Emails */}
-              {gmailEmails.length > 0 && !loading && (
+            {/* ✨ SCROLLABLE EMAIL CONTAINER */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              
+              {/* 📥 INBOX VIEW */}
+              {activeEmailView === 'inbox' && (
                 <div className="flex-1 flex flex-col">
-                  <div className="px-6 py-4 bg-blue-500/20 border-b border-white/10 flex-shrink-0">
+                  <div className="px-6 py-3 bg-blue-500/20 border-b border-white/10 flex-shrink-0">
                     <div className="flex items-center gap-3">
-                      <Globe className="w-5 h-5 text-blue-400" />
+                      <Globe className="w-4 h-4 text-blue-400" />
                       <span className="text-sm font-semibold text-blue-300 uppercase tracking-wide">
                         Gmail AI ({gmailEmails.length})
                       </span>
@@ -785,73 +835,164 @@ export default function CompleteEmailSystem() {
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-0 flex-1 overflow-y-auto">
-                    {gmailEmails.map((email) => (
-                      <div
-                        key={email.id}
-                        className={`p-6 border-b border-white/10 cursor-pointer transition-all duration-200 hover:bg-white/10 hover:border-l-4 hover:border-l-blue-400 ${
-                          selectedGmailEmail?.id === email.id 
-                            ? 'bg-blue-500/20 border-l-4 border-l-blue-400 shadow-lg' 
-                            : ''
-                        }`}
-                        onClick={() => {
-                          setSelectedGmailEmail(email);
-                          setSelectedConversation(null);
-                        }}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-lg text-white truncate">
-                            {email.fromName || email.fromEmail}
-                          </h4>
-                          <div className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">
-                            Gmail
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-300 font-medium mb-2 line-clamp-1">
-                          {email.subject}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-400">
-                            Received: {email.receivedTime}
+                  
+                  {/* 🎯 SCROLLABLE EMAIL LIST WITH VISIBLE SCROLLBAR */}
+                  <div 
+                    className="flex-1 overflow-y-auto"
+                    style={{
+                      height: '500px',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'rgba(59, 130, 246, 0.5) rgba(255, 255, 255, 0.1)'
+                    }}
+                  >
+                    <style jsx>{`
+                      .email-scroll::-webkit-scrollbar {
+                        width: 8px;
+                      }
+                      .email-scroll::-webkit-scrollbar-track {
+                        background: rgba(255, 255, 255, 0.1);
+                        border-radius: 4px;
+                      }
+                      .email-scroll::-webkit-scrollbar-thumb {
+                        background: rgba(59, 130, 246, 0.5);
+                        border-radius: 4px;
+                      }
+                      .email-scroll::-webkit-scrollbar-thumb:hover {
+                        background: rgba(59, 130, 246, 0.7);
+                      }
+                    `}</style>
+                    
+                    <div className="email-scroll space-y-0">
+                      {gmailEmails.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <Mail className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-gray-400">No emails found</p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {gmailConnection 
+                              ? 'New emails will appear automatically when received'
+                              : 'Connect Gmail to start monitoring'
+                            }
                           </p>
-                          {selectedGmailEmail?.id === email.id && (
-                            <div className="px-2 py-1 rounded-full bg-blue-400/30 text-blue-300 text-xs font-medium border border-blue-400/50">
-                              Selected
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
+                      ) : (
+                        gmailEmails.map((email) => (
+                          <div
+                            key={email.id}
+                            className={`p-4 border-b border-white/10 cursor-pointer transition-all duration-200 hover:bg-white/10 hover:border-l-4 hover:border-l-blue-400 ${
+                              selectedGmailEmail?.id === email.id 
+                                ? 'bg-blue-500/20 border-l-4 border-l-blue-400 shadow-lg' 
+                                : ''
+                            }`}
+                            onClick={() => {
+                              setSelectedGmailEmail(email);
+                              setSelectedConversation(null);
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold text-sm text-white truncate">
+                                {email.fromName || email.fromEmail}
+                              </h4>
+                              <div className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">
+                                Gmail
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-300 font-medium mb-1 truncate">
+                              {email.subject}
+                            </p>
+                            <p className="text-xs text-gray-400 line-clamp-2 mb-2">
+                              {email.snippet || email.body}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-gray-500">
+                                Received: {email.receivedTime}
+                              </p>
+                              {selectedGmailEmail?.id === email.id && (
+                                <div className="px-2 py-1 rounded-full bg-blue-400/30 text-blue-300 text-xs font-medium border border-blue-400/50">
+                                  Selected
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Empty State */}
-              {conversations.length === 0 && gmailEmails.length === 0 && !loading && (
-                <div className="p-12 text-center flex-1 flex flex-col items-center justify-center">
-                  <div className="w-24 h-24 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
-                    <Mail className="w-12 h-12 text-gray-400" />
+              {/* 📤 SENT EMAILS VIEW */}
+              {activeEmailView === 'sent' && (
+                <div className="flex-1 flex flex-col">
+                  <div className="px-6 py-3 bg-green-500/20 border-b border-white/10 flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                      <Send className="w-4 h-4 text-green-400" />
+                      <span className="text-sm font-semibold text-green-300 uppercase tracking-wide">
+                        AI Sent Responses ({sentEmails.length})
+                      </span>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">No email conversations yet</h3>
-                  <p className="text-gray-300 mb-4 max-w-sm mx-auto">
-                    {gmailConnection 
-                      ? 'New emails will appear automatically when received'
-                      : 'Connect your Gmail account to start receiving and managing conversations'
-                    }
-                  </p>
-                  {!gmailConnection && (
-                    <Button onClick={connectGmail} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                      <LinkIcon className="w-4 h-4" />
-                      Connect Gmail Now
-                    </Button>
-                  )}
+                  
+                  <div 
+                    className="flex-1 overflow-y-auto email-scroll"
+                    style={{
+                      height: '500px',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'rgba(34, 197, 94, 0.5) rgba(255, 255, 255, 0.1)'
+                    }}
+                  >
+                    {sentEmails.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Send className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-400">No AI responses sent yet</p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Responses will appear here after sending
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-0">
+                        {sentEmails.map((sentEmail) => (
+                          <div
+                            key={sentEmail.id}
+                            className="p-4 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => {
+                              setSelectedGmailEmail(null);
+                              setSelectedConversation(sentEmail);
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold text-sm text-white truncate">
+                                To: {sentEmail.toName || sentEmail.to}
+                              </h4>
+                              <div className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-medium">
+                                ✓ Sent
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-300 mb-1 truncate">
+                              Re: {sentEmail.originalSubject}
+                            </p>
+                            <p className="text-xs text-gray-400 line-clamp-2 mb-2">
+                              {sentEmail.response?.substring(0, 100)}...
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-gray-500">
+                                {sentEmail.sentTime}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                to {sentEmail.to.split('@')[0]}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* EMAIL PREVIEW/RESPONSE - 60% WIDTH - FULLY PRESERVED */}
+        {/* 📧 EMAIL PREVIEW/RESPONSE - 60% WIDTH */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
@@ -954,6 +1095,49 @@ export default function CompleteEmailSystem() {
                 </div>
               </div>
             </div>
+          ) : selectedConversation ? (
+            // 🎯 NEW: Sent email preview
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
+              <div className="p-6 pb-4">
+                <div className="flex items-center gap-3 text-lg font-semibold text-white mb-2">
+                  <Send className="w-5 h-5 text-green-400" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white">AI Response Sent</div>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium">To:</span> {selectedConversation.to} • 
+                  <span className="font-medium"> Subject:</span> Re: {selectedConversation.originalSubject}
+                </p>
+              </div>
+              <div className="px-6 pb-6 space-y-6">
+                {/* Sent Response Content */}
+                <div className="bg-green-500/10 rounded-xl p-6 border border-green-500/20 backdrop-blur-sm">
+                  <p className="text-sm font-medium text-green-300 mb-4 flex items-center gap-2">
+                    <Send className="w-4 h-4" />
+                    AI Response Sent:
+                  </p>
+                  <div className="text-sm text-green-100 leading-relaxed">
+                    {selectedConversation.response}
+                  </div>
+                </div>
+
+                {/* Sent Details */}
+                <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
+                  <h4 className="font-medium text-white">Response Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-400">Sent to:</span>
+                      <p className="text-gray-300">{selectedConversation.to}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-400">Sent at:</span>
+                      <p className="text-gray-300">{selectedConversation.sentTime}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
             /* Empty Selection State */
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-full">
@@ -963,8 +1147,7 @@ export default function CompleteEmailSystem() {
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-3">Select a conversation</h3>
                 <p className="text-gray-300 mb-8 max-w-md leading-relaxed">
-                  Choose an email conversation from the list to view details and send AI responses. 
-                  The AI will generate professional responses based on your business knowledge.
+                  Choose an email from the {activeEmailView} to view details and manage responses.
                 </p>
                 <div className="grid grid-cols-1 gap-3 text-sm text-gray-400 max-w-sm">
                   <div className="flex items-center gap-3">
@@ -973,7 +1156,7 @@ export default function CompleteEmailSystem() {
                   </div>
                   <div className="flex items-center gap-3">
                     <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                    <span>Automatic professional formatting</span>
+                    <span>Track all sent responses</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
