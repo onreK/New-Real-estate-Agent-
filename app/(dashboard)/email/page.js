@@ -835,11 +835,11 @@ export default function CompleteEmailSystem() {
             </div>
 
             {/* ✨ SCROLLABLE EMAIL CONTAINER */}
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div className="flex-1 flex flex-col overflow-hidden">
               
               {/* 📥 INBOX VIEW */}
               {activeEmailView === 'inbox' && (
-                <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col">
                   <div className="px-6 py-3 bg-blue-500/20 border-b border-white/10 flex-shrink-0">
                     <div className="flex items-center gap-3">
                       <Globe className="w-4 h-4 text-blue-400" />
@@ -854,52 +854,14 @@ export default function CompleteEmailSystem() {
                   
                   {/* 🎯 SCROLLABLE EMAIL LIST WITH VISIBLE SCROLLBAR */}
                   <div 
-                    className="email-scroll-container"
+                    className="flex-1 overflow-y-auto"
                     style={{
                       height: '500px',
                       maxHeight: '500px',
-                      overflowY: 'scroll',
                       scrollbarWidth: 'auto',
-                      scrollbarColor: '#3b82f6 rgba(255, 255, 255, 0.1)'
+                      scrollbarColor: '#3b82f6 rgba(255, 255, 255, 0.2)'
                     }}
                   >
-                    <style jsx>{`
-                      .email-scroll-container {
-                        overflow-y: scroll !important;
-                        scrollbar-width: auto !important;
-                      }
-                      .email-scroll-container::-webkit-scrollbar {
-                        width: 16px !important;
-                        background: rgba(255, 255, 255, 0.05);
-                      }
-                      .email-scroll-container::-webkit-scrollbar-track {
-                        background: rgba(255, 255, 255, 0.1) !important;
-                        border-radius: 8px;
-                        margin: 8px 4px;
-                      }
-                      .email-scroll-container::-webkit-scrollbar-thumb {
-                        background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%) !important;
-                        border-radius: 8px;
-                        border: 2px solid rgba(255, 255, 255, 0.1);
-                        min-height: 40px;
-                      }
-                      .email-scroll-container::-webkit-scrollbar-thumb:hover {
-                        background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%) !important;
-                        border: 2px solid rgba(255, 255, 255, 0.2);
-                      }
-                      .email-scroll-container::-webkit-scrollbar-thumb:active {
-                        background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%) !important;
-                      }
-                      .email-scroll-container::-webkit-scrollbar-corner {
-                        background: rgba(255, 255, 255, 0.05);
-                      }
-                      /* Firefox fallback */
-                      .email-scroll-container {
-                        scrollbar-color: #3b82f6 rgba(255, 255, 255, 0.1);
-                        scrollbar-width: auto;
-                      }
-                    `}</style>
-                    
                     <div className="space-y-0">
                       {gmailEmails.length === 0 ? (
                         <div className="p-8 text-center">
@@ -955,6 +917,9 @@ export default function CompleteEmailSystem() {
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
                   </div>
                 </div>
               )}
