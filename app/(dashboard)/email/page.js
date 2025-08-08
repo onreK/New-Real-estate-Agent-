@@ -227,11 +227,6 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🧪 DEBUG: Monitor sent emails state changes
-  useEffect(() => {
-    console.log('📊 Sent emails state changed:', sentEmails);
-  }, [sentEmails]);
-
   // Auto-refresh logic - only runs when necessary and doesn't affect other tabs
   useEffect(() => {
     // Clear any existing interval
@@ -803,9 +798,6 @@ export default function CompleteEmailSystem() {
                 <div className="flex items-center gap-3 text-xl font-semibold text-white">
                   <Inbox className="w-6 h-6 text-blue-400" />
                   Email Conversations ({gmailEmails.length + sentEmails.length})
-                  <div className="text-xs text-gray-400 ml-2">
-                    Debug: Inbox({gmailEmails.length}) + Sent({sentEmails.length})
-                  </div>
                 </div>
                 
                 {/* 🎯 INBOX/SENT TOGGLE BUTTONS */}
@@ -832,26 +824,6 @@ export default function CompleteEmailSystem() {
                   >
                     📤 Sent ({sentEmails.length})
                   </Button>
-                  {/* 🧪 DEBUG: Test button */}
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const testEmail = {
-                        id: `test-${Date.now()}`,
-                        to: 'test@example.com',
-                        toName: 'Test User',
-                        originalSubject: 'Test Subject',
-                        response: 'This is a test AI response to verify the sent tab functionality.',
-                        sentTime: new Date().toLocaleString(),
-                        timestamp: new Date()
-                      };
-                      setSentEmails(prev => [testEmail, ...prev]);
-                      setActiveEmailView('sent');
-                    }}
-                    className="text-xs px-2 py-2 bg-yellow-600 hover:bg-yellow-700 text-white"
-                  >
-                    🧪 Test
-                  </Button>
                 </div>
               </div>
               <p className="text-base text-gray-300">
@@ -863,11 +835,11 @@ export default function CompleteEmailSystem() {
             </div>
 
             {/* ✨ SCROLLABLE EMAIL CONTAINER */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
               
               {/* 📥 INBOX VIEW */}
               {activeEmailView === 'inbox' && (
-                <div className="flex-1 flex flex-col">
+                <div className="flex-1 flex flex-col min-h-0">
                   <div className="px-6 py-3 bg-blue-500/20 border-b border-white/10 flex-shrink-0">
                     <div className="flex items-center gap-3">
                       <Globe className="w-4 h-4 text-blue-400" />
@@ -882,34 +854,49 @@ export default function CompleteEmailSystem() {
                   
                   {/* 🎯 SCROLLABLE EMAIL LIST WITH VISIBLE SCROLLBAR */}
                   <div 
-                    className="flex-1 overflow-y-auto email-scroll"
+                    className="email-scroll-container"
                     style={{
                       height: '500px',
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: 'rgba(59, 130, 246, 0.5) rgba(255, 255, 255, 0.1)'
+                      maxHeight: '500px',
+                      overflowY: 'scroll',
+                      scrollbarWidth: 'auto',
+                      scrollbarColor: '#3b82f6 rgba(255, 255, 255, 0.1)'
                     }}
                   >
                     <style jsx>{`
-                      .email-scroll::-webkit-scrollbar {
-                        width: 12px;
+                      .email-scroll-container {
+                        overflow-y: scroll !important;
+                        scrollbar-width: auto !important;
                       }
-                      .email-scroll::-webkit-scrollbar-track {
-                        background: rgba(255, 255, 255, 0.1);
-                        border-radius: 6px;
-                        margin: 4px;
+                      .email-scroll-container::-webkit-scrollbar {
+                        width: 16px !important;
+                        background: rgba(255, 255, 255, 0.05);
                       }
-                      .email-scroll::-webkit-scrollbar-thumb {
-                        background: rgba(59, 130, 246, 0.6);
-                        border-radius: 6px;
-                        border: 2px solid transparent;
-                        background-clip: content-box;
+                      .email-scroll-container::-webkit-scrollbar-track {
+                        background: rgba(255, 255, 255, 0.1) !important;
+                        border-radius: 8px;
+                        margin: 8px 4px;
                       }
-                      .email-scroll::-webkit-scrollbar-thumb:hover {
-                        background: rgba(59, 130, 246, 0.8);
-                        background-clip: content-box;
+                      .email-scroll-container::-webkit-scrollbar-thumb {
+                        background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%) !important;
+                        border-radius: 8px;
+                        border: 2px solid rgba(255, 255, 255, 0.1);
+                        min-height: 40px;
                       }
-                      .email-scroll::-webkit-scrollbar-corner {
-                        background: transparent;
+                      .email-scroll-container::-webkit-scrollbar-thumb:hover {
+                        background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%) !important;
+                        border: 2px solid rgba(255, 255, 255, 0.2);
+                      }
+                      .email-scroll-container::-webkit-scrollbar-thumb:active {
+                        background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%) !important;
+                      }
+                      .email-scroll-container::-webkit-scrollbar-corner {
+                        background: rgba(255, 255, 255, 0.05);
+                      }
+                      /* Firefox fallback */
+                      .email-scroll-container {
+                        scrollbar-color: #3b82f6 rgba(255, 255, 255, 0.1);
+                        scrollbar-width: auto;
                       }
                     `}</style>
                     
@@ -968,12 +955,13 @@ export default function CompleteEmailSystem() {
                       )}
                     </div>
                   </div>
+                  </div>
                 </div>
               )}
 
               {/* 📤 SENT EMAILS VIEW */}
               {activeEmailView === 'sent' && (
-                <div className="flex-1 flex flex-col">
+                <div className="flex-1 flex flex-col min-h-0">
                   <div className="px-6 py-3 bg-green-500/20 border-b border-white/10 flex-shrink-0">
                     <div className="flex items-center gap-3">
                       <Send className="w-4 h-4 text-green-400" />
@@ -984,31 +972,49 @@ export default function CompleteEmailSystem() {
                   </div>
                   
                   <div 
-                    className="flex-1 overflow-y-auto email-scroll"
+                    className="sent-scroll-container"
                     style={{
                       height: '500px',
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: 'rgba(34, 197, 94, 0.6) rgba(255, 255, 255, 0.1)'
+                      maxHeight: '500px',
+                      overflowY: 'scroll',
+                      scrollbarWidth: 'auto',
+                      scrollbarColor: '#22c55e rgba(255, 255, 255, 0.1)'
                     }}
                   >
                     <style jsx>{`
-                      .email-scroll::-webkit-scrollbar {
-                        width: 12px;
+                      .sent-scroll-container {
+                        overflow-y: scroll !important;
+                        scrollbar-width: auto !important;
                       }
-                      .email-scroll::-webkit-scrollbar-track {
-                        background: rgba(255, 255, 255, 0.1);
-                        border-radius: 6px;
-                        margin: 4px;
+                      .sent-scroll-container::-webkit-scrollbar {
+                        width: 16px !important;
+                        background: rgba(255, 255, 255, 0.05);
                       }
-                      .email-scroll::-webkit-scrollbar-thumb {
-                        background: rgba(34, 197, 94, 0.6);
-                        border-radius: 6px;
-                        border: 2px solid transparent;
-                        background-clip: content-box;
+                      .sent-scroll-container::-webkit-scrollbar-track {
+                        background: rgba(255, 255, 255, 0.1) !important;
+                        border-radius: 8px;
+                        margin: 8px 4px;
                       }
-                      .email-scroll::-webkit-scrollbar-thumb:hover {
-                        background: rgba(34, 197, 94, 0.8);
-                        background-clip: content-box;
+                      .sent-scroll-container::-webkit-scrollbar-thumb {
+                        background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%) !important;
+                        border-radius: 8px;
+                        border: 2px solid rgba(255, 255, 255, 0.1);
+                        min-height: 40px;
+                      }
+                      .sent-scroll-container::-webkit-scrollbar-thumb:hover {
+                        background: linear-gradient(180deg, #16a34a 0%, #15803d 100%) !important;
+                        border: 2px solid rgba(255, 255, 255, 0.2);
+                      }
+                      .sent-scroll-container::-webkit-scrollbar-thumb:active {
+                        background: linear-gradient(180deg, #15803d 0%, #166534 100%) !important;
+                      }
+                      .sent-scroll-container::-webkit-scrollbar-corner {
+                        background: rgba(255, 255, 255, 0.05);
+                      }
+                      /* Firefox fallback */
+                      .sent-scroll-container {
+                        scrollbar-color: #22c55e rgba(255, 255, 255, 0.1);
+                        scrollbar-width: auto;
                       }
                     `}</style>
                     {sentEmails.length === 0 ? (
@@ -1018,14 +1024,6 @@ export default function CompleteEmailSystem() {
                         <p className="text-xs text-gray-500 mt-2">
                           Responses will appear here after sending
                         </p>
-                        <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                          <p className="text-blue-300 text-xs">
-                            🧪 <strong>Debug Info:</strong><br/>
-                            - Click "🧪 Test" button above to add a test sent email<br/>
-                            - Send a real AI response and check browser console for logs<br/>
-                            - Current sent emails count: {sentEmails.length}
-                          </p>
-                        </div>
                       </div>
                     ) : (
                       <div className="space-y-0">
