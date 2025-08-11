@@ -311,10 +311,11 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
   try {
     console.log('🔍 Checking for new emails with centralized AI analysis...');
 
+    // 🎯 FIXED: Increased maxResults from 10 to 100 to fetch more emails
     const response = await gmail.users.messages.list({
       userId: 'me',
       q: 'is:unread',
-      maxResults: 10
+      maxResults: 100  // ✅ Changed from 10 to 100
     });
 
     const messages = response.data.messages || [];
@@ -322,7 +323,8 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
 
     const emailDetails = [];
 
-    for (const message of messages.slice(0, 5)) {
+    // 🎯 FIXED: Removed .slice(0, 5) limitation to process ALL emails
+    for (const message of messages) {  // ✅ Removed .slice(0, 5)
       try {
         const messageData = await gmail.users.messages.get({
           userId: 'me',
@@ -471,14 +473,16 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
       }
     }
 
-    console.log(`💾 Processed ${emailDetails.length} emails with centralized AI service`);
+    // ✅ Updated logging to show the actual numbers
+    console.log(`💾 Processed ${emailDetails.length} out of ${messages.length} emails with centralized AI service`);
 
     return NextResponse.json({
       success: true,
-      message: `Found ${messages.length} unread emails`,
+      message: `Found ${messages.length} unread emails, processed ${emailDetails.length}`,  // ✅ Updated message
       emails: emailDetails,
       connectedEmail: connection.email,
       totalFound: messages.length,
+      totalProcessed: emailDetails.length,  // ✅ Added processed count
       databaseEnabled: true,
       centralizedAI: true,
       serviceVersion: '2.0',
@@ -786,7 +790,9 @@ export async function GET() {
       '📊 AI performance analytics',
       '🤖 Channel-specific AI formatting',
       '⚡ Unified AI configuration management',
-      '🛡️ Graceful fallback to original system'
+      '🛡️ Graceful fallback to original system',
+      '📧 Increased email limit (100 instead of 10)', // ✅ Added feature note
+      '🔄 Process all unread emails (no 5-email limit)' // ✅ Added feature note
     ],
     endpoints: {
       check: 'POST with action: "check"',
@@ -798,7 +804,9 @@ export async function GET() {
       '✅ Centralized knowledge base management',
       '✅ Advanced analytics and monitoring',
       '✅ Easy maintenance from single AI service file',
-      '✅ Backward compatible with existing system'
+      '✅ Backward compatible with existing system',
+      '✅ Fetches up to 100 unread emails (increased from 10)', // ✅ Added improvement
+      '✅ Processes ALL fetched emails (removed 5-email limit)' // ✅ Added improvement
     ]
   });
 }
