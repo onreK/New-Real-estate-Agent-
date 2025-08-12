@@ -1,5 +1,5 @@
 // app/api/customer/analytics/route.js
-// Complete Customer Analytics API - Fixed with proper auth
+// Updated Customer Analytics API with Better Metrics for B2B Automation
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/database.js';
@@ -17,7 +17,7 @@ export async function GET(request) {
 
     // Get time period from query params
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || 'month'; // month, week, today, all
+    const period = searchParams.get('period') || 'month';
     
     // Get customer ID using the userId from auth
     const customerResult = await query(`
@@ -40,7 +40,126 @@ export async function GET(request) {
     // Calculate date range
     const dateRange = getDateRange(period);
     
-    // 📊 Get behavior event counts
+    // 🎯 NEW METRIC 1: AI Engagement Rate
+    // Calculate % of AI responses that get customer replies
+    const engagementRate = await query(`
+      WITH ai_responses AS (
+        SELECT 
+          id,
+          created_at,
+          user_message,
+          ai_response,
+          -- Check if there's a customer reply within 48 hours after this AI response
+          EXISTS(
+            SELECT 1 FROM ai_analytics_events e2
+            WHERE e2.customer_id = $1
+              AND e2.created_at > ai_analytics_events.created_at
+              AND e2.created_at <= ai_analytics_events.created_at + INTERVAL '48 hours'
+              AND e2.user_message IS NOT NULL
+              AND e2.user_message != ''
+              AND e2.id != ai_analytics_events.id
+          ) as got_reply
+        FROM ai_analytics_events
+        WHERE customer_id = $1
+          AND ai_response IS NOT NULL
+          AND ai_response != ''
+          AND created_at >= $2
+          AND created_at <= $3
+      )
+      SELECT 
+        COUNT(*) as total_ai_responses,
+        COUNT(CASE WHEN got_reply THEN 1 END) as responses_with_replies,
+        CASE 
+          WHEN COUNT(*) > 0 
+          THEN ROUND((COUNT(CASE WHEN got_reply THEN 1 END) * 100.0 / COUNT(*)), 1)
+          ELSE 0 
+        END as engagement_rate
+      FROM ai_responses
+    `, [customerId, dateRange.start, dateRange.end]);
+
+    // 🎯 NEW METRIC 2: Contact Capture Rate
+    // Calculate % of leads where AI captured phone/email info
+    const contactCaptureRate = await query(`
+      WITH total_conversations AS (
+        SELECT COUNT(DISTINCT 
+          COALESCE(user_message, ai_response, channel || '-' || DATE(created_at)::text)
+        ) as total_leads
+        FROM ai_analytics_events
+        WHERE customer_id = $1
+          AND created_at >= $2
+          AND created_at <= $3
+      ),
+      captured_contacts AS (
+        SELECT COUNT(DISTINCT 
+          COALESCE(user_message, ai_response, channel || '-' || DATE(created_at)::text)
+        ) as leads_with_contact
+        FROM ai_analytics_events
+        WHERE customer_id = $1
+          AND created_at >= $2
+          AND created_at <= $3
+          AND (
+            event_type = 'phone_request' 
+            OR event_type = 'email_request'
+            OR user_message ~* '\\d{3}[-.\\s]?\\d{3}[-.\\s]?\\d{4}'  -- Phone number pattern
+            OR user_message ~* '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}'  -- Email pattern
+            OR ai_response ~* 'phone|email|contact|number'
+          )
+      )
+      SELECT 
+        (SELECT total_leads FROM total_conversations) as total_leads,
+        (SELECT leads_with_contact FROM captured_contacts) as captured_leads,
+        CASE 
+          WHEN (SELECT total_leads FROM total_conversations) > 0 
+          THEN ROUND((SELECT leads_with_contact FROM captured_contacts) * 100.0 / (SELECT total_leads FROM total_conversations), 1)
+          ELSE 0 
+        END as capture_rate
+    `, [customerId, dateRange.start, dateRange.end]);
+
+    // 🎯 NEW METRIC 3: Average Response Speed
+    // Calculate how fast AI responds to customer inquiries
+    const responseSpeed = await query(`
+      WITH message_pairs AS (
+        SELECT 
+          e1.created_at as customer_message_time,
+          e2.created_at as ai_response_time,
+          EXTRACT(EPOCH FROM (e2.created_at - e1.created_at))/60 as response_minutes
+        FROM ai_analytics_events e1
+        JOIN ai_analytics_events e2 ON e1.customer_id = e2.customer_id
+        WHERE e1.customer_id = $1
+          AND e1.user_message IS NOT NULL
+          AND e1.user_message != ''
+          AND e2.ai_response IS NOT NULL  
+          AND e2.ai_response != ''
+          AND e2.created_at > e1.created_at
+          AND e2.created_at <= e1.created_at + INTERVAL '2 hours'  -- Reasonable response window
+          AND e1.created_at >= $2
+          AND e1.created_at <= $3
+          AND EXTRACT(EPOCH FROM (e2.created_at - e1.created_at))/60 > 0  -- Positive time difference
+          AND EXTRACT(EPOCH FROM (e2.created_at - e1.created_at))/60 < 120  -- Less than 2 hours
+      )
+      SELECT 
+        COUNT(*) as total_responses,
+        ROUND(AVG(response_minutes), 1) as avg_response_minutes,
+        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY response_minutes), 1) as median_response_minutes
+      FROM message_pairs
+    `, [customerId, dateRange.start, dateRange.end]);
+
+    // 🎯 NEW METRIC 4: Total Leads Captured
+    // Count total unique leads/conversations
+    const totalLeads = await query(`
+      SELECT 
+        COUNT(DISTINCT 
+          COALESCE(user_message, channel || '-' || DATE(created_at)::text)
+        ) as total_leads,
+        COUNT(DISTINCT DATE(created_at)) as active_days,
+        COUNT(*) as total_interactions
+      FROM ai_analytics_events
+      WHERE customer_id = $1
+        AND created_at >= $2
+        AND created_at <= $3
+    `, [customerId, dateRange.start, dateRange.end]);
+    
+    // 📊 Keep existing behavior tracking for other analytics
     const behaviorCounts = await query(`
       SELECT 
         event_type,
@@ -117,88 +236,27 @@ export async function GET(request) {
       LIMIT 30
     `, [customerId, dateRange.start, dateRange.end]);
     
-    // ⏰ Get hourly activity patterns
-    const hourlyActivity = await query(`
-      SELECT 
-        EXTRACT(HOUR FROM created_at) as hour,
-        COUNT(*) as interactions,
-        COUNT(*) FILTER (WHERE event_type = 'hot_lead') as hot_leads
-      FROM ai_analytics_events
-      WHERE customer_id = $1 
-        AND created_at >= CURRENT_DATE - INTERVAL '7 days'
-      GROUP BY EXTRACT(HOUR FROM created_at)
-      ORDER BY hour
-    `, [customerId]);
-    
-    // 🎯 Get most effective behaviors
-    const topBehaviors = await query(`
-      SELECT 
-        event_type,
-        COUNT(*) as occurrences
-      FROM ai_analytics_events
-      WHERE customer_id = $1
-        AND created_at >= $2
-        AND created_at <= $3
-      GROUP BY event_type
-      ORDER BY occurrences DESC
-      LIMIT 5
-    `, [customerId, dateRange.start, dateRange.end]);
-    
-    // 🏆 Get conversion metrics
-    const conversionMetrics = await query(`
-      WITH total_interactions AS (
-        SELECT COUNT(*) as total
-        FROM ai_analytics_events
-        WHERE customer_id = $1 
-          AND created_at >= $2
-          AND created_at <= $3
-      )
-      SELECT 
-        (SELECT total FROM total_interactions) as total_interactions,
-        COUNT(*) FILTER (WHERE event_type = 'phone_request') as phone_requests,
-        COUNT(*) FILTER (WHERE event_type = 'appointment_scheduled') as appointments,
-        COUNT(*) FILTER (WHERE event_type = 'hot_lead') as hot_leads,
-        COUNT(*) FILTER (WHERE event_type = 'pricing_discussed') as pricing_discussions,
-        CASE 
-          WHEN (SELECT total FROM total_interactions) > 0 
-          THEN ROUND(COUNT(*) FILTER (WHERE event_type = 'phone_request') * 100.0 / (SELECT total FROM total_interactions), 1)
-          ELSE 0 
-        END as phone_request_rate,
-        CASE 
-          WHEN (SELECT total FROM total_interactions) > 0 
-          THEN ROUND(COUNT(*) FILTER (WHERE event_type = 'hot_lead') * 100.0 / (SELECT total FROM total_interactions), 1)
-          ELSE 0 
-        END as hot_lead_rate
-      FROM ai_analytics_events
-      WHERE customer_id = $1 
-        AND created_at >= $2
-        AND created_at <= $3
-    `, [customerId, dateRange.start, dateRange.end]);
-    
-    // 📝 Get recent events
-    const recentEvents = await query(`
-      SELECT 
-        event_type,
-        event_value,
-        channel,
-        created_at,
-        metadata
-      FROM ai_analytics_events
-      WHERE customer_id = $1
-      ORDER BY created_at DESC
-      LIMIT 10
-    `, [customerId]);
-    
     // Calculate business value (estimated)
     const businessValue = calculateBusinessValue(behaviorCounts.rows);
     
-    // Calculate effectiveness score
-    const effectivenessScore = calculateEffectivenessScore(behaviorCounts.rows, summaryStats.rows[0]);
+    // Calculate effectiveness score based on new metrics
+    const effectivenessScore = calculateEffectivenessScore(
+      engagementRate.rows[0],
+      contactCaptureRate.rows[0], 
+      responseSpeed.rows[0],
+      totalLeads.rows[0]
+    );
     
-    // Generate insights
-    const insights = generateInsights(behaviorCounts.rows, summaryStats.rows[0], channelBreakdown.rows);
+    // Generate insights based on new metrics
+    const insights = generateInsights(
+      engagementRate.rows[0],
+      contactCaptureRate.rows[0], 
+      responseSpeed.rows[0],
+      totalLeads.rows[0],
+      behaviorCounts.rows
+    );
     
-    // Format the comprehensive analytics response
+    // Format the comprehensive analytics response with NEW METRICS
     const analytics = {
       // Core metrics
       period: period,
@@ -207,7 +265,7 @@ export async function GET(request) {
         end: dateRange.end
       },
       
-      // Overview section for dashboard
+      // 🎯 NEW OVERVIEW SECTION with Better Metrics
       overview: {
         effectiveness_score: effectivenessScore,
         total_interactions_month: parseInt(summaryStats.rows[0]?.total_events || 0),
@@ -216,7 +274,13 @@ export async function GET(request) {
         hot_leads_month: behaviorCounts.rows.find(b => b.event_type === 'hot_lead')?.count || 0,
         phone_requests_today: dailyTrend.rows.find(d => d.date === new Date().toISOString().slice(0, 10))?.phone_requests || 0,
         phone_requests_month: behaviorCounts.rows.find(b => b.event_type === 'phone_request')?.count || 0,
-        appointments_month: behaviorCounts.rows.find(b => b.event_type === 'appointment_scheduled')?.count || 0
+        appointments_month: behaviorCounts.rows.find(b => b.event_type === 'appointment_scheduled')?.count || 0,
+        
+        // 🎯 NEW METRICS that actually make sense for your business
+        ai_engagement_rate: parseFloat(engagementRate.rows[0]?.engagement_rate || 0),
+        contact_capture_rate: parseFloat(contactCaptureRate.rows[0]?.capture_rate || 0),
+        avg_response_speed_minutes: parseFloat(responseSpeed.rows[0]?.avg_response_minutes || 0),
+        total_leads_captured: parseInt(totalLeads.rows[0]?.total_leads || 0)
       },
       
       // Summary statistics
@@ -239,22 +303,37 @@ export async function GET(request) {
         appointments: parseInt(row.appointments) || 0
       })),
       
-      // Conversion metrics
-      conversions: {
-        total_interactions: parseInt(conversionMetrics.rows[0]?.total_interactions) || 0,
-        phone_request_rate: parseFloat(conversionMetrics.rows[0]?.phone_request_rate) || 0,
-        hot_lead_rate: parseFloat(conversionMetrics.rows[0]?.hot_lead_rate) || 0,
-        appointments: parseInt(conversionMetrics.rows[0]?.appointments) || 0,
-        pricing_discussions: parseInt(conversionMetrics.rows[0]?.pricing_discussions) || 0
+      // 🎯 REPLACED: Better metrics instead of broken conversion rates
+      newMetrics: {
+        ai_engagement: {
+          rate: parseFloat(engagementRate.rows[0]?.engagement_rate || 0),
+          total_responses: parseInt(engagementRate.rows[0]?.total_ai_responses || 0),
+          responses_with_replies: parseInt(engagementRate.rows[0]?.responses_with_replies || 0),
+          description: "% of AI responses that get customer replies"
+        },
+        contact_capture: {
+          rate: parseFloat(contactCaptureRate.rows[0]?.capture_rate || 0),
+          total_leads: parseInt(contactCaptureRate.rows[0]?.total_leads || 0),
+          captured_leads: parseInt(contactCaptureRate.rows[0]?.captured_leads || 0),
+          description: "% of leads where AI captured contact info"
+        },
+        response_speed: {
+          avg_minutes: parseFloat(responseSpeed.rows[0]?.avg_response_minutes || 0),
+          median_minutes: parseFloat(responseSpeed.rows[0]?.median_response_minutes || 0),
+          total_measured: parseInt(responseSpeed.rows[0]?.total_responses || 0),
+          description: "Average time for AI to respond to inquiries"
+        },
+        total_leads: {
+          count: parseInt(totalLeads.rows[0]?.total_leads || 0),
+          interactions: parseInt(totalLeads.rows[0]?.total_interactions || 0),
+          active_days: parseInt(totalLeads.rows[0]?.active_days || 0),
+          description: "Total unique leads captured"
+        }
       },
       
       // Activity patterns
       activity: {
-        hourly: hourlyActivity.rows.map(row => ({
-          hour: parseInt(row.hour),
-          interactions: parseInt(row.interactions) || 0,
-          hot_leads: parseInt(row.hot_leads) || 0
-        })),
+        hourly: [], // Could be implemented later
         weekly: dailyTrend.rows.slice(0, 7).map(row => ({
           date: row.date,
           interactions: parseInt(row.total_events) || 0,
@@ -289,24 +368,6 @@ export async function GET(request) {
         }
       })),
       
-      // Top behaviors
-      topBehaviors: topBehaviors.rows.map(behavior => ({
-        type: formatEventType(behavior.event_type),
-        count: parseInt(behavior.occurrences),
-        percentage: summaryStats.rows[0]?.total_events > 0 
-          ? ((behavior.occurrences / summaryStats.rows[0].total_events) * 100).toFixed(1)
-          : 0
-      })),
-      
-      // Recent events
-      recent_events: recentEvents.rows.map(event => ({
-        type: event.event_type,
-        value: event.event_value,
-        channel: event.channel,
-        time: event.created_at,
-        metadata: event.metadata
-      })),
-      
       // AI-generated insights
       insights: insights
     };
@@ -334,58 +395,155 @@ export async function GET(request) {
 }
 
 /**
- * POST endpoint to manually refresh analytics
+ * 🎯 NEW: Calculate AI effectiveness score based on better metrics
  */
-export async function POST(request) {
-  try {
-    const { userId } = auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get customer
-    const customerResult = await query(
-      'SELECT id FROM customers WHERE clerk_user_id = $1 OR user_id = $1 LIMIT 1',
-      [userId]
-    );
-
-    if (customerResult.rows.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'No customer profile found'
-      }, { status: 404 });
-    }
-
-    const customerId = customerResult.rows[0].id;
-    const currentMonth = new Date().toISOString().slice(0, 7);
-
-    // Update or create customer analytics summary
-    await query(`
-      INSERT INTO customer_analytics_summary (
-        customer_id, month, updated_at
-      ) VALUES ($1, $2, CURRENT_TIMESTAMP)
-      ON CONFLICT (customer_id, month) 
-      DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-    `, [customerId, currentMonth]);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Analytics refreshed successfully'
-    });
-
-  } catch (error) {
-    console.error('❌ Analytics refresh error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+function calculateEffectivenessScore(engagement, capture, speed, leads) {
+  // If no data, return 0
+  if (!leads?.total_leads || leads.total_leads === 0) return 0;
+  
+  const engagementRate = parseFloat(engagement?.engagement_rate || 0);
+  const captureRate = parseFloat(capture?.capture_rate || 0);
+  const avgSpeed = parseFloat(speed?.avg_response_minutes || 0);
+  const totalLeads = parseInt(leads?.total_leads || 0);
+  
+  // Score components (0-100)
+  let score = 0;
+  
+  // 1. Engagement Rate (40% of score)
+  // 60%+ engagement is excellent, scale from there
+  score += Math.min(40, (engagementRate / 60) * 40);
+  
+  // 2. Contact Capture Rate (35% of score)  
+  // 80%+ capture is excellent, scale from there
+  score += Math.min(35, (captureRate / 80) * 35);
+  
+  // 3. Response Speed (15% of score)
+  // Under 5 minutes is excellent, over 30 minutes is poor
+  if (avgSpeed > 0) {
+    const speedScore = Math.max(0, Math.min(15, 15 - ((avgSpeed - 5) / 25) * 15));
+    score += speedScore;
   }
+  
+  // 4. Volume Bonus (10% of score)
+  // More leads = better performance
+  if (totalLeads >= 100) score += 10;
+  else if (totalLeads >= 50) score += 7;
+  else if (totalLeads >= 20) score += 5;
+  else if (totalLeads >= 10) score += 3;
+  else if (totalLeads >= 5) score += 1;
+  
+  return Math.round(Math.min(100, score));
 }
 
 /**
- * Format behavior counts into readable metrics
+ * 🎯 NEW: Generate insights based on better metrics
  */
+function generateInsights(engagement, capture, speed, leads, behaviors) {
+  const insights = [];
+  
+  const engagementRate = parseFloat(engagement?.engagement_rate || 0);
+  const captureRate = parseFloat(capture?.capture_rate || 0);
+  const avgSpeed = parseFloat(speed?.avg_response_minutes || 0);
+  const totalLeads = parseInt(leads?.total_leads || 0);
+  
+  // No data insights
+  if (totalLeads === 0) {
+    insights.push({
+      type: 'info',
+      message: 'Your AI hasn\'t processed any leads yet. Make sure your channels are connected and active.',
+      importance: 'high'
+    });
+    return insights;
+  }
+  
+  // Engagement insights
+  if (engagementRate >= 60) {
+    insights.push({
+      type: 'success',
+      message: `Excellent engagement! ${engagementRate}% of your AI responses get customer replies.`,
+      importance: 'high'
+    });
+  } else if (engagementRate >= 40) {
+    insights.push({
+      type: 'info',
+      message: `Good engagement rate of ${engagementRate}%. Consider optimizing AI responses for better interaction.`,
+      importance: 'medium'
+    });
+  } else if (engagementRate > 0) {
+    insights.push({
+      type: 'warning',
+      message: `Low engagement rate (${engagementRate}%). Your AI responses may need improvement to encourage replies.`,
+      importance: 'high'
+    });
+  }
+  
+  // Contact capture insights
+  if (captureRate >= 80) {
+    insights.push({
+      type: 'success',
+      message: `Outstanding contact capture! You're getting contact info from ${captureRate}% of leads.`,
+      importance: 'high'
+    });
+  } else if (captureRate >= 50) {
+    insights.push({
+      type: 'info',
+      message: `Decent contact capture rate of ${captureRate}%. Consider optimizing for more phone/email collection.`,
+      importance: 'medium'
+    });
+  } else if (captureRate > 0) {
+    insights.push({
+      type: 'warning',
+      message: `Contact capture needs work (${captureRate}%). Train your AI to better request phone numbers and emails.`,
+      importance: 'high'
+    });
+  }
+  
+  // Response speed insights
+  if (avgSpeed > 0 && avgSpeed <= 5) {
+    insights.push({
+      type: 'success',
+      message: `Lightning fast responses! Average ${avgSpeed.toFixed(1)} minutes response time.`,
+      importance: 'medium'
+    });
+  } else if (avgSpeed > 5 && avgSpeed <= 15) {
+    insights.push({
+      type: 'info',
+      message: `Good response time of ${avgSpeed.toFixed(1)} minutes on average.`,
+      importance: 'low'
+    });
+  } else if (avgSpeed > 15) {
+    insights.push({
+      type: 'warning',
+      message: `Response time could be faster (${avgSpeed.toFixed(1)} min avg). Consider automation improvements.`,
+      importance: 'medium'
+    });
+  }
+  
+  // Volume insights
+  if (totalLeads >= 100) {
+    insights.push({
+      type: 'success',
+      message: `High volume success with ${totalLeads} leads captured this period!`,
+      importance: 'high'
+    });
+  } else if (totalLeads >= 50) {
+    insights.push({
+      type: 'success',
+      message: `Good lead volume with ${totalLeads} leads captured.`,
+      importance: 'medium'
+    });
+  } else if (totalLeads >= 10) {
+    insights.push({
+      type: 'info',
+      message: `Building momentum with ${totalLeads} leads. Focus on scaling your channels.`,
+      importance: 'medium'
+    });
+  }
+  
+  return insights;
+}
+
+// Keep existing helper functions
 function formatBehaviorCounts(behaviors) {
   const formatted = {
     phoneRequests: 0,
@@ -438,14 +596,10 @@ function formatBehaviorCounts(behaviors) {
   return formatted;
 }
 
-/**
- * Calculate estimated business value
- */
 function calculateBusinessValue(behaviors) {
   let totalValue = 0;
   const valueBreakdown = {};
   
-  // Assign values to different behaviors
   const behaviorValues = {
     'phone_request': 50,
     'appointment_scheduled': 75,
@@ -473,159 +627,10 @@ function calculateBusinessValue(behaviors) {
     total: totalValue,
     breakdown: valueBreakdown,
     currency: 'USD',
-    note: 'Estimated value based on typical conversion rates'
+    note: 'Estimated value based on typical automation ROI'
   };
 }
 
-/**
- * Calculate AI effectiveness score (0-100)
- */
-function calculateEffectivenessScore(behaviors, summary) {
-  const totalInteractions = parseInt(summary?.total_events || 0);
-  if (totalInteractions === 0) return 0;
-  
-  // Find key behavior counts
-  const phoneRequests = behaviors.find(b => b.event_type === 'phone_request');
-  const appointments = behaviors.find(b => b.event_type === 'appointment_scheduled');
-  const hotLeads = behaviors.find(b => b.event_type === 'hot_lead');
-  
-  const phoneCount = parseInt(phoneRequests?.count || 0);
-  const appointmentCount = parseInt(appointments?.count || 0);
-  const hotLeadCount = parseInt(hotLeads?.count || 0);
-  
-  // Calculate rates
-  const phoneRate = (phoneCount / totalInteractions) * 100;
-  const appointmentRate = (appointmentCount / totalInteractions) * 100;
-  const hotLeadRate = (hotLeadCount / totalInteractions) * 100;
-  
-  // Weighted scoring: appointments (40%), hot leads (35%), phone requests (25%)
-  const score = Math.min(100, Math.round(
-    (appointmentRate * 4) + (hotLeadRate * 3.5) + (phoneRate * 2.5)
-  ));
-  
-  return score;
-}
-
-/**
- * Generate insights from analytics data
- */
-function generateInsights(behaviors, summary, channels) {
-  const insights = [];
-  const totalEvents = parseInt(summary?.total_events || 0);
-  
-  if (totalEvents === 0) {
-    insights.push({
-      type: 'info',
-      message: 'Your AI hasn\'t processed any interactions yet. Make sure your channels are connected.',
-      importance: 'high'
-    });
-    return insights;
-  }
-  
-  // Success insights
-  const hotLeadBehavior = behaviors.find(b => b.event_type === 'hot_lead');
-  const hotLeads = parseInt(hotLeadBehavior?.count || 0);
-  
-  if (hotLeads > 5) {
-    insights.push({
-      type: 'success',
-      message: `Great job! Your AI identified ${hotLeads} hot leads this period.`,
-      importance: 'high'
-    });
-  }
-  
-  // Phone request performance
-  const phoneRequests = behaviors.find(b => b.event_type === 'phone_request');
-  const phoneCount = parseInt(phoneRequests?.count || 0);
-  
-  if (phoneCount > totalEvents * 0.3) {
-    insights.push({
-      type: 'success',
-      message: 'Your AI is effectively capturing phone numbers from interested prospects.',
-      importance: 'high'
-    });
-  }
-  
-  // Appointment success
-  const appointments = behaviors.find(b => b.event_type === 'appointment_scheduled');
-  const appointmentCount = parseInt(appointments?.count || 0);
-  
-  if (appointmentCount > 0) {
-    insights.push({
-      type: 'success',
-      message: `${appointmentCount} appointments scheduled through AI this period!`,
-      importance: 'high'
-    });
-  }
-  
-  // Channel insights
-  if (channels && channels.length > 0) {
-    const topChannel = channels[0];
-    insights.push({
-      type: 'info',
-      message: `${topChannel.channel || 'Email'} is your most active channel with ${topChannel.interactions} interactions.`,
-      importance: 'medium'
-    });
-  }
-  
-  // Conversion optimization
-  if (phoneCount > 0 && appointmentCount > 0) {
-    const conversionRate = (appointmentCount / phoneCount * 100).toFixed(0);
-    if (conversionRate > 20) {
-      insights.push({
-        type: 'success',
-        message: `Strong conversion: ${conversionRate}% of phone requests lead to appointments.`,
-        importance: 'medium'
-      });
-    }
-  }
-  
-  // Activity level
-  if (totalEvents > 100) {
-    insights.push({
-      type: 'info',
-      message: `High engagement with ${totalEvents} AI interactions this period.`,
-      importance: 'medium'
-    });
-  }
-  
-  // Most common behavior
-  if (behaviors.length > 0) {
-    const topBehavior = behaviors[0];
-    const percentage = ((topBehavior.count / totalEvents) * 100).toFixed(0);
-    insights.push({
-      type: 'info',
-      message: `Your AI most frequently ${formatEventType(topBehavior.event_type)} (${percentage}% of interactions).`,
-      importance: 'low'
-    });
-  }
-  
-  return insights;
-}
-
-/**
- * Format event type for display
- */
-function formatEventType(eventType) {
-  const formats = {
-    'phone_request': 'requests phone numbers',
-    'appointment_scheduled': 'schedules appointments',
-    'hot_lead': 'detects hot leads',
-    'pricing_discussed': 'discusses pricing',
-    'cta_included': 'includes calls-to-action',
-    'advantages_highlighted': 'highlights advantages',
-    'email_request': 'requests emails',
-    'follow_up': 'offers follow-ups',
-    'qualifying_questions': 'asks qualifying questions',
-    'urgency_created': 'creates urgency'
-  };
-  
-  return formats[eventType] || eventType.replace(/_/g, ' ');
-}
-
-/**
- * Calculate date range based on period
- */
 function getDateRange(period) {
   const end = new Date();
   let start = new Date();
@@ -656,9 +661,6 @@ function getDateRange(period) {
   };
 }
 
-/**
- * Return empty analytics structure
- */
 function getEmptyAnalytics() {
   return {
     period: 'month',
@@ -670,7 +672,11 @@ function getEmptyAnalytics() {
       hot_leads_month: 0,
       phone_requests_today: 0,
       phone_requests_month: 0,
-      appointments_month: 0
+      appointments_month: 0,
+      ai_engagement_rate: 0,
+      contact_capture_rate: 0,
+      avg_response_speed_minutes: 0,
+      total_leads_captured: 0
     },
     summary: {
       totalAIInteractions: 0,
@@ -691,30 +697,50 @@ function getEmptyAnalytics() {
       urgencyCreated: 0
     },
     channels: [],
-    conversions: {
-      total_interactions: 0,
-      phone_request_rate: 0,
-      hot_lead_rate: 0,
-      appointments: 0,
-      pricing_discussions: 0
+    newMetrics: {
+      ai_engagement: { rate: 0, total_responses: 0, responses_with_replies: 0 },
+      contact_capture: { rate: 0, total_leads: 0, captured_leads: 0 },
+      response_speed: { avg_minutes: 0, median_minutes: 0, total_measured: 0 },
+      total_leads: { count: 0, interactions: 0, active_days: 0 }
     },
-    activity: {
-      hourly: [],
-      weekly: []
-    },
-    hotLeads: {
-      total: 0,
-      list: []
-    },
-    businessValue: {
-      total: 0,
-      breakdown: {},
-      currency: 'USD',
-      note: 'No data available'
-    },
+    activity: { hourly: [], weekly: [] },
+    hotLeads: { total: 0, list: [] },
+    businessValue: { total: 0, breakdown: {}, currency: 'USD', note: 'No data available' },
     dailyTrend: [],
-    topBehaviors: [],
-    recent_events: [],
     insights: []
   };
+}
+
+export async function POST(request) {
+  try {
+    const { userId } = auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const customerResult = await query(
+      'SELECT id FROM customers WHERE clerk_user_id = $1 OR user_id = $1 LIMIT 1',
+      [userId]
+    );
+
+    if (customerResult.rows.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'No customer profile found'
+      }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Analytics refreshed successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Analytics refresh error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error.message
+    }, { status: 500 });
+  }
 }
