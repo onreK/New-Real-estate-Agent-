@@ -44,7 +44,8 @@ import {
   BookOpen,
   Power,
   Brain,
-  Info
+  Info,
+  UserCheck
 } from 'lucide-react';
 
 export default function CompleteEmailSystem() {
@@ -83,12 +84,25 @@ export default function CompleteEmailSystem() {
   const [activeEmailView, setActiveEmailView] = useState('inbox');
   const [sentEmails, setSentEmails] = useState([]);
   
+  // 🎯 UPDATED: Stats with new metrics (replacing old broken ones)
   const [stats, setStats] = useState({
     totalConversations: 0,
     activeToday: 0,
-    responseRate: 0,
-    avgResponseTime: 0
+    // 🎯 NEW METRICS (replace responseRate and avgResponseTime):
+    aiEngagementRate: 0,
+    contactCaptureRate: 0,
+    avgResponseTimeMinutes: 0,
+    totalLeadsCaptured: 0
   });
+
+  // 🎯 NEW: Helper function to format time display
+  const formatTime = (minutes) => {
+    if (!minutes || minutes === 0) return '0m';
+    if (minutes < 60) return `${Math.round(minutes)}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
 
   // Dashboard Settings (simplified)
   const [dashboardSettings, setDashboardSettings] = useState({
@@ -280,10 +294,21 @@ export default function CompleteEmailSystem() {
         setConversations(convData.conversations || []);
       }
 
+      // 🎯 UPDATED: Load stats from updated email stats API
       const statsResponse = await fetch('/api/customer/email-stats');
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
-        setStats(statsData.stats || stats);
+        if (statsData.success && statsData.stats) {
+          setStats({
+            totalConversations: statsData.stats.totalConversations || 0,
+            activeToday: statsData.stats.activeToday || 0,
+            // 🎯 NEW METRICS from updated API:
+            aiEngagementRate: statsData.stats.aiEngagementRate || 0,
+            contactCaptureRate: statsData.stats.contactCaptureRate || 0,
+            avgResponseTimeMinutes: statsData.stats.avgResponseTimeMinutes || 0,
+            totalLeadsCaptured: statsData.stats.totalLeadsCaptured || 0
+          });
+        }
       }
     } catch (error) {
       console.error('Error loading email data:', error);
@@ -298,7 +323,7 @@ export default function CompleteEmailSystem() {
         
         if (data.connected && data.connection) {
           setGmailConnection(data.connection);
-          setStats(prev => ({ ...prev, responseRate: 95 }));
+          setStats(prev => ({ ...prev, aiEngagementRate: 95 })); // Updated from responseRate
         } else {
           setGmailConnection(null);
         }
@@ -739,8 +764,9 @@ export default function CompleteEmailSystem() {
         </div>
       )}
 
-      {/* Metrics - Larger and cleaner */}
+      {/* 🎯 UPDATED: Metrics with NEW 4 metrics - replacing old broken ones */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {/* 1. Total Conversations (keep this one) */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -753,6 +779,7 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
+        {/* 2. Active Today (keep this one) */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -765,14 +792,46 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
+        {/* 3. 🎯 NEW: AI Engagement Rate (replaces Response Rate) */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-300">Response Rate</p>
-              <p className="text-3xl font-bold text-white">{stats.responseRate}%</p>
+              <p className="text-sm font-medium text-gray-300">AI Engagement Rate</p>
+              <p className="text-3xl font-bold text-white">{stats.aiEngagementRate.toFixed(1)}%</p>
+              <p className="text-xs text-gray-400 mt-1">Replies to AI responses</p>
             </div>
             <div className="p-3 rounded-xl bg-purple-500/20">
-              <Target className="w-8 h-8 text-purple-400" />
+              <TrendingUp className="w-8 h-8 text-purple-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* 4. 🎯 NEW: Contact Capture Rate (replaces Avg Response Time) */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">Contact Capture Rate</p>
+              <p className="text-3xl font-bold text-white">{stats.contactCaptureRate.toFixed(1)}%</p>
+              <p className="text-xs text-gray-400 mt-1">Leads with contact info</p>
+            </div>
+            <div className="p-3 rounded-xl bg-orange-500/20">
+              <UserCheck className="w-8 h-8 text-orange-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ✨ Additional metrics display (optional) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">Avg Response Speed</p>
+              <p className="text-3xl font-bold text-white">{formatTime(stats.avgResponseTimeMinutes)}</p>
+              <p className="text-xs text-gray-400 mt-1">How fast AI responds</p>
+            </div>
+            <div className="p-3 rounded-xl bg-green-500/20">
+              <Clock className="w-8 h-8 text-green-400" />
             </div>
           </div>
         </div>
@@ -780,11 +839,12 @@ export default function CompleteEmailSystem() {
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-300">Avg Response Time</p>
-              <p className="text-3xl font-bold text-white">{stats.avgResponseTime}m</p>
+              <p className="text-sm font-medium text-gray-300">Total Leads Captured</p>
+              <p className="text-3xl font-bold text-white">{stats.totalLeadsCaptured}</p>
+              <p className="text-xs text-gray-400 mt-1">Cumulative growth</p>
             </div>
-            <div className="p-3 rounded-xl bg-orange-500/20">
-              <Clock className="w-8 h-8 text-orange-400" />
+            <div className="p-3 rounded-xl bg-blue-500/20">
+              <Target className="w-8 h-8 text-blue-400" />
             </div>
           </div>
         </div>
