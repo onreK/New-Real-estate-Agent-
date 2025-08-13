@@ -49,7 +49,7 @@ export default function MainDashboard() {
       totalMessages: 0,
       leadsGenerated: 0,
       hotLeadsToday: 0,
-      aiResponseRate: 0,
+      aiEngagementRate: 0, // 🎯 CHANGED: was aiResponseRate
       emailSettings: null,
       templates: []
     },
@@ -121,12 +121,12 @@ export default function MainDashboard() {
       const smsResponse = await fetch('/api/sms/conversations');
       const smsData = await smsResponse.json();
       
-      // 4. Load Email data (with error handling)
+      // 🎯 UPDATED: 4. Load Email data with better metrics handling
       let emailConversations = [];
       let emailMessages = 0;
       let emailLeads = 0;
       let emailHotLeadsToday = 0;
-      let aiResponseRate = 0;
+      let aiEngagementRate = 0; // 🎯 CHANGED: was aiResponseRate
       let emailSettingsData = { settings: null };
       let emailTemplatesData = { templates: [] };
       
@@ -157,21 +157,37 @@ export default function MainDashboard() {
       } catch (templatesError) {
         console.log('Email templates not available:', templatesError.message);
       }
+
+      // 🎯 NEW: Get real email metrics from our updated email stats API
+      try {
+        const emailStatsResponse = await fetch('/api/customer/email-stats');
+        if (emailStatsResponse.ok) {
+          const emailStatsData = await emailStatsResponse.json();
+          if (emailStatsData.success && emailStatsData.stats) {
+            // Use real metrics instead of calculated fake ones
+            aiEngagementRate = emailStatsData.stats.aiEngagementRate || 0;
+            emailHotLeadsToday = emailStatsData.stats.activeToday || 0;
+          }
+        }
+      } catch (emailStatsError) {
+        console.log('Email stats not available:', emailStatsError.message);
+      }
       
-      // Process email data
+      // Process email data (keep existing logic for conversations)
       emailMessages = emailConversations.reduce((acc, conv) => acc + (conv.messageCount || 0), 0);
       emailLeads = emailConversations.filter(conv => conv.status === 'lead').length;
       
-      const today = new Date().toDateString();
-      emailHotLeadsToday = emailConversations.filter(conv => {
-        return conv.lastMessageAt && new Date(conv.lastMessageAt).toDateString() === today;
-      }).length;
-      
-      // Calculate AI response rate
-      const totalEmailsToday = emailConversations.filter(conv => {
-        return conv.createdAt && new Date(conv.createdAt).toDateString() === today;
-      }).length;
-      aiResponseRate = totalEmailsToday > 0 ? Math.round((emailHotLeadsToday / totalEmailsToday) * 100) : 0;
+      // 🎯 REMOVED: Old broken calculation
+      // const today = new Date().toDateString();
+      // emailHotLeadsToday = emailConversations.filter(conv => {
+      //   return conv.lastMessageAt && new Date(conv.lastMessageAt).toDateString() === today;
+      // }).length;
+      // 
+      // // Calculate AI response rate
+      // const totalEmailsToday = emailConversations.filter(conv => {
+      //   return conv.createdAt && new Date(conv.createdAt).toDateString() === today;
+      // }).length;
+      // aiResponseRate = totalEmailsToday > 0 ? Math.round((emailHotLeadsToday / totalEmailsToday) * 100) : 0;
       
       // 5. Load Facebook data (with error handling)
       let facebookData = {
@@ -259,13 +275,14 @@ export default function MainDashboard() {
         }
       };
 
+      // 🎯 UPDATED: Email object with new metric name
       const email = {
         conversations: emailConversations,
         totalConversations: emailConversations.length,
         totalMessages: emailMessages,
         leadsGenerated: emailLeads,
         hotLeadsToday: emailHotLeadsToday,
-        aiResponseRate,
+        aiEngagementRate, // 🎯 CHANGED: was aiResponseRate
         emailSettings: emailSettingsData.settings,
         templates: emailTemplatesData.templates || []
       };
@@ -574,7 +591,7 @@ export default function MainDashboard() {
                 </button>
               </div>
 
-              {/* Email Status */}
+              {/* 🎯 UPDATED: Email Status with new metric */}
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -599,8 +616,8 @@ export default function MainDashboard() {
                     <span className="text-purple-400 font-medium">{dashboardData.email.hotLeadsToday}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">AI Response Rate</span>
-                    <span className="text-green-400 font-medium">{dashboardData.email.aiResponseRate}%</span>
+                    <span className="text-gray-400">AI Engagement Rate</span>
+                    <span className="text-green-400 font-medium">{dashboardData.email.aiEngagementRate.toFixed(1)}%</span>
                   </div>
                 </div>
                 <button
@@ -882,7 +899,7 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* Email Tab */}
+        {/* 🎯 UPDATED: Email Tab with new metric */}
         {activeTab === 'email' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -899,9 +916,9 @@ export default function MainDashboard() {
                 color="orange"
               />
               <StatCard
-                icon={Activity}
-                title="AI Response Rate"
-                value={dashboardData.email.aiResponseRate}
+                icon={TrendingUp}
+                title="AI Engagement Rate"
+                value={dashboardData.email.aiEngagementRate.toFixed(1)}
                 subtitle="%"
                 color="green"
               />
@@ -1036,7 +1053,7 @@ export default function MainDashboard() {
               <h3 className="text-xl font-semibold text-white mb-4">Instagram AI Management</h3>
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
-                  <div className={`px-3 py-1 rounded-full text-sm ${
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                     dashboardData.instagram.accountConnected 
                       ? 'bg-green-500/20 text-green-400' 
                       : 'bg-yellow-500/20 text-yellow-400'
