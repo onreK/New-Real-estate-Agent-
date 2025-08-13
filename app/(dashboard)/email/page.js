@@ -155,10 +155,70 @@ export default function CompleteEmailSystem() {
   const [newWhitelistItem, setNewWhitelistItem] = useState('');
   const [newCustomKeyword, setNewCustomKeyword] = useState('');
 
-  // 🎯 FIXED: Memoized handlers for non-problematic inputs
+  // 🎯 FIXED: Auto-save AI toggle when changed
   const handleAiSettingsChange = useCallback((field, value) => {
+    console.log(`🔄 AI Setting Changed: ${field} = ${value}`);
     setAiSettings(prev => ({ ...prev, [field]: value }));
-  }, []);
+    
+    // 🎯 AUTO-SAVE for the master AI toggle - this makes it work immediately!
+    if (field === 'enableAIResponses') {
+      console.log(`🚨 Master AI toggle changed to: ${value} - Auto-saving...`);
+      
+      // Auto-save this critical setting immediately
+      setTimeout(async () => {
+        setSaving(true);
+        try {
+          // Send minimal settings just for the toggle
+          const toggleSettings = {
+            enable_ai_responses: value,
+            // Include current basic settings to avoid overwriting
+            tone: aiSettings.communicationTone || 'professional',
+            ai_model: aiSettings.aiModel || 'gpt-4o-mini',
+            response_length: aiSettings.responseLength || 'medium',
+            custom_instructions: aiSettings.customInstructions || '',
+            knowledge_base: knowledgeBaseRef.current || '',
+            expertise: businessProfileRef.current.industry || '',
+            specialties: businessProfileRef.current.expertise || ''
+          };
+
+          console.log('💾 Auto-saving AI toggle:', toggleSettings);
+
+          const response = await fetch('/api/customer/ai-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(toggleSettings)
+          });
+
+          if (response.ok) {
+            console.log('✅ AI Auto-Response toggle saved successfully!');
+            // Optional: Show a subtle success indicator
+            const toggleElement = document.querySelector('[type="checkbox"]');
+            if (toggleElement && toggleElement.parentElement) {
+              toggleElement.parentElement.style.boxShadow = '0 0 10px rgba(34, 197, 94, 0.5)';
+              setTimeout(() => {
+                if (toggleElement.parentElement) {
+                  toggleElement.parentElement.style.boxShadow = '';
+                }
+              }, 1000);
+            }
+          } else {
+            const errorData = await response.json();
+            console.error('❌ Failed to save AI toggle:', errorData);
+            // Revert the toggle if save failed
+            setAiSettings(prev => ({ ...prev, [field]: !value }));
+            alert(`❌ Failed to save AI setting: ${errorData.error || 'Unknown error'}`);
+          }
+        } catch (error) {
+          console.error('❌ Error saving AI toggle:', error);
+          // Revert the toggle if save failed
+          setAiSettings(prev => ({ ...prev, [field]: !value }));
+          alert('❌ Error saving AI setting. Please try again.');
+        } finally {
+          setSaving(false);
+        }
+      }, 500); // Small delay to make the UI feel responsive
+    }
+  }, [aiSettings.communicationTone, aiSettings.aiModel, aiSettings.responseLength, aiSettings.customInstructions]);
 
   const handleAiBehaviorChange = useCallback((field, value) => {
     setAiSettings(prev => ({
@@ -956,7 +1016,7 @@ export default function CompleteEmailSystem() {
             {/* ✨ IMPROVED SCROLLABLE EMAIL CONTAINER - NOW USES FULL AVAILABLE HEIGHT */}
             <div className="flex-1 flex flex-col overflow-hidden">
               
-              {/* 📥 INBOX VIEW */}
+              {/* 🔥 INBOX VIEW */}
               {activeEmailView === 'inbox' && (
                 <div className="flex-1 flex flex-col h-full">
                   
@@ -1299,7 +1359,7 @@ export default function CompleteEmailSystem() {
                   </Badge>
                 </div>
                 <p className="text-sm text-gray-300">
-                  <span className="font-medium">To:</span> {selectedConversation.to} • 
+                  <span className="font-medium">To:</span> {selectedConversation.to} •
                   <span className="font-medium"> Subject:</span> Re: {selectedConversation.originalSubject}
                 </p>
               </div>
@@ -1762,7 +1822,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🔧 AUTOMATION TAB - EMAIL FILTERING NOW ENABLED
+  // 📧 AUTOMATION TAB - EMAIL FILTERING NOW ENABLED
   const AutomationTab = () => (
     <div className="space-y-6">
       {/* Email Filtering - NOW FULLY ENABLED */}
