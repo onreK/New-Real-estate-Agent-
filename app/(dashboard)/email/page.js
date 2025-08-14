@@ -45,13 +45,17 @@ import {
   Power,
   Brain,
   Info,
-  UserCheck
+  UserCheck,
+  Play,
+  Pause,
+  Square
 } from 'lucide-react';
 
 export default function CompleteEmailSystem() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const refreshIntervalRef = useRef(null);
+  const autoPollIntervalRef = useRef(null); // 🆕 NEW: Auto-poll interval
   
   // 🎯 FIXED: Only the problematic input fields use refs, everything else uses normal state
   const businessProfileRef = useRef({
@@ -61,6 +65,15 @@ export default function CompleteEmailSystem() {
   });
   
   const knowledgeBaseRef = useRef('');
+  
+  // 🆕 NEW: Auto-polling state
+  const [autoPollStatus, setAutoPollStatus] = useState({
+    isRunning: false,
+    lastPoll: null,
+    interval: 30, // seconds
+    totalEmailsProcessed: 0,
+    totalResponsesSent: 0
+  });
   
   // Existing functionality states - ALL PRESERVED
   const [conversations, setConversations] = useState([]);
@@ -234,6 +247,87 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
+  // 🆕 NEW: Auto-polling functions
+  const startAutoPoll = useCallback(() => {
+    if (!gmailConnection?.email || !aiSettings.enableAIResponses) {
+      alert('Please ensure Gmail is connected and AI responses are enabled');
+      return;
+    }
+
+    console.log('🚀 Starting auto-poll with interval:', autoPollStatus.interval, 'seconds');
+    
+    setAutoPollStatus(prev => ({ ...prev, isRunning: true }));
+    
+    // Clear any existing interval
+    if (autoPollIntervalRef.current) {
+      clearInterval(autoPollIntervalRef.current);
+    }
+    
+    // Start the auto-poll interval
+    autoPollIntervalRef.current = setInterval(() => {
+      runAutoPoll();
+    }, autoPollStatus.interval * 1000);
+    
+    // Run immediately
+    runAutoPoll();
+  }, [gmailConnection?.email, aiSettings.enableAIResponses, autoPollStatus.interval]);
+
+  const stopAutoPoll = useCallback(() => {
+    console.log('🛑 Stopping auto-poll');
+    
+    if (autoPollIntervalRef.current) {
+      clearInterval(autoPollIntervalRef.current);
+      autoPollIntervalRef.current = null;
+    }
+    
+    setAutoPollStatus(prev => ({ ...prev, isRunning: false }));
+  }, []);
+
+  const runAutoPoll = useCallback(async () => {
+    if (!gmailConnection?.email) return;
+    
+    console.log('🔄 Running auto-poll cycle...');
+    
+    try {
+      const response = await fetch('/api/gmail/auto-poll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailAddress: gmailConnection.email
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🎯 Auto-poll results:', data);
+        
+        if (data.success && data.results) {
+          setAutoPollStatus(prev => ({
+            ...prev,
+            lastPoll: new Date(),
+            totalEmailsProcessed: prev.totalEmailsProcessed + (data.results.emailsChecked || 0),
+            totalResponsesSent: prev.totalResponsesSent + (data.results.responsesGenerated || 0)
+          }));
+          
+          // Update stats
+          setStats(prev => ({
+            ...prev,
+            activeToday: data.results.emailsChecked || 0
+          }));
+          
+          // Refresh email list
+          if (activeTab === 'dashboard') {
+            checkGmailEmails(true); // Silent refresh
+          }
+        }
+      } else {
+        console.error('❌ Auto-poll failed:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Auto-poll error:', error);
+    }
+  }, [gmailConnection?.email, activeTab]);
+
   // Tab configuration
   const tabs = useMemo(() => [
     { 
@@ -306,16 +400,16 @@ export default function CompleteEmailSystem() {
     console.log('📊 Sent emails state changed:', sentEmails);
   }, [sentEmails]);
 
-  // Auto-refresh logic - only runs when necessary and doesn't affect other tabs
+  // 🆕 UPDATED: Auto-refresh logic + Auto-poll cleanup
   useEffect(() => {
-    // Clear any existing interval
+    // Clear any existing intervals
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
     }
 
-    // ONLY set up auto-refresh for dashboard tab when Gmail connected
-    if (activeTab === 'dashboard' && gmailConnection && !loading) {
+    // ONLY set up auto-refresh for dashboard tab when Gmail connected (but NOT auto-poll)
+    if (activeTab === 'dashboard' && gmailConnection && !loading && !autoPollStatus.isRunning) {
       refreshIntervalRef.current = setInterval(() => {
         checkGmailEmails(true); // Silent refresh
         setLastRefresh(new Date());
@@ -329,7 +423,16 @@ export default function CompleteEmailSystem() {
         refreshIntervalRef.current = null;
       }
     };
-  }, [activeTab, gmailConnection?.email, dashboardSettings.refreshInterval, loading]);
+  }, [activeTab, gmailConnection?.email, dashboardSettings.refreshInterval, loading, autoPollStatus.isRunning]);
+
+  // 🆕 NEW: Cleanup auto-poll on unmount
+  useEffect(() => {
+    return () => {
+      if (autoPollIntervalRef.current) {
+        clearInterval(autoPollIntervalRef.current);
+      }
+    };
+  }, []);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -756,12 +859,110 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  // ✨ COMPLETELY REDESIGNED DASHBOARD TAB WITH IMPROVED TABS & SCROLLING
+  // ✨ COMPLETELY REDESIGNED DASHBOARD TAB WITH AUTO-POLLING CONTROLS
   const DashboardTab = () => (
     <div className="space-y-6">
+      {/* 🆕 NEW: AUTO-POLLING CONTROL PANEL - PROMINENT PLACEMENT */}
+      {gmailConnection && (
+        <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-xl backdrop-blur-sm border ${
+                autoPollStatus.isRunning 
+                  ? 'bg-green-500/20 border-green-500/30' 
+                  : 'bg-gray-500/20 border-gray-500/30'
+              }`}>
+                {autoPollStatus.isRunning ? (
+                  <Zap className="w-6 h-6 text-green-400" />
+                ) : (
+                  <Square className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-white">
+                  AI Auto-Responses {autoPollStatus.isRunning ? '🟢 ACTIVE' : '⚪ STOPPED'}
+                </h3>
+                <p className="text-gray-300">
+                  {autoPollStatus.isRunning 
+                    ? `Running every ${autoPollStatus.interval}s • ${autoPollStatus.totalResponsesSent} responses sent`
+                    : 'Automatically check emails and send AI responses'
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {autoPollStatus.lastPoll && (
+                <span className="text-sm text-gray-400">
+                  Last poll: {autoPollStatus.lastPoll.toLocaleTimeString()}
+                </span>
+              )}
+              <div className="flex gap-2">
+                {!autoPollStatus.isRunning ? (
+                  <Button 
+                    onClick={startAutoPoll}
+                    disabled={!aiSettings.enableAIResponses}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Play className="w-4 h-4" />
+                    Start Auto-Responses
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={stopAutoPoll}
+                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <Pause className="w-4 h-4" />
+                    Stop Auto-Responses
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Auto-poll settings */}
+          <div className="mt-4 flex items-center gap-4">
+            <label className="text-sm text-gray-300">Check interval:</label>
+            <select
+              value={autoPollStatus.interval}
+              onChange={(e) => setAutoPollStatus(prev => ({ ...prev, interval: parseInt(e.target.value) }))}
+              disabled={autoPollStatus.isRunning}
+              className="px-3 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+            >
+              <option value={15}>15 seconds</option>
+              <option value={30}>30 seconds</option>
+              <option value={60}>1 minute</option>
+              <option value={120}>2 minutes</option>
+              <option value={300}>5 minutes</option>
+            </select>
+            
+            {/* Stats */}
+            <div className="ml-auto flex gap-6 text-sm">
+              <div className="text-center">
+                <div className="text-white font-bold">{autoPollStatus.totalEmailsProcessed}</div>
+                <div className="text-gray-400">Emails Checked</div>
+              </div>
+              <div className="text-center">
+                <div className="text-white font-bold">{autoPollStatus.totalResponsesSent}</div>
+                <div className="text-gray-400">AI Responses Sent</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Warning if AI responses disabled */}
+          {!aiSettings.enableAIResponses && (
+            <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <p className="text-yellow-400 text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                AI responses are disabled. Enable them in AI Settings to use auto-responses.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* STREAMLINED Header - Gmail Status + Check Emails + Last Refresh */}
       {gmailConnection ? (
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 mb-6">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-green-500/20 backdrop-blur-sm border border-green-500/30">
@@ -803,7 +1004,7 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
       ) : (
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6 mb-6">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/30">
