@@ -1,11 +1,18 @@
 // app/api/gmail/monitor/route.js
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { query } from '@/lib/database';
-import { checkEmailFilter } from '@/lib/email-filtering';
-import { generateGmailResponse } from '@/lib/ai-service';
+import OpenAI from 'openai';
+import { query } from '@/lib/database.js';
+import { checkEmailFilter } from '@/lib/email-filtering.js';
 
-// Google OAuth setup
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Google OAuth configuration
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
@@ -14,55 +21,25 @@ const oauth2Client = new google.auth.OAuth2(
 
 // Safe processing limits
 const EMAIL_LIMITS = {
-  MAX_FETCH: 30,      // Maximum emails to fetch from Gmail
-  MAX_PROCESS: 20,    // Maximum emails to process in one request
-  BATCH_SIZE: 5,      // Process emails in batches
-  TIMEOUT_MS: 8000    // Timeout per email operation
+  MAX_FETCH: 30,
+  MAX_PROCESS: 20,
+  BATCH_SIZE: 5,
+  TIMEOUT_MS: 25000
 };
 
-// Helper: Save Gmail connection to database
-async function saveGmailConnectionToDatabase(connection) {
+// Helper: Get customer AI settings and knowledge base
+async function getCustomerAISettings(customerEmail) {
   try {
-    const checkQuery = `
-      SELECT id FROM gmail_connections 
-      WHERE gmail_email = $1 
-      LIMIT 1
-    `;
-    const existing = await query(checkQuery, [connection.email]);
+    console.log('📚 Loading AI settings for:', customerEmail);
     
-    if (existing.rows.length > 0) {
-      const updateQuery = `
-        UPDATE gmail_connections 
-        SET access_token = $1, refresh_token = $2, token_expiry = $3, 
-            status = 'connected', last_monitored = CURRENT_TIMESTAMP
-        WHERE gmail_email = $4
-        RETURNING id
-      `;
-      const result = await query(updateQuery, [
-        connection.accessToken,
-        connection.refreshToken,
-        connection.tokenExpiry,
-        connection.email
-      ]);
-      return result.rows[0];
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Database save error:', error);
-    return null;
-  }
-}
-
-// Helper: Get customer settings including filter settings
-async function getCustomerSettings(emailAddress) {
-  try {
-    const settingsQuery = `
+    // Get customer and settings
+    const customerQuery = `
       SELECT c.id as customer_id, c.business_name, c.clerk_user_id,
+             es.knowledge_base, es.custom_instructions, es.tone,
+             es.expertise, es.specialties, es.hot_lead_keywords,
              es.auto_archive_spam, es.block_mass_emails, es.personal_only,
              es.skip_auto_generated, es.blacklist_emails, es.whitelist_emails,
-             es.priority_keywords, es.enable_ai_responses, es.knowledge_base,
-             es.custom_instructions, es.hot_lead_keywords, es.tone
+             es.priority_keywords, es.enable_ai_responses
       FROM gmail_connections gc
       JOIN customers c ON gc.user_id = c.clerk_user_id
       LEFT JOIN email_settings es ON c.id = es.customer_id
@@ -70,45 +47,112 @@ async function getCustomerSettings(emailAddress) {
       LIMIT 1
     `;
     
-    const result = await query(settingsQuery, [emailAddress]);
-    return result.rows[0] || null;
+    const result = await query(customerQuery, [customerEmail]);
+    
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      console.log('✅ Found settings for:', row.business_name);
+      console.log('📖 Knowledge base length:', row.knowledge_base?.length || 0);
+      console.log('📝 Custom instructions:', row.custom_instructions ? 'Yes' : 'No');
+      return row;
+    }
+    
+    console.log('⚠️ No settings found, using defaults');
+    return null;
   } catch (error) {
-    console.error('Error fetching customer settings:', error);
+    console.error('❌ Error loading settings:', error);
+    return null;
+  }
+}
+
+// Helper: Build AI prompt with business knowledge
+function buildAIPrompt(aiSettings, customerEmail) {
+  const businessName = aiSettings?.business_name || 'Our Business';
+  
+  let prompt = `You are a professional AI assistant representing ${businessName}.`;
+  
+  // Add knowledge base if available
+  if (aiSettings?.knowledge_base && aiSettings.knowledge_base.trim()) {
+    prompt += `\n\nBUSINESS INFORMATION:\n${aiSettings.knowledge_base}`;
+  }
+  
+  // Add custom instructions if available
+  if (aiSettings?.custom_instructions && aiSettings.custom_instructions.trim()) {
+    prompt += `\n\nCUSTOM INSTRUCTIONS:\n${aiSettings.custom_instructions}`;
+  }
+  
+  // Add tone guidance
+  const tone = aiSettings?.tone || 'professional';
+  prompt += `\n\nCOMMUNICATION STYLE: Respond in a ${tone} tone.`;
+  
+  // Add expertise if available
+  if (aiSettings?.expertise || aiSettings?.specialties) {
+    prompt += `\nEXPERTISE: ${aiSettings.expertise || ''} ${aiSettings.specialties || ''}`.trim();
+  }
+  
+  prompt += `\n\nINSTRUCTIONS:
+- Answer customer questions using the business information provided above
+- Be specific and helpful, using details from the business information
+- If asked about something not in the business information, politely say you'll need to check
+- Keep responses concise but informative
+- Always maintain a ${tone} tone
+- End with a helpful next step or call to action when appropriate`;
+
+  return prompt;
+}
+
+// Helper: Save Gmail connection to database
+async function saveGmailConnectionToDatabase(connection) {
+  try {
+    const result = await query(`
+      INSERT INTO gmail_connections (
+        user_id, gmail_email, access_token, refresh_token, token_expiry, status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (user_id, gmail_email) 
+      DO UPDATE SET 
+        access_token = EXCLUDED.access_token,
+        refresh_token = EXCLUDED.refresh_token,
+        token_expiry = EXCLUDED.token_expiry,
+        status = 'connected',
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [
+      connection.user_id || 'anonymous',
+      connection.email,
+      connection.accessToken,
+      connection.refreshToken,
+      connection.tokenExpiry,
+      'connected'
+    ]);
+    
+    console.log('✅ Gmail connection saved to database');
+    return result.rows[0];
+  } catch (error) {
+    console.error('⚠️ Failed to save connection:', error.message);
     return null;
   }
 }
 
 // Helper: Save conversation to database
-async function saveConversationToDatabase(customerId, connectionId, emailData) {
+async function saveConversationToDatabase(connectionId, threadId, customerEmail, customerName, subject) {
   try {
-    const insertQuery = `
-      INSERT INTO gmail_conversations 
-      (customer_id, gmail_connection_id, gmail_thread_id, gmail_message_id,
-       sender_email, sender_name, subject, first_message_text, 
-       latest_message_text, status, created_at, last_activity)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', NOW(), NOW())
-      ON CONFLICT (gmail_thread_id) 
+    const result = await query(`
+      INSERT INTO gmail_conversations (
+        gmail_connection_id, thread_id, customer_email, customer_name, subject
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (gmail_connection_id, thread_id) 
       DO UPDATE SET 
-        latest_message_text = $9,
-        last_activity = NOW()
-      RETURNING id
-    `;
-    
-    const result = await query(insertQuery, [
-      customerId,
-      connectionId,
-      emailData.threadId,
-      emailData.id,
-      emailData.fromEmail,
-      emailData.fromName,
-      emailData.subject,
-      emailData.body?.substring(0, 500),
-      emailData.body?.substring(0, 500)
-    ]);
+        customer_name = COALESCE(EXCLUDED.customer_name, gmail_conversations.customer_name),
+        subject = COALESCE(EXCLUDED.subject, gmail_conversations.subject),
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [connectionId, threadId, customerEmail, customerName, subject]);
     
     return result.rows[0];
   } catch (error) {
-    console.error('Failed to save conversation:', error);
+    console.error('⚠️ Failed to save conversation:', error.message);
     return null;
   }
 }
@@ -116,17 +160,17 @@ async function saveConversationToDatabase(customerId, connectionId, emailData) {
 // Helper: Save message to database
 async function saveMessageToDatabase(conversationId, messageData) {
   try {
-    const insertQuery = `
-      INSERT INTO gmail_messages 
-      (conversation_id, gmail_message_id, thread_id, sender_type, 
-       sender_email, recipient_email, subject, body_text, body_html, 
-       snippet, message_id_header, sent_at, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+    const result = await query(`
+      INSERT INTO gmail_messages (
+        conversation_id, gmail_message_id, thread_id, sender_type,
+        sender_email, recipient_email, subject, body_text, body_html,
+        snippet, message_id_header, in_reply_to, is_ai_response,
+        ai_model, sent_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       ON CONFLICT (gmail_message_id) DO NOTHING
-      RETURNING id
-    `;
-    
-    const result = await query(insertQuery, [
+      RETURNING *
+    `, [
       conversationId,
       messageData.gmail_message_id,
       messageData.thread_id,
@@ -138,23 +182,24 @@ async function saveMessageToDatabase(conversationId, messageData) {
       messageData.body_html,
       messageData.snippet,
       messageData.message_id_header,
+      messageData.in_reply_to,
+      messageData.is_ai_response || false,
+      messageData.ai_model,
       messageData.sent_at
     ]);
     
     if (result.rows.length > 0) {
-      console.log('Message saved to database:', result.rows[0].id);
+      console.log('✅ Message saved to database');
       return result.rows[0];
-    } else {
-      console.log('Message already exists in database');
-      return null;
     }
+    return null;
   } catch (error) {
-    console.error('Failed to save message to database:', error.message);
+    console.error('⚠️ Failed to save message:', error.message);
     return null;
   }
 }
 
-// Helper: Timeout wrapper for email processing
+// Helper: Timeout wrapper
 async function withTimeout(promise, timeoutMs, operation) {
   return Promise.race([
     promise,
@@ -164,8 +209,9 @@ async function withTimeout(promise, timeoutMs, operation) {
   ]);
 }
 
+// MAIN POST HANDLER
 export async function POST(request) {
-  console.log('📧 === GMAIL MONITOR WITH EMAIL FILTERING v3.0 ===');
+  console.log('📧 === GMAIL MONITOR v3.0 WITH FILTERING ===');
   
   try {
     const requestTimeout = setTimeout(() => {
@@ -177,8 +223,7 @@ export async function POST(request) {
     
     console.log('📧 Action:', action);
     console.log('📧 Email:', emailAddress);
-    console.log('🚀 Actual Send Mode:', actualSend);
-    console.log('🔍 Email Filtering: ENABLED');
+    console.log('🚀 Actual Send:', actualSend);
     
     if (!emailAddress) {
       clearTimeout(requestTimeout);
@@ -192,14 +237,12 @@ export async function POST(request) {
     let dbConnectionId = null;
     
     if (global.gmailConnections) {
-      console.log('🔍 Checking memory storage...');
       connection = global.gmailConnections.get(emailAddress) || 
                    Array.from(global.gmailConnections.values()).find(conn => conn.email === emailAddress);
     }
     
     // Fallback for kernojunk@gmail.com
     if (!connection && emailAddress === 'kernojunk@gmail.com') {
-      console.log('🎯 Using fallback connection for kernojunk@gmail.com');
       connection = {
         email: 'kernojunk@gmail.com',
         accessToken: 'will-refresh',
@@ -210,14 +253,11 @@ export async function POST(request) {
     
     if (!connection) {
       clearTimeout(requestTimeout);
-      console.log('❌ No connection found for:', emailAddress);
       return NextResponse.json({ 
         error: `Gmail connection not found for ${emailAddress}`,
         suggestion: 'Please reconnect Gmail'
       }, { status: 404 });
     }
-
-    console.log('✅ Gmail connection found:', connection.email);
 
     // Set up OAuth and refresh tokens
     oauth2Client.setCredentials({
@@ -229,7 +269,7 @@ export async function POST(request) {
     try {
       const { credentials } = await oauth2Client.refreshAccessToken();
       oauth2Client.setCredentials(credentials);
-      console.log('✅ Tokens refreshed successfully');
+      console.log('✅ Tokens refreshed');
       
       connection.accessToken = credentials.access_token;
       connection.tokenExpiry = credentials.expiry_date;
@@ -254,7 +294,7 @@ export async function POST(request) {
     if (action === 'check') {
       result = await checkForNewEmails(gmail, connection, dbConnectionId);
     } else if (action === 'respond') {
-      result = await respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend, emailAddress);
+      result = await respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend);
     } else {
       clearTimeout(requestTimeout);
       return NextResponse.json({ 
@@ -267,16 +307,15 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('❌ Gmail monitor error:', error);
-    
     return NextResponse.json({
       success: false,
       error: 'Gmail monitor failed',
-      details: error.message,
-      suggestion: 'Please try again or contact support if the issue persists'
+      details: error.message
     }, { status: 500 });
   }
 }
 
+// CHECK FOR NEW EMAILS WITH FILTERING
 async function checkForNewEmails(gmail, connection, dbConnectionId) {
   const startTime = Date.now();
   
@@ -304,20 +343,18 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
         connectedEmail: connection.email,
         totalFound: 0,
         totalProcessed: 0,
-        filteringEnabled: true,
-        processingTime: Date.now() - startTime
+        totalFiltered: 0
       });
     }
 
+    // Get customer settings for filtering
+    const customerSettings = await getCustomerAISettings(connection.email);
+    
     const emailDetails = [];
     let processedCount = 0;
     let filteredCount = 0;
 
     const emailsToProcess = messages.slice(0, EMAIL_LIMITS.MAX_PROCESS);
-    console.log(`🔄 Processing ${emailsToProcess.length} emails...`);
-
-    // Get customer settings for filtering
-    const customerSettings = await getCustomerSettings(connection.email);
 
     for (let i = 0; i < emailsToProcess.length; i += EMAIL_LIMITS.BATCH_SIZE) {
       const batch = emailsToProcess.slice(i, i + EMAIL_LIMITS.BATCH_SIZE);
@@ -350,7 +387,6 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
 
             // Get email body
             let body = '';
-            let bodyHtml = '';
             try {
               if (messageData.data.payload.body?.data) {
                 body = Buffer.from(messageData.data.payload.body.data, 'base64').toString();
@@ -358,19 +394,11 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                 const textPart = messageData.data.payload.parts.find(part => 
                   part.mimeType === 'text/plain'
                 );
-                const htmlPart = messageData.data.payload.parts.find(part => 
-                  part.mimeType === 'text/html'
-                );
-                
                 if (textPart?.body?.data) {
                   body = Buffer.from(textPart.body.data, 'base64').toString();
                 }
-                if (htmlPart?.body?.data) {
-                  bodyHtml = Buffer.from(htmlPart.body.data, 'base64').toString();
-                }
               }
-              
-              if (!body && !bodyHtml) {
+              if (!body) {
                 body = messageData.data.snippet || '';
               }
             } catch (bodyError) {
@@ -393,8 +421,7 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                 listIdHeader ||
                 listUnsubscribeHeader ||
                 body.toLowerCase().includes('unsubscribe') ||
-                body.toLowerCase().includes('email preferences') ||
-                body.toLowerCase().includes('manage subscriptions')
+                body.toLowerCase().includes('email preferences')
               );
 
               const filterResult = await checkEmailFilter({
@@ -409,7 +436,7 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                 console.log(`🚫 Email filtered from ${fromEmail}: ${filterResult.reason}`);
                 filteredCount++;
                 
-                // Optionally archive the filtered email
+                // Archive filtered email if enabled
                 if (customerSettings.auto_archive_spam !== false) {
                   try {
                     await gmail.users.messages.modify({
@@ -425,8 +452,7 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                   }
                 }
                 
-                // Skip adding to email list
-                return;
+                return; // Skip adding to email list
               }
             }
 
@@ -448,20 +474,15 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
 
             processedCount++;
 
-            // Save to database if we have customer settings
-            if (customerSettings && dbConnectionId) {
+            // Save to database
+            if (dbConnectionId) {
               try {
                 const conversation = await saveConversationToDatabase(
-                  customerSettings.customer_id,
                   dbConnectionId,
-                  {
-                    id: message.id,
-                    threadId: messageData.data.threadId,
-                    fromEmail: customerEmail,
-                    fromName: customerName,
-                    subject: subjectHeader?.value,
-                    body: body
-                  }
+                  messageData.data.threadId,
+                  customerEmail,
+                  customerName,
+                  subjectHeader?.value
                 );
 
                 if (conversation) {
@@ -473,14 +494,13 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                     recipient_email: connection.email,
                     subject: subjectHeader?.value,
                     body_text: body,
-                    body_html: bodyHtml,
                     snippet: messageData.data.snippet,
                     message_id_header: headers.find(h => h.name === 'Message-ID')?.value,
                     sent_at: new Date(parseInt(messageData.data.internalDate))
                   });
                 }
               } catch (dbError) {
-                console.error('Database save failed (continuing):', dbError.message);
+                console.error('Database save failed:', dbError.message);
               }
             }
 
@@ -501,40 +521,28 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
       totalFound: messages.length,
       totalProcessed: processedCount,
       totalFiltered: filteredCount,
-      filteringEnabled: true,
       processingTime: Date.now() - startTime
     });
     
   } catch (error) {
     console.error('Error checking emails:', error);
-    
-    if (error.message?.includes('timeout')) {
-      return NextResponse.json({
-        success: false,
-        error: 'Email check timed out',
-        details: 'Try again with fewer emails.',
-        suggestion: 'The system is processing safely but hit timeout limits.'
-      }, { status: 408 });
-    }
-    
     return NextResponse.json({
       success: false,
       error: 'Failed to check emails',
-      details: error.message,
-      suggestion: 'Please try again.'
+      details: error.message
     }, { status: 500 });
   }
 }
 
-// UPDATED: respondToEmail with FILTERING CHECK
-async function respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend, emailAddress) {
+// RESPOND TO EMAIL WITH FILTERING & FIXED AI
+async function respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend) {
   if (!emailId) {
     return NextResponse.json({ 
       error: 'Email ID is required for response' 
     }, { status: 400 });
   }
 
-  console.log('🤖 Checking if email should receive AI response...');
+  console.log('🤖 Processing email for AI response...');
 
   try {
     // Get original email
@@ -551,6 +559,7 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
     const headers = messageData.data.payload.headers;
     const fromHeader = headers.find(h => h.name === 'From');
     const subjectHeader = headers.find(h => h.name === 'Subject');
+    const messageIdHeader = headers.find(h => h.name === 'Message-ID');
     const listIdHeader = headers.find(h => h.name === 'List-Id');
     const precedenceHeader = headers.find(h => h.name === 'Precedence');
     const listUnsubscribeHeader = headers.find(h => h.name === 'List-Unsubscribe');
@@ -582,11 +591,11 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
       originalBody = messageData.data.snippet || 'Email content unavailable';
     }
 
-    // 🔍 CRITICAL: CHECK EMAIL FILTERS BEFORE RESPONDING
-    const customerSettings = await getCustomerSettings(emailAddress);
+    // Get customer settings for filtering and AI
+    const customerSettings = await getCustomerAISettings(connection.email);
     
+    // CHECK EMAIL FILTERS BEFORE RESPONDING
     if (customerSettings) {
-      // Check if email is auto-generated or mass email
       const isAutoGenerated = !!(
         precedenceHeader?.value?.toLowerCase().includes('bulk') ||
         precedenceHeader?.value?.toLowerCase().includes('list') ||
@@ -603,12 +612,9 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
         listIdHeader ||
         listUnsubscribeHeader ||
         originalBody.toLowerCase().includes('unsubscribe') ||
-        originalBody.toLowerCase().includes('email preferences') ||
-        originalBody.toLowerCase().includes('manage subscriptions') ||
-        originalBody.toLowerCase().includes('update your preferences')
+        originalBody.toLowerCase().includes('email preferences')
       );
 
-      // Apply email filtering
       const filterResult = await checkEmailFilter({
         from: fromEmail,
         subject: subject,
@@ -632,174 +638,179 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
         });
       }
       
-      console.log(`✅ Email from ${fromEmail} passed filters - proceeding with AI response`);
+      console.log(`✅ Email from ${fromEmail} passed filters - generating AI response`);
     }
 
-    // GENERATE AI RESPONSE (only if email passed filters)
-    console.log('🧠 Generating AI response for approved email...');
+    // GENERATE AI RESPONSE
+    console.log('🧠 Generating AI response with business knowledge...');
     
     const startTime = Date.now();
-    let aiResult;
+    let aiText = '';
     
     try {
-      // Get conversation from database if exists
-      let conversationId = null;
-      if (dbConnectionId && customerSettings) {
-        const convQuery = `
-          SELECT id FROM gmail_conversations 
-          WHERE gmail_thread_id = $1 
-          LIMIT 1
-        `;
-        const convResult = await query(convQuery, [messageData.data.threadId]);
-        if (convResult.rows.length > 0) {
-          conversationId = convResult.rows[0].id;
-        }
+      // Build system prompt with business knowledge
+      const systemPrompt = buildAIPrompt(customerSettings, connection.email);
+      
+      console.log('📝 System prompt includes:');
+      console.log('- Business name:', customerSettings?.business_name || 'Not set');
+      console.log('- Knowledge base:', customerSettings?.knowledge_base ? 'Yes' : 'No');
+      console.log('- Custom instructions:', customerSettings?.custom_instructions ? 'Yes' : 'No');
+      
+      // Generate AI response
+      const aiResponse = await withTimeout(
+        openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: customMessage || originalBody
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        }),
+        12000,
+        'OpenAI API call'
+      );
+
+      aiText = aiResponse.choices[0]?.message?.content || '';
+      
+      if (!aiText) {
+        throw new Error('No response generated from AI');
       }
       
-      // Generate AI response using centralized service
-      aiResult = await withTimeout(
-        generateGmailResponse({
-          originalBody,
-          subject,
-          fromEmail: replyToEmail,
-          customPrompt: customMessage || customerSettings?.custom_instructions || '',
-          customerData: customerSettings,
-          conversationId
-        }),
-        15000,
-        'Generate AI response'
-      );
+      console.log('✅ AI response generated successfully');
+      console.log('📝 Response preview:', aiText.substring(0, 150) + '...');
       
     } catch (aiError) {
-      console.error('AI generation failed, using fallback:', aiError.message);
+      console.error('❌ AI generation failed:', aiError.message);
       
       // Fallback response
-      aiResult = {
-        response: customMessage || `Thank you for your email. We've received your message and will respond with more detailed information shortly.\n\nBest regards,\n${customerSettings?.business_name || 'Team'}`,
-        success: false,
-        fallback: true
-      };
+      const businessName = customerSettings?.business_name || 'our team';
+      aiText = `Thank you for reaching out to ${businessName}. We've received your message and will provide you with detailed information shortly.
+
+Best regards,
+${businessName}`;
     }
-
+    
     const responseTime = Date.now() - startTime;
-    console.log(`⏱️ AI response generated in ${responseTime}ms`);
+    console.log(`⏱️ Response generated in ${responseTime}ms`);
 
-    // Get email body for actual send
-    const emailBody = aiResult.response || aiResult.aiResponse || 'Thank you for your message.';
+    const originalSubject = subjectHeader?.value || 'Your inquiry';
+    const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
 
-    // ACTUALLY SEND THE EMAIL if actualSend is true
+    // SEND OR PREVIEW EMAIL
     if (actualSend) {
       console.log('📤 Sending AI response to:', replyToEmail);
       
-      try {
-        const message = [
-          `To: ${replyToEmail}`,
-          `Subject: Re: ${subject}`,
-          'Content-Type: text/plain; charset=utf-8',
-          '',
-          emailBody
-        ].join('\n');
+      const rawMessage = [
+        `From: ${connection.email}`,
+        `To: ${replyToEmail}`,
+        `Subject: ${replySubject}`,
+        `In-Reply-To: ${messageIdHeader?.value || ''}`,
+        `References: ${messageIdHeader?.value || ''}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        '',
+        aiText
+      ].join('\r\n');
 
-        const encodedMessage = Buffer.from(message)
-          .toString('base64')
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=+$/, '');
+      const encodedMessage = Buffer.from(rawMessage)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
 
-        await gmail.users.messages.send({
+      const sendResponse = await withTimeout(
+        gmail.users.messages.send({
           userId: 'me',
           requestBody: {
             raw: encodedMessage,
             threadId: messageData.data.threadId
           }
-        });
+        }),
+        10000,
+        'Email send'
+      );
 
-        console.log('✅ AI response sent successfully!');
-        
-        // Mark original as read
+      // Mark original as read
+      try {
         await gmail.users.messages.modify({
           userId: 'me',
           id: emailId,
-          requestBody: {
-            removeLabelIds: ['UNREAD']
-          }
+          requestBody: { removeLabelIds: ['UNREAD'] }
         });
-
-        // Save to database
-        if (dbConnectionId && customerSettings) {
-          try {
-            const convQuery = `
-              INSERT INTO gmail_conversations 
-              (customer_id, gmail_connection_id, gmail_thread_id, 
-               sender_email, subject, status, ai_responded, created_at)
-              VALUES ($1, $2, $3, $4, $5, 'active', true, NOW())
-              ON CONFLICT (gmail_thread_id) 
-              DO UPDATE SET 
-                ai_responded = true,
-                last_activity = NOW()
-              RETURNING id
-            `;
-            
-            await query(convQuery, [
-              customerSettings.customer_id,
-              dbConnectionId,
-              messageData.data.threadId,
-              replyToEmail,
-              subject
-            ]);
-          } catch (dbError) {
-            console.error('Database save failed:', dbError);
-          }
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: 'AI response sent successfully',
-          response: emailBody,
-          sentTo: replyToEmail,
-          threadId: messageData.data.threadId,
-          responseTime: responseTime,
-          filtered: false,
-          actualSend: true
-        });
-
-      } catch (sendError) {
-        console.error('Failed to send email:', sendError);
-        return NextResponse.json({
-          success: false,
-          error: 'Failed to send email',
-          details: sendError.message,
-          response: emailBody
-        }, { status: 500 });
+      } catch (markError) {
+        console.warn('⚠️ Failed to mark as read:', markError.message);
       }
-      
+
+      // Save to database
+      if (dbConnectionId) {
+        try {
+          const convResult = await query(`
+            SELECT * FROM gmail_conversations 
+            WHERE gmail_connection_id = $1 AND thread_id = $2
+            LIMIT 1
+          `, [dbConnectionId, messageData.data.threadId]);
+
+          if (convResult.rows.length > 0) {
+            await saveMessageToDatabase(convResult.rows[0].id, {
+              gmail_message_id: sendResponse.data.id,
+              thread_id: messageData.data.threadId,
+              sender_type: 'ai',
+              sender_email: connection.email,
+              recipient_email: replyToEmail,
+              subject: replySubject,
+              body_text: aiText,
+              is_ai_response: true,
+              ai_model: 'gpt-4o-mini',
+              sent_at: new Date()
+            });
+          }
+        } catch (dbError) {
+          console.error('⚠️ Database save failed:', dbError.message);
+        }
+      }
+
+      console.log('🎉 Email sent successfully!');
+
+      return NextResponse.json({
+        success: true,
+        message: 'AI response sent successfully!',
+        response: aiText,
+        sentTo: replyToEmail,
+        threadId: messageData.data.threadId,
+        responseTime: responseTime,
+        filtered: false,
+        actualSent: true,
+        knowledgeBaseUsed: !!(customerSettings?.knowledge_base?.trim()),
+        customInstructionsUsed: !!(customerSettings?.custom_instructions?.trim())
+      });
+
     } else {
-      // PREVIEW MODE - don't actually send
+      // PREVIEW MODE
       console.log('👁️ Preview mode - not sending email');
       
       return NextResponse.json({
         success: true,
         message: 'AI response generated (preview mode)',
-        response: emailBody,
+        response: aiText,
         wouldReplyTo: replyToEmail,
         threadId: messageData.data.threadId,
         responseTime: responseTime,
         filtered: false,
         preview: true,
-        actualSend: false
+        actualSend: false,
+        knowledgeBaseUsed: !!(customerSettings?.knowledge_base?.trim()),
+        customInstructionsUsed: !!(customerSettings?.custom_instructions?.trim())
       });
     }
 
   } catch (error) {
     console.error('❌ Error in respondToEmail:', error);
-    
-    if (error.message?.includes('timeout')) {
-      return NextResponse.json({
-        success: false,
-        error: 'Response generation timed out',
-        details: 'Please try again.'
-      }, { status: 408 });
-    }
     
     return NextResponse.json({
       success: false,
@@ -809,20 +820,19 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
   }
 }
 
-// Handle GET requests for testing
+// GET endpoint for testing
 export async function GET() {
   return NextResponse.json({
-    message: 'Gmail Monitor API v3.0 with Email Filtering',
+    message: 'Gmail Monitor API v3.0',
     status: 'Active',
-    version: '3.0-filtered',
+    version: '3.0-complete',
     features: [
-      '🔍 Email filtering before AI responses',
-      '🚫 Blocks noreply, donotreply, notifications',
-      '📧 Filters mass emails and newsletters',
-      '✅ Respects whitelist/blacklist rules',
-      '🗑️ Auto-archives spam if enabled',
-      '🤖 Only responds to personal emails',
-      '💾 Database tracking for all conversations',
+      '🔍 Email filtering (blocks noreply, spam, newsletters)',
+      '🤖 AI responses with business knowledge base',
+      '📝 Custom instructions support',
+      '✅ Whitelist/blacklist rules',
+      '🗂️ Auto-archives filtered emails',
+      '💾 Database tracking',
       '⚡ Safe processing limits',
       '⏰ Timeout protection'
     ],
