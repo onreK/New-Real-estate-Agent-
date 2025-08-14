@@ -55,9 +55,8 @@ export default function CompleteEmailSystem() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const refreshIntervalRef = useRef(null);
-  const autoPollIntervalRef = useRef(null); // 🆕 NEW: Auto-poll interval
+  const autoPollIntervalRef = useRef(null);
   
-  // 🎯 FIXED: Only the problematic input fields use refs, everything else uses normal state
   const businessProfileRef = useRef({
     name: '',
     industry: '',
@@ -66,16 +65,15 @@ export default function CompleteEmailSystem() {
   
   const knowledgeBaseRef = useRef('');
   
-  // 🆕 NEW: Auto-polling state
+  // 🎯 FIXED: Auto-polling state with minimum 30-second default
   const [autoPollStatus, setAutoPollStatus] = useState({
     isRunning: false,
     lastPoll: null,
-    interval: 30, // seconds
+    interval: 30, // 🔧 FIXED: Start at 30 seconds minimum
     totalEmailsProcessed: 0,
     totalResponsesSent: 0
   });
   
-  // Existing functionality states - ALL PRESERVED
   const [conversations, setConversations] = useState([]);
   const [gmailEmails, setGmailEmails] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -89,26 +87,21 @@ export default function CompleteEmailSystem() {
   const [saving, setSaving] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   
-  // 🧪 AI Testing states
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
 
-  // ✨ NEW: Email view and sent email states
   const [activeEmailView, setActiveEmailView] = useState('inbox');
   const [sentEmails, setSentEmails] = useState([]);
   
-  // 🎯 UPDATED: Stats with new metrics (replacing old broken ones)
   const [stats, setStats] = useState({
     totalConversations: 0,
     activeToday: 0,
-    // 🎯 NEW METRICS (replace responseRate and avgResponseTime):
     aiEngagementRate: 0,
     contactCaptureRate: 0,
     avgResponseTimeMinutes: 0,
     totalLeadsCaptured: 0
   });
 
-  // 🎯 NEW: Helper function to format time display
   const formatTime = (minutes) => {
     if (!minutes || minutes === 0) return '0m';
     if (minutes < 60) return `${Math.round(minutes)}m`;
@@ -117,38 +110,26 @@ export default function CompleteEmailSystem() {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
-  // Dashboard Settings (simplified)
   const [dashboardSettings, setDashboardSettings] = useState({
     autoRefresh: true,
     refreshInterval: 30
   });
 
-  // 🎯 SIMPLIFIED AI Settings - Removed all conflicting toggles
   const [aiSettings, setAiSettings] = useState({
-    // ✅ MASTER TOGGLE - The only one that matters
     enableAIResponses: true,
-    
-    // Communication basics
     communicationTone: 'professional',
     knowledgeBase: '',
     hotLeadKeywords: ['urgent', 'asap', 'budget', 'ready'],
-    
-    // 🎯 SIMPLIFIED: Custom instructions replace all toggles
     customInstructions: '',
-    
-    // ⚙️ AI Model Settings (kept)
     aiModel: 'gpt-4o-mini',
     creativity: 0.7,
     responseLength: 'medium',
-    
-    // Basic behavior flags (simplified)
     behaviors: {
       hotLeadAlerts: true,
       smsLeadAlerts: false
     }
   });
 
-  // SIMPLIFIED Automation Settings - Removed Response Control
   const [automationSettings, setAutomationSettings] = useState({
     emailFiltering: {
       autoArchiveSpam: true,
@@ -163,28 +144,22 @@ export default function CompleteEmailSystem() {
     }
   });
 
-  // Form states for business rules - FULLY PRESERVED
   const [newBlacklistItem, setNewBlacklistItem] = useState('');
   const [newWhitelistItem, setNewWhitelistItem] = useState('');
   const [newCustomKeyword, setNewCustomKeyword] = useState('');
 
-  // 🎯 FIXED: Auto-save AI toggle when changed
   const handleAiSettingsChange = useCallback((field, value) => {
-    console.log(`🔄 AI Setting Changed: ${field} = ${value}`);
+    console.log(`📄 AI Setting Changed: ${field} = ${value}`);
     setAiSettings(prev => ({ ...prev, [field]: value }));
     
-    // 🎯 AUTO-SAVE for the master AI toggle - this makes it work immediately!
     if (field === 'enableAIResponses') {
       console.log(`🚨 Master AI toggle changed to: ${value} - Auto-saving...`);
       
-      // Auto-save this critical setting immediately
       setTimeout(async () => {
         setSaving(true);
         try {
-          // Send minimal settings just for the toggle
           const toggleSettings = {
             enable_ai_responses: value,
-            // Include current basic settings to avoid overwriting
             tone: aiSettings.communicationTone || 'professional',
             ai_model: aiSettings.aiModel || 'gpt-4o-mini',
             response_length: aiSettings.responseLength || 'medium',
@@ -204,7 +179,6 @@ export default function CompleteEmailSystem() {
 
           if (response.ok) {
             console.log('✅ AI Auto-Response toggle saved successfully!');
-            // Optional: Show a subtle success indicator
             const toggleElement = document.querySelector('[type="checkbox"]');
             if (toggleElement && toggleElement.parentElement) {
               toggleElement.parentElement.style.boxShadow = '0 0 10px rgba(34, 197, 94, 0.5)';
@@ -217,19 +191,17 @@ export default function CompleteEmailSystem() {
           } else {
             const errorData = await response.json();
             console.error('❌ Failed to save AI toggle:', errorData);
-            // Revert the toggle if save failed
             setAiSettings(prev => ({ ...prev, [field]: !value }));
             alert(`❌ Failed to save AI setting: ${errorData.error || 'Unknown error'}`);
           }
         } catch (error) {
           console.error('❌ Error saving AI toggle:', error);
-          // Revert the toggle if save failed
           setAiSettings(prev => ({ ...prev, [field]: !value }));
           alert('❌ Error saving AI setting. Please try again.');
         } finally {
           setSaving(false);
         }
-      }, 500); // Small delay to make the UI feel responsive
+      }, 500);
     }
   }, [aiSettings.communicationTone, aiSettings.aiModel, aiSettings.responseLength, aiSettings.customInstructions]);
 
@@ -247,14 +219,16 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  // 🆕 NEW: Auto-polling functions
+  // 🎯 FIXED: Auto-polling functions with proper rate limiting and timing
   const startAutoPoll = useCallback(() => {
     if (!gmailConnection?.email || !aiSettings.enableAIResponses) {
       alert('Please ensure Gmail is connected and AI responses are enabled');
       return;
     }
 
-    console.log('🚀 Starting auto-poll with interval:', autoPollStatus.interval, 'seconds');
+    // 🔧 FIXED: Ensure minimum 30-second interval to work with API rate limiting
+    const effectiveInterval = Math.max(autoPollStatus.interval, 30);
+    console.log('🚀 Starting auto-poll with effective interval:', effectiveInterval, 'seconds (minimum 30s enforced)');
     
     setAutoPollStatus(prev => ({ ...prev, isRunning: true }));
     
@@ -266,10 +240,14 @@ export default function CompleteEmailSystem() {
     // Start the auto-poll interval
     autoPollIntervalRef.current = setInterval(() => {
       runAutoPoll();
-    }, autoPollStatus.interval * 1000);
+    }, effectiveInterval * 1000);
     
-    // Run immediately
-    runAutoPoll();
+    // 🎯 IMPROVED: Delay the first run by 3 seconds to avoid immediate rate limiting
+    console.log(`⏱️ First auto-poll will run in 3 seconds, then every ${effectiveInterval} seconds`);
+    setTimeout(() => {
+      runAutoPoll();
+    }, 3000); // 3-second delay before first run
+    
   }, [gmailConnection?.email, aiSettings.enableAIResponses, autoPollStatus.interval]);
 
   const stopAutoPoll = useCallback(() => {
@@ -283,6 +261,7 @@ export default function CompleteEmailSystem() {
     setAutoPollStatus(prev => ({ ...prev, isRunning: false }));
   }, []);
 
+  // 🎯 IMPROVED: Enhanced runAutoPoll with graceful rate limiting handling
   const runAutoPoll = useCallback(async () => {
     if (!gmailConnection?.email) return;
     
@@ -300,6 +279,16 @@ export default function CompleteEmailSystem() {
       if (response.ok) {
         const data = await response.json();
         console.log('🎯 Auto-poll results:', data);
+        
+        // 🎯 IMPROVED: Handle rate limiting gracefully
+        if (data.success && data.message && data.message.includes('Rate limited')) {
+          console.log('⚠️ Auto-poll rate limited, will try again on next interval');
+          setAutoPollStatus(prev => ({
+            ...prev,
+            lastPoll: new Date()
+          }));
+          return; // Exit gracefully, don't treat as error
+        }
         
         if (data.success && data.results) {
           setAutoPollStatus(prev => ({
@@ -328,7 +317,6 @@ export default function CompleteEmailSystem() {
     }
   }, [gmailConnection?.email, activeTab]);
 
-  // Tab configuration
   const tabs = useMemo(() => [
     { 
       id: 'dashboard', 
@@ -356,13 +344,11 @@ export default function CompleteEmailSystem() {
     }
   ], []);
 
-  // Load data only once on mount and handle URL parameters
   useEffect(() => {
     loadInitialData();
     handleUrlParameters();
   }, []);
 
-  // Handle URL parameters for tab activation and messages
   const handleUrlParameters = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab');
@@ -371,23 +357,19 @@ export default function CompleteEmailSystem() {
     
     console.log('🔍 URL Parameters:', { tab, success, error });
     
-    // Set active tab if specified in URL
     if (tab && tabs.some(t => t.id === tab)) {
       console.log('🎯 Setting active tab to:', tab);
       setActiveTab(tab);
     }
     
-    // Handle success messages
     if (success === 'gmail_connected') {
       console.log('✅ Gmail connection successful');
     }
     
-    // Handle error messages
     if (error) {
       console.log('❌ OAuth error:', error);
     }
     
-    // Clear URL parameters after processing to clean up the URL
     if (tab || success || error) {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
@@ -395,28 +377,23 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🧪 DEBUG: Monitor sent emails state changes
   useEffect(() => {
     console.log('📊 Sent emails state changed:', sentEmails);
   }, [sentEmails]);
 
-  // 🆕 UPDATED: Auto-refresh logic + Auto-poll cleanup
   useEffect(() => {
-    // Clear any existing intervals
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
     }
 
-    // ONLY set up auto-refresh for dashboard tab when Gmail connected (but NOT auto-poll)
     if (activeTab === 'dashboard' && gmailConnection && !loading && !autoPollStatus.isRunning) {
       refreshIntervalRef.current = setInterval(() => {
-        checkGmailEmails(true); // Silent refresh
+        checkGmailEmails(true);
         setLastRefresh(new Date());
       }, dashboardSettings.refreshInterval * 1000);
     }
 
-    // Cleanup
     return () => {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
@@ -425,7 +402,6 @@ export default function CompleteEmailSystem() {
     };
   }, [activeTab, gmailConnection?.email, dashboardSettings.refreshInterval, loading, autoPollStatus.isRunning]);
 
-  // 🆕 NEW: Cleanup auto-poll on unmount
   useEffect(() => {
     return () => {
       if (autoPollIntervalRef.current) {
@@ -457,7 +433,6 @@ export default function CompleteEmailSystem() {
         setConversations(convData.conversations || []);
       }
 
-      // 🎯 UPDATED: Load stats from updated email stats API
       const statsResponse = await fetch('/api/customer/email-stats');
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
@@ -465,7 +440,6 @@ export default function CompleteEmailSystem() {
           setStats({
             totalConversations: statsData.stats.totalConversations || 0,
             activeToday: statsData.stats.activeToday || 0,
-            // 🎯 NEW METRICS from updated API:
             aiEngagementRate: statsData.stats.aiEngagementRate || 0,
             contactCaptureRate: statsData.stats.contactCaptureRate || 0,
             avgResponseTimeMinutes: statsData.stats.avgResponseTimeMinutes || 0,
@@ -486,7 +460,7 @@ export default function CompleteEmailSystem() {
         
         if (data.connected && data.connection) {
           setGmailConnection(data.connection);
-          setStats(prev => ({ ...prev, aiEngagementRate: 95 })); // Updated from responseRate
+          setStats(prev => ({ ...prev, aiEngagementRate: 95 }));
         } else {
           setGmailConnection(null);
         }
@@ -497,14 +471,12 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 SIMPLIFIED: Load AI Settings
   const loadAISettings = async () => {
     try {
       const response = await fetch('/api/customer/ai-settings');
       if (response.ok) {
         const data = await response.json();
         if (data.settings) {
-          // Update refs for problematic inputs
           businessProfileRef.current = {
             name: data.customer?.business_name || '',
             industry: data.settings.expertise || '',
@@ -513,7 +485,6 @@ export default function CompleteEmailSystem() {
           
           knowledgeBaseRef.current = data.settings.knowledge_base || '';
           
-          // SIMPLIFIED: Only load essential settings
           setAiSettings(prev => ({
             ...prev,
             enableAIResponses: data.settings.enable_ai_responses !== false,
@@ -546,36 +517,23 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 SIMPLIFIED: Save Settings
   const saveAllSettings = async () => {
     setSaving(true);
     try {
-      // SIMPLIFIED settings to save
       const settingsToSave = {
-        // Master control
         enable_ai_responses: aiSettings.enableAIResponses,
-        
-        // Business basics
         tone: aiSettings.communicationTone,
         expertise: businessProfileRef.current.industry,
         specialties: businessProfileRef.current.expertise,
         knowledge_base: knowledgeBaseRef.current,
-        
-        // Custom instructions (replaces all toggles)
         custom_instructions: aiSettings.customInstructions,
         ai_system_prompt: aiSettings.customInstructions,
-        
-        // AI Model Settings
         ai_model: aiSettings.aiModel,
         ai_temperature: aiSettings.creativity,
         response_length: aiSettings.responseLength,
-        
-        // Basic alerts
         alert_hot_leads: aiSettings.behaviors.hotLeadAlerts,
         sms_lead_alerts: aiSettings.behaviors.smsLeadAlerts,
         hot_lead_keywords: aiSettings.hotLeadKeywords,
-        
-        // ✅ EMAIL FILTERING SETTINGS - NOW INCLUDED
         auto_archive_spam: automationSettings.emailFiltering.autoArchiveSpam,
         block_mass_emails: automationSettings.emailFiltering.blockMassEmails,
         personal_only: automationSettings.emailFiltering.personalOnly,
@@ -583,8 +541,6 @@ export default function CompleteEmailSystem() {
         blacklist_emails: automationSettings.businessRules.blacklist,
         whitelist_emails: automationSettings.businessRules.whitelist,
         priority_keywords: automationSettings.businessRules.customKeywords,
-        
-        // Automation (simplified - no response control)
         email_filtering: automationSettings.emailFiltering,
         business_rules: automationSettings.businessRules
       };
@@ -614,7 +570,6 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🧪 Test AI Response function
   const testAIResponse = async () => {
     setTesting(true);
     setTestResult(null);
@@ -703,7 +658,6 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // ✨ UPDATED: Send AI Response with tracking
   const sendAIResponse = async (emailId, preview = false) => {
     if (!gmailConnection) return;
     
@@ -726,7 +680,6 @@ export default function CompleteEmailSystem() {
         const data = await response.json();
         console.log('📧 API Response:', data);
         
-        // 🎯 NEW: Track sent emails - IMPROVED LOGIC
         if (!preview) {
           const sentEmail = {
             id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -747,10 +700,9 @@ export default function CompleteEmailSystem() {
             return updated;
           });
           
-          // Auto-switch to sent tab after sending
           setTimeout(() => {
             setActiveEmailView('sent');
-            console.log('🔄 Switched to sent tab');
+            console.log('📄 Switched to sent tab');
           }, 500);
         }
         
@@ -768,7 +720,6 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // Helper functions for business rules - ALL PRESERVED
   const addToBlacklist = useCallback(() => {
     if (newBlacklistItem.trim()) {
       setAutomationSettings(prev => ({
@@ -859,10 +810,8 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  // ✨ COMPLETELY REDESIGNED DASHBOARD TAB WITH AUTO-POLLING CONTROLS
   const DashboardTab = () => (
     <div className="space-y-6">
-      {/* 🆕 NEW: AUTO-POLLING CONTROL PANEL - PROMINENT PLACEMENT */}
       {gmailConnection && (
         <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
           <div className="flex items-center justify-between">
@@ -884,7 +833,7 @@ export default function CompleteEmailSystem() {
                 </h3>
                 <p className="text-gray-300">
                   {autoPollStatus.isRunning 
-                    ? `Running every ${autoPollStatus.interval}s • ${autoPollStatus.totalResponsesSent} responses sent`
+                    ? `Running every ${Math.max(autoPollStatus.interval, 30)}s • ${autoPollStatus.totalResponsesSent} responses sent`
                     : 'Automatically check emails and send AI responses'
                   }
                 </p>
@@ -919,7 +868,7 @@ export default function CompleteEmailSystem() {
             </div>
           </div>
           
-          {/* Auto-poll settings */}
+          {/* 🎯 FIXED: Auto-poll settings with minimum 30-second enforcement */}
           <div className="mt-4 flex items-center gap-4">
             <label className="text-sm text-gray-300">Check interval:</label>
             <select
@@ -928,14 +877,18 @@ export default function CompleteEmailSystem() {
               disabled={autoPollStatus.isRunning}
               className="px-3 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
             >
-              <option value={15}>15 seconds</option>
+              {/* 🔧 FIXED: Removed 15 seconds option, start from 30 seconds */}
               <option value={30}>30 seconds</option>
               <option value={60}>1 minute</option>
               <option value={120}>2 minutes</option>
               <option value={300}>5 minutes</option>
             </select>
             
-            {/* Stats */}
+            {/* 🎯 NEW: Rate limit info */}
+            <div className="text-xs text-gray-400">
+              (Minimum 30s due to Gmail API limits)
+            </div>
+            
             <div className="ml-auto flex gap-6 text-sm">
               <div className="text-center">
                 <div className="text-white font-bold">{autoPollStatus.totalEmailsProcessed}</div>
@@ -948,7 +901,6 @@ export default function CompleteEmailSystem() {
             </div>
           </div>
           
-          {/* Warning if AI responses disabled */}
           {!aiSettings.enableAIResponses && (
             <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
               <p className="text-yellow-400 text-sm flex items-center gap-2">
@@ -960,7 +912,6 @@ export default function CompleteEmailSystem() {
         </div>
       )}
 
-      {/* STREAMLINED Header - Gmail Status + Check Emails + Last Refresh */}
       {gmailConnection ? (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
@@ -1025,9 +976,7 @@ export default function CompleteEmailSystem() {
         </div>
       )}
 
-      {/* 🎯 UPDATED: Metrics with NEW 4 metrics - replacing old broken ones */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* 1. Total Conversations (keep this one) */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1040,7 +989,6 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* 2. Active Today (keep this one) */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1053,7 +1001,6 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* 3. 🎯 NEW: AI Engagement Rate (replaces Response Rate) */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1067,7 +1014,6 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* 4. 🎯 NEW: Contact Capture Rate (replaces Avg Response Time) */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1082,7 +1028,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* ✨ Additional metrics display (optional) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
@@ -1111,14 +1056,11 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* ✨ COMPLETELY REDESIGNED EMAIL LAYOUT WITH BETTER TABS & FULL-HEIGHT SCROLLING */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         
-        {/* 📧 EMAIL LIST PANEL WITH MODERN TAB DESIGN - 40% WIDTH */}
         <div className="lg:col-span-2">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
             
-            {/* 🎯 REDESIGNED HEADER: Cleaner title, no debug clutter */}
             <div className="p-6 pb-0 flex-shrink-0 border-b border-white/10">
               <div className="flex items-center gap-3 mb-4">
                 <Inbox className="w-6 h-6 text-blue-400" />
@@ -1128,7 +1070,6 @@ export default function CompleteEmailSystem() {
                 </div>
               </div>
               
-              {/* ✨ COMPLETELY REDESIGNED TABS: Full-width, prominent, modern design */}
               <div className="w-full mb-4">
                 <div className="grid grid-cols-2 gap-0 bg-white/5 rounded-xl p-1 border border-white/10">
                   <button
@@ -1180,7 +1121,6 @@ export default function CompleteEmailSystem() {
                   </button>
                 </div>
                 
-                {/* Quick action buttons */}
                 <div className="flex items-center justify-between mt-3 text-sm text-gray-400">
                   <span>
                     {activeEmailView === 'inbox' 
@@ -1189,7 +1129,6 @@ export default function CompleteEmailSystem() {
                     }
                   </span>
                   <div className="flex gap-2">
-                    {/* DEBUG TEST BUTTON - Better positioned */}
                     <button
                       onClick={() => {
                         const testEmail = {
@@ -1214,16 +1153,12 @@ export default function CompleteEmailSystem() {
               </div>
             </div>
 
-            {/* ✨ IMPROVED SCROLLABLE EMAIL CONTAINER - NOW USES FULL AVAILABLE HEIGHT */}
             <div className="flex-1 flex flex-col overflow-hidden">
               
-              {/* 🔥 INBOX VIEW */}
               {activeEmailView === 'inbox' && (
                 <div className="flex-1 flex flex-col h-full">
                   
-                  {/* ✨ IMPROVED SCROLLABLE EMAIL LIST - USES ALL AVAILABLE SPACE */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    {/* Enhanced scrollbar styles */}
                     <style jsx>{`
                       .custom-scrollbar {
                         scrollbar-width: auto;
@@ -1333,13 +1268,10 @@ export default function CompleteEmailSystem() {
                 </div>
               )}
 
-              {/* 📤 SENT EMAILS VIEW */}
               {activeEmailView === 'sent' && (
                 <div className="flex-1 flex flex-col h-full">
                   
-                  {/* ✨ IMPROVED SCROLLABLE SENT EMAILS LIST */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar-green">
-                    {/* Green scrollbar styles for sent emails */}
                     <style jsx>{`
                       .custom-scrollbar-green {
                         scrollbar-width: auto;
@@ -1439,7 +1371,6 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* 📧 EMAIL PREVIEW/RESPONSE PANEL - 60% WIDTH */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
@@ -1461,7 +1392,6 @@ export default function CompleteEmailSystem() {
               </div>
               
               <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                {/* Email Content Preview */}
                 <div className="bg-white/5 rounded-xl p-6 border border-white/10 backdrop-blur-sm">
                   <p className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
@@ -1472,7 +1402,6 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, true)}
@@ -1502,7 +1431,6 @@ export default function CompleteEmailSystem() {
                   </Button>
                 </div>
 
-                {/* AI Status Warning */}
                 {!aiSettings.enableAIResponses && (
                   <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4">
                     <div className="flex items-center gap-2">
@@ -1514,7 +1442,6 @@ export default function CompleteEmailSystem() {
                   </div>
                 )}
 
-                {/* Info Box */}
                 <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1530,7 +1457,6 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* Email metadata */}
                 <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
                   <h4 className="font-medium text-white">Email Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1547,7 +1473,6 @@ export default function CompleteEmailSystem() {
               </div>
             </div>
           ) : selectedConversation ? (
-            // 🎯 SENT EMAIL PREVIEW
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
               <div className="p-6 pb-4 border-b border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-3 text-lg font-semibold text-white mb-2">
@@ -1566,7 +1491,6 @@ export default function CompleteEmailSystem() {
               </div>
               
               <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                {/* Sent Response Content */}
                 <div className="bg-green-500/10 rounded-xl p-6 border border-green-500/20 backdrop-blur-sm">
                   <p className="text-sm font-medium text-green-300 mb-4 flex items-center gap-2">
                     <Send className="w-4 h-4" />
@@ -1577,7 +1501,6 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* Success Message */}
                 <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-6 backdrop-blur-sm">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 bg-green-500/30 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1592,7 +1515,6 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* Sent Details */}
                 <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
                   <h4 className="font-medium text-white">Response Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1617,7 +1539,6 @@ export default function CompleteEmailSystem() {
               </div>
             </div>
           ) : (
-            /* Empty Selection State */
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
               <div className="flex-1 p-16 text-center flex flex-col items-center justify-center">
                 <div className="w-24 h-24 mx-auto mb-8 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -1649,10 +1570,8 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🎯 SIMPLIFIED AI SETTINGS TAB
   const AISettingsTab = () => (
     <div className="space-y-6">
-      {/* MASTER AI TOGGLE - The Main Control */}
       <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -1682,7 +1601,6 @@ export default function CompleteEmailSystem() {
         )}
       </div>
 
-      {/* Business Profile */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building className="w-5 h-5 text-blue-400" />
@@ -1729,7 +1647,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Communication Tone */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <MessageCircle className="w-5 h-5 text-blue-400" />
@@ -1783,7 +1700,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* 🎯 SIMPLIFIED: Custom AI Instructions (Replaces ALL toggles) */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-green-400" />
@@ -1822,7 +1738,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Business Knowledge Base */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <BookOpen className="w-5 h-5 text-blue-400" />
@@ -1853,7 +1768,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* AI Model Settings */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Bot className="w-5 h-5 text-indigo-400" />
@@ -1861,7 +1775,6 @@ export default function CompleteEmailSystem() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* AI Model Selection */}
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">
               AI Model
@@ -1881,7 +1794,6 @@ export default function CompleteEmailSystem() {
             </p>
           </div>
 
-          {/* Creativity Level */}
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">
               Creativity Level: {aiSettings.creativity || 0.7}
@@ -1903,7 +1815,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Hot Lead Keywords */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold text-white mb-2">Hot Lead Keywords</h3>
         <p className="text-gray-300 mb-6">Keywords that indicate urgent, high-priority leads</p>
@@ -1936,7 +1847,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Simple Alert Settings */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold text-white mb-2">Alert Settings</h3>
         <p className="text-gray-300 mb-6">Get notified about important leads</p>
@@ -1968,7 +1878,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Test Results */}
       {testResult && (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">🧪 AI Test Results</h3>
@@ -2001,7 +1910,6 @@ export default function CompleteEmailSystem() {
         </div>
       )}
 
-      {/* Save and Test Actions */}
       <div className="flex gap-4 pt-4">
         <Button
           onClick={testAIResponse}
@@ -2023,10 +1931,8 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 📧 AUTOMATION TAB - EMAIL FILTERING NOW ENABLED
   const AutomationTab = () => (
     <div className="space-y-6">
-      {/* Email Filtering - NOW FULLY ENABLED */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-blue-400" />
@@ -2034,7 +1940,6 @@ export default function CompleteEmailSystem() {
         </div>
         <p className="text-gray-300 mb-6">Automatically filter emails to focus on real inquiries</p>
         
-        {/* ✅ WARNING REMOVED - CHECKBOXES NOW ENABLED */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             { key: 'autoArchiveSpam', label: 'Auto-Archive Spam', desc: 'Automatically filter out spam emails' },
@@ -2058,7 +1963,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Business Rules - FULLY FUNCTIONAL */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-blue-400" />
@@ -2066,7 +1970,6 @@ export default function CompleteEmailSystem() {
         </div>
         <p className="text-gray-300 mb-6">Control which emails get AI responses</p>
         <div className="space-y-6">
-          {/* Blacklist */}
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Blacklist (Never respond to these)</label>
             <div className="space-y-2">
@@ -2095,7 +1998,6 @@ export default function CompleteEmailSystem() {
             </div>
           </div>
 
-          {/* Whitelist */}
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Whitelist (Always respond to these)</label>
             <div className="space-y-2">
@@ -2124,7 +2026,6 @@ export default function CompleteEmailSystem() {
             </div>
           </div>
 
-          {/* Custom Keywords */}
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">Priority Keywords (Respond to these first)</label>
             <div className="space-y-2">
@@ -2155,7 +2056,6 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Save Button */}
       <div className="flex justify-end">
         <Button 
           onClick={saveAllSettings} 
@@ -2169,7 +2069,6 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-6">
@@ -2189,11 +2088,9 @@ export default function CompleteEmailSystem() {
     );
   }
 
-  // Main render
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Button 
             variant="outline" 
@@ -2212,7 +2109,6 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
         <div className="mb-6">
           <div className="border-b border-white/20">
             <nav className="-mb-px flex space-x-8">
@@ -2244,7 +2140,6 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* Tab Content */}
         <div className="tab-content">
           {activeTab === 'dashboard' && <DashboardTab />}
           {activeTab === 'ai-settings' && <AISettingsTab />}
