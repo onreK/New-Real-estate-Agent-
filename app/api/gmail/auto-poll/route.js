@@ -1,7 +1,5 @@
-// app/api/gmail/auto-poll/route.js - FIXED VERSION WITH PROPER AI CHECKING
+// app/api/gmail/auto-poll/route.js - SIMPLIFIED VERSION WITHOUT DB IMPORTS
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
-import { query } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,16 +10,6 @@ export async function POST(request) {
   console.log('🔄 AUTO-POLL: Starting email check and response cycle');
   
   try {
-    // Get current user
-    const user = await currentUser();
-    if (!user) {
-      console.log('❌ AUTO-POLL: No user found');
-      return NextResponse.json({ 
-        success: false,
-        error: 'Unauthorized' 
-      }, { status: 401 });
-    }
-
     // Get email address from request
     let emailAddress;
     try {
@@ -44,33 +32,6 @@ export async function POST(request) {
     }
 
     console.log('📧 AUTO-POLL: Checking emails for:', emailAddress);
-
-    // CHECK AI SETTINGS FROM DATABASE
-    console.log('🔍 AUTO-POLL: Checking AI settings for user:', user.id);
-    
-    const settingsResult = await query(`
-      SELECT 
-        enable_ai_responses,
-        ai_model,
-        custom_instructions,
-        tone
-      FROM email_settings
-      WHERE customer_id = $1
-    `, [user.id]);
-
-    const aiSettings = settingsResult.rows[0];
-    
-    if (!aiSettings || !aiSettings.enable_ai_responses) {
-      console.log('⚠️ AUTO-POLL: AI responses are disabled in settings');
-      return NextResponse.json({ 
-        success: true,
-        message: 'AI responses are disabled',
-        aiEnabled: false,
-        checkComplete: true
-      });
-    }
-
-    console.log('✅ AUTO-POLL: AI responses are enabled, proceeding with checks');
 
     // Simple rate limiting
     const lastCheck = lastCheckTimes.get(emailAddress);
@@ -128,7 +89,7 @@ export async function POST(request) {
       emailsFound = emailData.emails?.length || 0;
       console.log('📊 AUTO-POLL: Found', emailsFound, 'emails');
 
-      // Step 2: If we have emails AND AI is enabled, try to respond to them
+      // Step 2: If we have emails, try to respond to them
       if (emailData.emails && emailData.emails.length > 0) {
         console.log('🤖 AUTO-POLL: Step 2 - Generating AI responses...');
         
@@ -142,7 +103,7 @@ export async function POST(request) {
           try {
             console.log(`🚀 AUTO-POLL: Processing email ${i + 1}/${emailsToProcess.length}: "${email.subject}"`);
             
-            // Send AI response request with AI settings
+            // Send AI response request
             const responseResult = await fetch(monitorUrl, {
               method: 'POST',
               headers: {
@@ -153,12 +114,7 @@ export async function POST(request) {
                 action: 'respond',
                 emailAddress: emailAddress,
                 emailId: email.id,
-                actualSend: true,
-                aiSettings: {
-                  model: aiSettings.ai_model || 'gpt-4o-mini',
-                  customInstructions: aiSettings.custom_instructions || '',
-                  tone: aiSettings.tone || 'professional'
-                }
+                actualSend: true
               })
             });
 
@@ -167,28 +123,6 @@ export async function POST(request) {
               if (responseData.success) {
                 responsesGenerated++;
                 console.log(`✅ AUTO-POLL: AI response sent for email ${i + 1}: "${email.subject}"`);
-                
-                // Log the event for analytics
-                try {
-                  await query(`
-                    INSERT INTO ai_analytics_events (
-                      customer_id,
-                      event_type,
-                      event_data
-                    ) VALUES ($1, $2, $3)
-                  `, [
-                    user.id,
-                    'email_responded',
-                    JSON.stringify({
-                      email_id: email.id,
-                      subject: email.subject,
-                      from: email.from,
-                      timestamp: new Date().toISOString()
-                    })
-                  ]);
-                } catch (analyticsError) {
-                  console.log('Analytics logging failed:', analyticsError.message);
-                }
               } else {
                 console.log(`⚠️ AUTO-POLL: Response failed for email ${i + 1}:`, responseData.error);
               }
@@ -222,27 +156,6 @@ export async function POST(request) {
     console.log('🎉 AUTO-POLL: Cycle completed successfully');
     console.log(`📊 AUTO-POLL: Final results - Emails: ${emailsFound}, Responses: ${responsesGenerated}`);
     
-    // Update analytics summary
-    if (responsesGenerated > 0) {
-      try {
-        await query(`
-          INSERT INTO customer_analytics_summary (
-            customer_id,
-            total_emails_processed,
-            total_responses_sent,
-            last_activity
-          ) VALUES ($1, $2, $3, NOW())
-          ON CONFLICT (customer_id) 
-          DO UPDATE SET
-            total_emails_processed = customer_analytics_summary.total_emails_processed + $2,
-            total_responses_sent = customer_analytics_summary.total_responses_sent + $3,
-            last_activity = NOW()
-        `, [user.id, emailsFound, responsesGenerated]);
-      } catch (updateError) {
-        console.log('Analytics update failed:', updateError.message);
-      }
-    }
-    
     return NextResponse.json({
       success: true,
       message: 'Auto-poll completed successfully',
@@ -268,18 +181,16 @@ export async function POST(request) {
 
 export async function GET() {
   return NextResponse.json({
-    message: 'Gmail Auto-Poll API - Fixed Version',
+    message: 'Gmail Auto-Poll API - Simplified Version',
     status: 'Active',
     description: 'Checks Gmail and sends AI responses automatically',
-    version: '3.0-unified',
+    version: '2.0-simplified',
     features: [
-      '✅ Checks AI settings from database',
-      '✅ Unified control system',
+      '✅ No database dependencies',
       '📧 Email checking via monitor API',
       '🤖 AI response generation',
       '⏱️ Rate limiting (25s minimum)',
-      '📊 Analytics tracking',
-      '🔒 User authentication'
+      '📊 Detailed logging'
     ]
   });
 }
