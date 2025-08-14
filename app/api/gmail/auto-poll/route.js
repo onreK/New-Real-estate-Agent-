@@ -1,4 +1,4 @@
-// app/api/gmail/auto-poll/route.js - WORKING VERSION WITH EMAIL FUNCTIONALITY
+// COMPLETE app/api/gmail/auto-poll/route.js - IMPROVED ERROR HANDLING
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -57,17 +57,23 @@ export async function POST(request) {
     let responsesGenerated = 0;
     
     try {
-      // Build the monitor URL from the current request URL
+      // 🎯 IMPROVED: Better URL building and error handling
       const currentUrl = new URL(request.url);
       const monitorUrl = `${currentUrl.protocol}//${currentUrl.host}/api/gmail/monitor`;
       
       console.log('🔗 AUTO-POLL: Calling monitor API at:', monitorUrl);
+      console.log('🔗 AUTO-POLL: Request headers:', {
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') ? 'Present' : 'Missing'
+      });
       
       const monitorResponse = await fetch(monitorUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Cookie': request.headers.get('cookie') || ''
+          'Cookie': request.headers.get('cookie') || '',
+          // 🎯 NEW: Add user agent and other headers
+          'User-Agent': request.headers.get('user-agent') || 'Auto-Poll-Bot/1.0'
         },
         body: JSON.stringify({
           action: 'check',
@@ -75,16 +81,56 @@ export async function POST(request) {
         })
       });
 
+      console.log('📊 AUTO-POLL: Monitor API response status:', monitorResponse.status);
+      console.log('📊 AUTO-POLL: Monitor API response headers:', {
+        'content-type': monitorResponse.headers.get('content-type'),
+        'content-length': monitorResponse.headers.get('content-length')
+      });
+
       if (!monitorResponse.ok) {
+        let errorDetails = 'Unknown error';
+        try {
+          const errorData = await monitorResponse.json();
+          errorDetails = errorData.error || errorData.message || errorData.details || 'Monitor API error';
+          console.error('❌ AUTO-POLL: Monitor API JSON error:', errorData);
+        } catch (jsonError) {
+          const errorText = await monitorResponse.text();
+          errorDetails = errorText || 'Failed to parse error response';
+          console.error('❌ AUTO-POLL: Monitor API text error:', errorText);
+        }
+        
         console.error('❌ AUTO-POLL: Monitor API failed:', monitorResponse.status, monitorResponse.statusText);
+        
+        // 🎯 IMPROVED: Return more helpful error info
         return NextResponse.json({ 
           success: false, 
           error: `Monitor API failed: ${monitorResponse.status}`,
-          details: monitorResponse.statusText
+          details: errorDetails,
+          debugInfo: {
+            monitorUrl,
+            emailAddress,
+            timestamp: new Date().toISOString()
+          }
         }, { status: 500 });
       }
 
-      const emailData = await monitorResponse.json();
+      let emailData;
+      try {
+        emailData = await monitorResponse.json();
+        console.log('📊 AUTO-POLL: Monitor API response data:', {
+          success: emailData.success,
+          emailCount: emailData.emails?.length || 0,
+          message: emailData.message
+        });
+      } catch (jsonError) {
+        console.error('❌ AUTO-POLL: Failed to parse monitor response as JSON:', jsonError.message);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Monitor API returned invalid JSON',
+          details: jsonError.message
+        }, { status: 500 });
+      }
+
       emailsFound = emailData.emails?.length || 0;
       console.log('📊 AUTO-POLL: Found', emailsFound, 'emails');
 
@@ -144,10 +190,19 @@ export async function POST(request) {
       
     } catch (monitorError) {
       console.error('❌ AUTO-POLL: Monitor step failed:', monitorError.message);
+      console.error('❌ AUTO-POLL: Monitor error stack:', monitorError.stack);
+      
+      // 🎯 IMPROVED: More detailed error reporting
       return NextResponse.json({ 
         success: false, 
         error: 'Email monitoring failed',
-        details: monitorError.message 
+        details: monitorError.message,
+        errorType: monitorError.name || 'UnknownError',
+        debugInfo: {
+          emailAddress,
+          timestamp: new Date().toISOString(),
+          step: 'monitor_api_call'
+        }
       }, { status: 500 });
     }
 
@@ -167,27 +222,35 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('❌ AUTO-POLL: Unexpected error:', error);
+    console.error('❌ AUTO-POLL: Error stack:', error.stack);
     
+    // 🎯 IMPROVED: Comprehensive error reporting
     return NextResponse.json({ 
       success: false,
       error: 'Auto-poll failed',
-      details: error.message
+      details: error.message,
+      errorType: error.name || 'UnknownError',
+      debugInfo: {
+        timestamp: new Date().toISOString(),
+        nodeEnv: process.env.NODE_ENV
+      }
     }, { status: 500 });
   }
 }
 
 export async function GET() {
   return NextResponse.json({
-    message: 'Gmail Auto-Poll API - Working Version',
+    message: 'Gmail Auto-Poll API - Enhanced Error Handling Version',
     status: 'Active',
-    description: 'Checks Gmail and sends AI responses automatically',
-    version: '2.0-working',
+    description: 'Checks Gmail and sends AI responses automatically with improved debugging',
+    version: '2.1-enhanced-errors',
     features: [
-      '✅ Basic route functionality confirmed',
+      '✅ Enhanced error logging and debugging',
       '📧 Email checking via monitor API',
       '🤖 AI response generation',
       '⏱️ Rate limiting (25s minimum)',
-      '📊 Detailed logging for debugging'
+      '📊 Detailed error reporting',
+      '🔍 Better internal API call handling'
     ]
   });
 }
