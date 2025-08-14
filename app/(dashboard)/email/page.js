@@ -231,65 +231,131 @@ export default function CompleteEmailSystem() {
     }
   }, [autoPollStatus, aiSettings]);
 
-  // 🎯 IMPROVED: Enhanced runAutoPoll with better error handling
+  // 🎯 FIXED: Client-side auto-poll that calls monitor API directly
   const runAutoPoll = useCallback(async () => {
     if (!gmailConnection?.email) return;
     
     console.log('🔄 Running auto-poll cycle...');
     
     try {
-      const response = await fetch('/api/gmail/auto-poll', {
+      // Step 1: Check for emails directly (not through auto-poll API)
+      console.log('📬 Checking for new emails...');
+      
+      const checkResponse = await fetch('/api/gmail/monitor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'check',
           emailAddress: gmailConnection.email
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🎯 Auto-poll results:', data);
+      if (!checkResponse.ok) {
+        console.error('❌ Monitor check failed:', checkResponse.status);
+        return;
+      }
+
+      const emailData = await checkResponse.json();
+      const emails = emailData.emails || [];
+      console.log('📊 Found', emails.length, 'emails');
+      
+      // Update the email list in UI
+      setGmailEmails(emails);
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        totalConversations: emails.length + conversations.length,
+        activeToday: emails.length
+      }));
+      
+      // Step 2: If enabled and we have emails, send AI responses
+      if (autoPollStatus.isEnabled && emails.length > 0) {
+        console.log('🤖 Processing emails with AI responses...');
         
-        // Handle different response types
-        if (data.success) {
-          if (data.message && data.message.includes('Rate limited')) {
-            console.log('⏱️ Rate limited, will retry on next interval');
-            return;
-          }
+        // Process up to 2 emails at a time
+        const emailsToProcess = emails.slice(0, 2);
+        let responsesGenerated = 0;
+        
+        for (let i = 0; i < emailsToProcess.length; i++) {
+          const email = emailsToProcess[i];
+          console.log(`📧 Processing email ${i + 1}: "${email.subject}"`);
           
-          if (data.aiEnabled === false) {
-            console.log('⚠️ AI is disabled in database, stopping auto-poll');
-            stopAutoPoll();
-            return;
-          }
-          
-          if (data.results) {
-            setAutoPollStatus(prev => ({
-              ...prev,
-              lastPoll: new Date(),
-              totalEmailsProcessed: prev.totalEmailsProcessed + (data.results.emailsChecked || 0),
-              totalResponsesSent: prev.totalResponsesSent + (data.results.responsesGenerated || 0)
-            }));
-            
-            // Update stats
-            setStats(prev => ({
-              ...prev,
-              activeToday: prev.activeToday + (data.results.emailsChecked || 0)
-            }));
-            
-            // Refresh email list
-            if (activeTab === 'dashboard') {
-              checkGmailEmails(true);
+          try {
+            const respondResponse = await fetch('/api/gmail/monitor', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'respond',
+                emailAddress: gmailConnection.email,
+                emailId: email.id,
+                actualSend: true
+              })
+            });
+
+            if (respondResponse.ok) {
+              const responseData = await respondResponse.json();
+              if (responseData.success) {
+                responsesGenerated++;
+                console.log(`✅ AI response sent for email ${i + 1}`);
+                
+                // Add to sent emails list
+                const sentEmail = {
+                  id: `sent-${Date.now()}-${email.id}`,
+                  originalEmailId: email.id,
+                  to: email.fromEmail || 'unknown@example.com',
+                  toName: email.fromName || email.fromEmail || 'Unknown',
+                  originalSubject: email.subject || 'No Subject',
+                  response: responseData.response || responseData.aiResponse || 'Response sent',
+                  sentTime: new Date().toLocaleString(),
+                  timestamp: new Date(),
+                  status: 'sent'
+                };
+                
+                setSentEmails(prev => [sentEmail, ...prev]);
+              } else {
+                console.log(`⚠️ Response not sent for email ${i + 1}:`, responseData.error);
+              }
+            } else {
+              console.error(`❌ Failed to respond to email ${i + 1}:`, respondResponse.status);
             }
+            
+            // Wait 1 second between responses
+            if (i < emailsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } catch (err) {
+            console.error(`❌ Failed to respond to email ${i + 1}:`, err);
           }
         }
+        
+        // Update counters
+        setAutoPollStatus(prev => ({
+          ...prev,
+          lastPoll: new Date(),
+          totalEmailsProcessed: prev.totalEmailsProcessed + emails.length,
+          totalResponsesSent: prev.totalResponsesSent + responsesGenerated
+        }));
+        
+        console.log(`🎉 Auto-poll completed: ${responsesGenerated} responses sent`);
       } else {
-        console.error('❌ Auto-poll failed:', response.status);
+        // Just update the last poll time
+        setAutoPollStatus(prev => ({
+          ...prev,
+          lastPoll: new Date(),
+          totalEmailsProcessed: prev.totalEmailsProcessed + emails.length
+        }));
+        
+        console.log('📭 No emails to process or AI disabled');
       }
+      
+      // Refresh the UI
+      setLastRefresh(new Date());
+      
     } catch (error) {
       console.error('❌ Auto-poll error:', error);
     }
-  }, [gmailConnection?.email, activeTab]);
+  }, [gmailConnection?.email, autoPollStatus.isEnabled, conversations.length]);
 
   // Stop auto-poll function
   const stopAutoPoll = useCallback(() => {
@@ -842,8 +908,7 @@ export default function CompleteEmailSystem() {
                 <p className="text-gray-300">
                   {autoPollStatus.isRunning 
                     ? `Running every ${Math.max(autoPollStatus.interval, 30)}s • ${autoPollStatus.totalResponsesSent} responses sent`
-                    : 'Click to start automatic email responses'
-                  }
+                    : 'Click to start automatic email responses'}
                 </p>
                 {autoPollStatus.isEnabled && !autoPollStatus.isRunning && (
                   <p className="text-xs text-yellow-300 mt-1">
