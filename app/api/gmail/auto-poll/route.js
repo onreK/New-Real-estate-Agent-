@@ -1,30 +1,17 @@
-// app/api/gmail/auto-poll/route.js - SIMPLIFIED VERSION WITHOUT DB IMPORTS
+// app/api/gmail/auto-poll/route.js - MINIMAL WORKING VERSION
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-
-// Store last check times to avoid spam
-const lastCheckTimes = new Map();
 
 export async function POST(request) {
   console.log('🔄 AUTO-POLL: Starting email check and response cycle');
   
   try {
-    // Get email address from request
-    let emailAddress;
-    try {
-      const body = await request.json();
-      emailAddress = body.emailAddress;
-    } catch (parseError) {
-      console.error('❌ Failed to parse request body:', parseError.message);
-      return NextResponse.json({ 
-        success: false,
-        error: 'Invalid request body' 
-      }, { status: 400 });
-    }
+    // Get request body
+    const body = await request.json();
+    const emailAddress = body.emailAddress;
     
     if (!emailAddress) {
-      console.log('❌ No email address provided');
       return NextResponse.json({ 
         success: false,
         error: 'Email address required' 
@@ -33,164 +20,100 @@ export async function POST(request) {
 
     console.log('📧 AUTO-POLL: Checking emails for:', emailAddress);
 
-    // Simple rate limiting
-    const lastCheck = lastCheckTimes.get(emailAddress);
-    const now = Date.now();
-    const minInterval = 25 * 1000; // 25 seconds to be safe
-
-    if (lastCheck && (now - lastCheck) < minInterval) {
-      console.log('⏱️ AUTO-POLL: Rate limited - too recent');
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Rate limited - too recent',
-        nextCheckIn: Math.round((minInterval - (now - lastCheck)) / 1000) + ' seconds',
-        aiEnabled: true
-      });
-    }
-
-    // Update last check time
-    lastCheckTimes.set(emailAddress, now);
-
-    // Step 1: Check for emails using monitor API
-    console.log('📬 AUTO-POLL: Step 1 - Checking for new emails...');
+    // Call the monitor API to check emails
+    const host = request.headers.get('host');
+    const protocol = request.headers.get('x-forwarded-proto') || 'https';
+    const monitorUrl = `${protocol}://${host}/api/gmail/monitor`;
     
-    let emailsFound = 0;
-    let responsesGenerated = 0;
+    console.log('🔗 AUTO-POLL: Calling monitor at:', monitorUrl);
     
-    try {
-      // Build the monitor URL from the current request URL
-      const currentUrl = new URL(request.url);
-      const monitorUrl = `${currentUrl.protocol}//${currentUrl.host}/api/gmail/monitor`;
-      
-      console.log('🔗 AUTO-POLL: Calling monitor API at:', monitorUrl);
-      
-      const monitorResponse = await fetch(monitorUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': request.headers.get('cookie') || ''
-        },
-        body: JSON.stringify({
-          action: 'check',
-          emailAddress: emailAddress
-        })
-      });
+    // Check for emails
+    const checkResponse = await fetch(monitorUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') || ''
+      },
+      body: JSON.stringify({
+        action: 'check',
+        emailAddress: emailAddress
+      })
+    });
 
-      if (!monitorResponse.ok) {
-        console.error('❌ AUTO-POLL: Monitor API failed:', monitorResponse.status, monitorResponse.statusText);
-        return NextResponse.json({ 
-          success: false, 
-          error: `Monitor API failed: ${monitorResponse.status}`,
-          details: monitorResponse.statusText
-        }, { status: 500 });
-      }
-
-      const emailData = await monitorResponse.json();
-      emailsFound = emailData.emails?.length || 0;
-      console.log('📊 AUTO-POLL: Found', emailsFound, 'emails');
-
-      // Step 2: If we have emails, try to respond to them
-      if (emailData.emails && emailData.emails.length > 0) {
-        console.log('🤖 AUTO-POLL: Step 2 - Generating AI responses...');
-        
-        // Only process first 3 emails to prevent overwhelming
-        const emailsToProcess = emailData.emails.slice(0, 3);
-        console.log('📝 AUTO-POLL: Processing', emailsToProcess.length, 'emails');
-        
-        for (let i = 0; i < emailsToProcess.length; i++) {
-          const email = emailsToProcess[i];
-          
-          try {
-            console.log(`🚀 AUTO-POLL: Processing email ${i + 1}/${emailsToProcess.length}: "${email.subject}"`);
-            
-            // Send AI response request
-            const responseResult = await fetch(monitorUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cookie': request.headers.get('cookie') || ''
-              },
-              body: JSON.stringify({
-                action: 'respond',
-                emailAddress: emailAddress,
-                emailId: email.id,
-                actualSend: true
-              })
-            });
-
-            if (responseResult.ok) {
-              const responseData = await responseResult.json();
-              if (responseData.success) {
-                responsesGenerated++;
-                console.log(`✅ AUTO-POLL: AI response sent for email ${i + 1}: "${email.subject}"`);
-              } else {
-                console.log(`⚠️ AUTO-POLL: Response failed for email ${i + 1}:`, responseData.error);
-              }
-            } else {
-              console.log(`⚠️ AUTO-POLL: Response API failed for email ${i + 1}:`, responseResult.status);
-            }
-            
-            // Small delay between responses to prevent overwhelming
-            if (i < emailsToProcess.length - 1) {
-              console.log('⏱️ AUTO-POLL: Waiting 2 seconds before next response...');
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-            
-          } catch (emailError) {
-            console.error(`❌ AUTO-POLL: Error processing email ${i + 1}:`, emailError.message);
-          }
-        }
-      } else {
-        console.log('📭 AUTO-POLL: No new emails found');
-      }
-      
-    } catch (monitorError) {
-      console.error('❌ AUTO-POLL: Monitor step failed:', monitorError.message);
+    if (!checkResponse.ok) {
+      console.error('❌ Monitor check failed:', checkResponse.status);
       return NextResponse.json({ 
         success: false, 
-        error: 'Email monitoring failed',
-        details: monitorError.message 
+        error: 'Monitor check failed'
       }, { status: 500 });
     }
 
-    console.log('🎉 AUTO-POLL: Cycle completed successfully');
-    console.log(`📊 AUTO-POLL: Final results - Emails: ${emailsFound}, Responses: ${responsesGenerated}`);
+    const emailData = await checkResponse.json();
+    const emails = emailData.emails || [];
+    console.log('📊 Found', emails.length, 'emails');
+
+    let responsesGenerated = 0;
+
+    // Process up to 2 emails
+    for (let i = 0; i < Math.min(emails.length, 2); i++) {
+      const email = emails[i];
+      console.log(`📧 Processing email ${i + 1}: "${email.subject}"`);
+      
+      try {
+        // Send AI response
+        const respondResponse = await fetch(monitorUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('cookie') || ''
+          },
+          body: JSON.stringify({
+            action: 'respond',
+            emailAddress: emailAddress,
+            emailId: email.id,
+            actualSend: true
+          })
+        });
+
+        if (respondResponse.ok) {
+          responsesGenerated++;
+          console.log(`✅ Sent response for email ${i + 1}`);
+        }
+        
+        // Wait 1 second between responses
+        if (i < emails.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (err) {
+        console.error(`Failed to respond to email ${i + 1}:`, err.message);
+      }
+    }
+
+    console.log('🎉 AUTO-POLL completed:', responsesGenerated, 'responses sent');
     
     return NextResponse.json({
       success: true,
-      message: 'Auto-poll completed successfully',
-      aiEnabled: true,
+      message: 'Auto-poll completed',
       results: {
-        emailsChecked: emailsFound,
+        emailsChecked: emails.length,
         responsesGenerated: responsesGenerated,
-        timestamp: new Date().toISOString(),
-        emailAddress: emailAddress
+        timestamp: new Date().toISOString()
       }
     });
 
   } catch (error) {
-    console.error('❌ AUTO-POLL: Unexpected error:', error);
-    
+    console.error('❌ AUTO-POLL error:', error.message);
     return NextResponse.json({ 
       success: false,
-      error: 'Auto-poll failed',
-      details: error.message
+      error: error.message
     }, { status: 500 });
   }
 }
 
 export async function GET() {
   return NextResponse.json({
-    message: 'Gmail Auto-Poll API - Simplified Version',
+    message: 'Gmail Auto-Poll API',
     status: 'Active',
-    description: 'Checks Gmail and sends AI responses automatically',
-    version: '2.0-simplified',
-    features: [
-      '✅ No database dependencies',
-      '📧 Email checking via monitor API',
-      '🤖 AI response generation',
-      '⏱️ Rate limiting (25s minimum)',
-      '📊 Detailed logging'
-    ]
+    version: '1.0-minimal'
   });
 }
