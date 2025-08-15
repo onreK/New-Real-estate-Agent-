@@ -346,7 +346,7 @@ export default function CompleteEmailSystem() {
           totalEmailsProcessed: prev.totalEmailsProcessed + emails.length
         }));
         
-        console.log('📭 No emails to process or AI disabled');
+        console.log('🔭 No emails to process or AI disabled');
       }
       
       // Refresh the UI
@@ -1414,7 +1414,7 @@ export default function CompleteEmailSystem() {
                               </h4>
                               <div className="flex items-center gap-2">
                                 <div className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-medium">
-                                  ✔ Sent
+                                  ✓ Sent
                                 </div>
                                 {selectedConversation?.id === sentEmail.id && (
                                   <div className="w-2 h-2 rounded-full bg-green-400"></div>
@@ -1608,7 +1608,7 @@ export default function CompleteEmailSystem() {
                     </div>
                     <div>
                       <span className="font-medium text-gray-400">Status:</span>
-                      <p className="text-green-300 font-medium">✔ Delivered</p>
+                      <p className="text-green-300 font-medium">✓ Delivered</p>
                     </div>
                   </div>
                 </div>
@@ -1646,7 +1646,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // 🎯 SIMPLIFIED AI Settings Tab - NO TOGGLE HERE
+  // 🎯 UPDATED AI Settings Tab - WITH BOTH KNOWLEDGE BASE AND CUSTOM INSTRUCTIONS
   const AISettingsTab = () => (
     <div className="space-y-6">
       {/* Status Indicator - Shows current state but not a toggle */}
@@ -1672,7 +1672,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Rest of AI Settings remain the same - just remove the toggle */}
+      {/* Business Profile */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building className="w-5 h-5 text-blue-400" />
@@ -1719,7 +1719,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Keep all other AI settings sections unchanged */}
+      {/* Communication Settings */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <MessageCircle className="w-5 h-5 text-blue-400" />
@@ -1773,15 +1773,79 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Keep all remaining AI settings sections */}
+      {/* 📚 KNOWLEDGE BASE SECTION - THIS IS THE MISSING PART! */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="w-5 h-5 text-purple-400" />
+          <h3 className="text-lg font-semibold text-white">📚 Business Knowledge Base</h3>
+        </div>
+        
+        <p className="text-gray-300 mb-4">
+          Add specific information about your business that the AI should know. 
+          This includes facts, services, prices, policies, FAQs, and any other business-specific information.
+        </p>
+        
+        <textarea
+          defaultValue={knowledgeBaseRef.current}
+          onChange={(e) => {
+            knowledgeBaseRef.current = e.target.value;
+          }}
+          rows={8}
+          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-purple-400 focus:outline-none"
+          placeholder={`Example business information:
+            
+COMPANY: ABC Real Estate Agency
+FOUNDED: 2010
+LOCATION: Downtown Chicago, IL
+
+SERVICES:
+- Residential home buying/selling
+- Commercial property leasing
+- Property management services
+- Real estate investment consulting
+
+PRICING:
+- Buyer's agent commission: 2.5%
+- Seller's agent commission: 3%
+- Property management: 8% of monthly rent
+
+OFFICE HOURS: Monday-Friday 9AM-6PM, Saturday 10AM-4PM
+EMERGENCY LINE: Available 24/7 for property management clients
+
+SPECIALTIES:
+- Luxury condos in downtown area
+- First-time home buyers
+- Investment properties
+- Corporate relocations
+
+KEY DIFFERENTIATORS:
+- 15+ years of local market expertise
+- Average home sells in 21 days (market average: 45 days)
+- 98% client satisfaction rate
+- Bilingual agents (English/Spanish)
+
+CURRENT PROMOTIONS:
+- Free home staging for listings over $500K
+- First-time buyer rebate program (1% cash back at closing)`}
+        />
+        
+        <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+          <p className="text-purple-400 text-sm flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            This information will be used by the AI to answer customer questions accurately.
+          </p>
+        </div>
+      </div>
+
+      {/* 🎯 CUSTOM AI INSTRUCTIONS SECTION */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-green-400" />
-          <h3 className="text-lg font-semibold text-white">Custom AI Instructions</h3>
+          <h3 className="text-lg font-semibold text-white">🎯 Custom AI Instructions</h3>
         </div>
         <p className="text-gray-300 mb-4">
-          Tell the AI exactly how to behave. Be specific about when to ask for phone numbers, 
-          schedule appointments, identify hot leads, etc.
+          Tell the AI exactly how to behave and respond to customers. 
+          Be specific about when to ask for phone numbers, schedule appointments, identify hot leads, etc.
         </p>
         
         <textarea
@@ -1789,19 +1853,35 @@ export default function CompleteEmailSystem() {
           onChange={(e) => setAiSettings(prev => ({ ...prev, customInstructions: e.target.value }))}
           rows={8}
           className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
-          placeholder={`Example instructions:
+          placeholder={`Example AI behavior instructions:
+
+RESPONSE BEHAVIOR:
 - Always ask for phone numbers when someone expresses interest
-- Schedule appointments within 24 hours when possible  
-- Identify hot leads by urgency keywords like "ASAP" or "immediately"
-- Keep responses under 3 sentences unless detailed information is requested
-- Always mention our 24/7 availability
-- Include pricing only when directly asked
-- Highlight our unique advantages over competitors
-- End every response with a clear call-to-action
-- For urgent inquiries, offer immediate callback options
-- Only respond during business hours (9am-6pm EST)
-- Always preview responses before sending (don't auto-send)
-- Prioritize emails with words like "urgent" or "emergency"`}
+- Schedule appointments within 24 hours when possible
+- Keep initial responses under 3 sentences unless detailed info is requested
+- Always end responses with a clear call-to-action
+
+LEAD QUALIFICATION:
+- Mark as HOT LEAD if they mention: urgent, ASAP, immediately, ready to buy
+- Ask qualifying questions about budget and timeline
+- For hot leads, offer immediate callback within 1 hour
+
+SCHEDULING:
+- Always suggest 3 specific time slots when scheduling
+- Prioritize morning appointments (higher show rate)
+- For urgent requests, offer same-day or next-day appointments
+
+OBJECTION HANDLING:
+- If price concerns: Emphasize value and ROI, offer payment plans
+- If timing concerns: Create urgency with limited availability
+- If comparing competitors: Highlight our unique advantages
+
+SPECIAL INSTRUCTIONS:
+- Never discuss pricing in first response - build value first
+- Always mention our 5-star Google reviews
+- For after-hours inquiries, promise response within 1 hour next business day
+- If technical questions, offer free consultation call
+- Always collect email AND phone for lead capture`}
         />
         
         <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
@@ -1811,9 +1891,6 @@ export default function CompleteEmailSystem() {
           </p>
         </div>
       </div>
-
-      {/* Keep all other sections like Knowledge Base, Model Settings, etc. */}
-      {/* ... rest of AI settings sections remain unchanged ... */}
 
       {/* Test Results */}
       {testResult && (
