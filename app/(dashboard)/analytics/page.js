@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { 
@@ -64,10 +67,15 @@ export default function AnalyticsPage() {
       hot_leads_month: 0,
       phone_requests_today: 0,
       phone_requests_month: 0,
-      appointments_month: 0
+      appointments_month: 0,
+      ai_engagement_rate: 0,
+      contact_capture_rate: 0,
+      avg_response_speed_minutes: 0,
+      total_leads_captured: 0
     },
     channels: [],
     insights: [],
+    behaviors: [],
     topBehaviors: [],
     businessValue: { total: 0, breakdown: {} },
     dailyTrend: []
@@ -92,6 +100,7 @@ export default function AnalyticsPage() {
       case 'success': return <CheckCircle className="w-5 h-5 text-green-400" />;
       case 'warning': return <AlertCircle className="w-5 h-5 text-yellow-400" />;
       case 'info': return <Info className="w-5 h-5 text-blue-400" />;
+      case 'alert': return <Zap className="w-5 h-5 text-orange-400" />;
       default: return <Info className="w-5 h-5 text-gray-400" />;
     }
   };
@@ -213,6 +222,46 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
+          {/* Key Metrics Row */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-gray-400">AI Engagement Rate</span>
+              </div>
+              <div className="text-2xl font-bold text-white">
+                {analytics.overview?.ai_engagement_rate || 0}%
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="w-5 h-5 text-blue-400" />
+                <span className="text-sm text-gray-400">Contact Capture</span>
+              </div>
+              <div className="text-2xl font-bold text-white">
+                {analytics.overview?.contact_capture_rate || 0}%
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-5 h-5 text-yellow-400" />
+                <span className="text-sm text-gray-400">Avg Response</span>
+              </div>
+              <div className="text-2xl font-bold text-white">
+                {analytics.overview?.avg_response_speed_minutes || 0} min
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-5 h-5 text-purple-400" />
+                <span className="text-sm text-gray-400">Leads Captured</span>
+              </div>
+              <div className="text-2xl font-bold text-white">
+                {formatNumber(analytics.overview?.total_leads_captured || 0)}
+              </div>
+            </div>
+          </div>
+
           {/* Business Value & Top Behaviors */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Business Value Card */}
@@ -228,7 +277,10 @@ export default function AnalyticsPage() {
               </div>
               {analytics.businessValue?.breakdown && Object.keys(analytics.businessValue.breakdown).length > 0 && (
                 <div className="space-y-2 pt-4 border-t border-white/10">
-                  {Object.entries(analytics.businessValue.breakdown).map(([key, value]) => (
+                  {Object.entries(analytics.businessValue.breakdown)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 5)
+                    .map(([key, value]) => (
                     <div key={key} className="flex justify-between text-sm">
                       <span className="text-gray-400 capitalize">{key.replace(/_/g, ' ')}</span>
                       <span className="text-white">${formatNumber(value)}</span>
@@ -246,16 +298,15 @@ export default function AnalyticsPage() {
                   Top AI Behaviors
                 </h3>
               </div>
-              {analytics.topBehaviors && analytics.topBehaviors.length > 0 ? (
+              {analytics.behaviors && analytics.behaviors.length > 0 ? (
                 <div className="space-y-3">
-                  {analytics.topBehaviors.slice(0, 5).map((behavior, index) => (
+                  {analytics.behaviors.slice(0, 5).map((behavior, index) => (
                     <div key={index} className="flex items-center justify-between">
-                      <span className="text-gray-300 capitalize">
-                        {behavior.type.replace(/_/g, ' ')}
+                      <span className="text-gray-300">
+                        {behavior.label || behavior.event_type?.replace(/_/g, ' ')}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-medium">{behavior.occurrences}</span>
-                        <span className="text-gray-500 text-sm">({behavior.percentage}%)</span>
+                        <span className="text-white font-medium">{behavior.count}</span>
                       </div>
                     </div>
                   ))}
@@ -270,10 +321,10 @@ export default function AnalyticsPage() {
           {analytics.channels && analytics.channels.length > 0 && (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Users className="w-6 h-6 text-blue-400" />
+                <MessageSquare className="w-6 h-6 text-blue-400" />
                 Channel Performance
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {analytics.channels.map((channel, index) => (
                   <div key={index} className="bg-white/5 rounded-xl p-4">
                     <div className="text-lg font-medium text-white capitalize mb-2">
@@ -282,15 +333,19 @@ export default function AnalyticsPage() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-400">Interactions</span>
-                        <span className="text-white">{channel.interactions}</span>
+                        <span className="text-white">{formatNumber(channel.total_interactions)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Hot Leads</span>
                         <span className="text-green-400">{channel.hot_leads}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Conversion</span>
-                        <span className="text-purple-400">{channel.conversion_rate}%</span>
+                        <span className="text-gray-400">Phone Requests</span>
+                        <span className="text-blue-400">{channel.phone_requests}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Appointments</span>
+                        <span className="text-purple-400">{channel.appointments}</span>
                       </div>
                     </div>
                   </div>
@@ -310,7 +365,19 @@ export default function AnalyticsPage() {
                 {analytics.insights.map((insight, index) => (
                   <div key={index} className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
                     {getInsightIcon(insight.type)}
-                    <p className="text-gray-300 flex-1">{insight.message}</p>
+                    <div className="flex-1">
+                      <p className="text-gray-300">{insight.message}</p>
+                      {insight.importance && (
+                        <span className={`text-xs mt-1 inline-block px-2 py-1 rounded ${
+                          insight.importance === 'high' ? 'bg-red-500/20 text-red-400' :
+                          insight.importance === 'urgent' ? 'bg-orange-500/20 text-orange-400' :
+                          insight.importance === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {insight.importance}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -331,9 +398,12 @@ export default function AnalyticsPage() {
                       {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </span>
                     <div className="flex items-center gap-4">
-                      <span className="text-white">{day.total_events} events</span>
-                      {day.hot_leads > 0 && (
-                        <span className="text-green-400">{day.hot_leads} hot leads</span>
+                      <span className="text-white">{day.metrics?.total || 0} events</span>
+                      {day.metrics?.hotLeads > 0 && (
+                        <span className="text-green-400">{day.metrics.hotLeads} hot leads</span>
+                      )}
+                      {day.metrics?.phoneRequests > 0 && (
+                        <span className="text-blue-400">{day.metrics.phoneRequests} calls</span>
                       )}
                     </div>
                   </div>
