@@ -4,7 +4,10 @@ import { currentUser } from '@clerk/nextjs';
 import { 
   getCustomerByClerkId, 
   getCustomerStats 
-} from '../../../../lib/database';
+} from '@/lib/database';
+
+// Force dynamic rendering since we use authentication
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
