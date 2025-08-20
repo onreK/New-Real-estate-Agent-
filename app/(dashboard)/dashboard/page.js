@@ -90,6 +90,7 @@ export default function MainDashboard() {
     analytics: {
       phoneRequestsToday: 0,
       hotLeadsMonth: 0,
+      hotLeadsToday: 0,
       appointmentsScheduled: 0,
       businessValue: 0,
       totalInteractions: 0,
@@ -125,17 +126,53 @@ export default function MainDashboard() {
       setLoading(true);
       setError('');
       
-      // 1. Load Web Chat data
-      const webChatResponse = await fetch('/api/chat?action=conversations');
-      const webChatData = await webChatResponse.json();
+      // 1. Load Web Chat data (with error handling)
+      let webChatData = { conversations: [], totalConversations: 0, totalMessages: 0, leadsGenerated: 0 };
+      let aiStatusData = { connected: false };
       
-      // 2. Check AI connection status
-      const aiStatusResponse = await fetch('/api/chat?action=test-connection');
-      const aiStatusData = await aiStatusResponse.json();
+      try {
+        const webChatResponse = await fetch('/api/chat?action=conversations');
+        if (webChatResponse.ok) {
+          webChatData = await webChatResponse.json();
+        }
+      } catch (webChatError) {
+        console.log('Web chat data not available:', webChatError.message);
+      }
+      
+      // 2. Check AI connection status (with error handling)
+      try {
+        const aiStatusResponse = await fetch('/api/chat?action=test-connection');
+        if (aiStatusResponse.ok) {
+          aiStatusData = await aiStatusResponse.json();
+        }
+      } catch (aiStatusError) {
+        console.log('AI status check failed:', aiStatusError.message);
+      }
       
       // 3. Load SMS data
-      const smsResponse = await fetch('/api/sms/conversations');
-      const smsData = await smsResponse.json();
+      let smsData = {
+        conversations: [],
+        totalConversations: 0,
+        totalMessages: 0,
+        leadsGenerated: 0,
+        phoneNumbers: [],
+        hotLeadAlerts: [],
+        hotLeadStats: {
+          totalHotLeads: 0,
+          alertsLast24h: 0,
+          averageScore: 0,
+          highestScore: 0
+        }
+      };
+      
+      try {
+        const smsResponse = await fetch('/api/sms/conversations');
+        if (smsResponse.ok) {
+          smsData = await smsResponse.json();
+        }
+      } catch (smsError) {
+        console.log('SMS data not available:', smsError.message);
+      }
       
       // 4. Load Email data with better metrics handling
       let emailConversations = [];
@@ -193,10 +230,11 @@ export default function MainDashboard() {
       emailMessages = emailConversations.reduce((acc, conv) => acc + (conv.messageCount || 0), 0);
       emailLeads = emailConversations.filter(conv => conv.status === 'lead').length;
 
-      // 🎯 NEW: LOAD ANALYTICS DATA FROM CENTRALIZED SERVICE
+      // 🎯 FIXED: LOAD ANALYTICS DATA FROM CENTRALIZED SERVICE
       let analyticsData = {
         phoneRequestsToday: 0,
         hotLeadsMonth: 0,
+        hotLeadsToday: 0,
         appointmentsScheduled: 0,
         businessValue: 0,
         totalInteractions: 0,
@@ -213,18 +251,21 @@ export default function MainDashboard() {
           console.log('Analytics data received:', analytics); // Debug log
           
           if (analytics.success && analytics.analytics) {
-            // Extract metrics from the centralized analytics service
+            // FIXED: Correct mapping from analytics service response structure
             analyticsData = {
-              phoneRequestsToday: analytics.analytics.metrics?.events?.phone_request || 0,
-              hotLeadsMonth: analytics.analytics.metrics?.events?.hot_lead || 0,
-              appointmentsScheduled: analytics.analytics.metrics?.events?.appointment_scheduled || 0,
-              businessValue: analytics.analytics.metrics?.businessValue || 0,
+              phoneRequestsToday: analytics.analytics.overview?.phone_requests_today || 0,
+              hotLeadsMonth: analytics.analytics.overview?.hot_leads_month || 0,
+              hotLeadsToday: analytics.analytics.overview?.hot_leads_today || 0,
+              appointmentsScheduled: analytics.analytics.overview?.appointments_month || 0,
+              businessValue: analytics.analytics.businessValue?.total || 0,
               totalInteractions: analytics.analytics.overview?.total_interactions_month || 0,
               aiEngagementRate: analytics.analytics.overview?.ai_engagement_rate || 0,
-              avgResponseTime: analytics.analytics.overview?.avg_response_speed_minutes || 0,
+              avgResponseTime: analytics.analytics.overview?.avg_response_speed_minutes || 2,
               leadsCapture: analytics.analytics.overview?.total_leads_captured || 0,
-              effectiveness: analytics.analytics.effectiveness || 0
+              effectiveness: analytics.analytics.overview?.effectiveness_score || 0
             };
+            
+            console.log('Mapped analytics data:', analyticsData); // Debug log
           }
         }
       } catch (analyticsError) {
@@ -328,12 +369,12 @@ export default function MainDashboard() {
         templates: emailTemplatesData.templates || []
       };
 
-      // UPDATED: Include analytics data in combined stats
+      // FIXED: Use analytics data for combined stats
       const combined = {
         totalLeads: analyticsData.leadsCapture || (webChat.leadsGenerated + sms.leadsGenerated + email.leadsGenerated + facebookData.leadsGenerated + instagramData.leadsGenerated),
-        totalConversations: webChat.totalConversations + sms.totalConversations + email.totalConversations + facebookData.totalConversations + instagramData.totalConversations,
-        totalMessages: webChat.totalMessages + sms.totalMessages + email.totalMessages + facebookData.totalMessages + instagramData.totalMessages,
-        hotLeadsToday: analyticsData.hotLeadsMonth || (sms.hotLeadStats.alertsLast24h + email.hotLeadsToday),
+        totalConversations: analyticsData.totalInteractions || (webChat.totalConversations + sms.totalConversations + email.totalConversations + facebookData.totalConversations + instagramData.totalConversations),
+        totalMessages: analyticsData.totalInteractions || (webChat.totalMessages + sms.totalMessages + email.totalMessages + facebookData.totalMessages + instagramData.totalMessages),
+        hotLeadsToday: analyticsData.hotLeadsToday || (sms.hotLeadStats.alertsLast24h + email.hotLeadsToday),
         totalSocialPosts: facebookData.postsManaged + instagramData.postsManaged,
         analytics: analyticsData // Include analytics in combined
       };
@@ -506,7 +547,7 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* Overview Tab - UPDATED WITH ANALYTICS DATA */}
+        {/* Overview Tab - FIXED WITH ANALYTICS DATA */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
             {/* Combined Statistics - NOW USING REAL ANALYTICS DATA */}
@@ -530,20 +571,20 @@ export default function MainDashboard() {
               <StatCard
                 icon={Activity}
                 title="Total Messages"
-                value={dashboardData.combined.totalMessages}
+                value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalMessages}
                 subtitle="AI responses"
                 color="purple"
               />
               <StatCard
                 icon={Target}
                 title="Hot Leads (24h)"
-                value={dashboardData.analytics?.hotLeadsMonth || dashboardData.combined.hotLeadsToday}
+                value={dashboardData.analytics?.hotLeadsToday || dashboardData.combined.hotLeadsToday}
                 subtitle="High intent"
                 color="orange"
               />
             </div>
 
-            {/* AI ANALYTICS AND LEADS SECTIONS SIDE BY SIDE - NOW WITH REAL DATA */}
+            {/* AI ANALYTICS AND LEADS SECTIONS SIDE BY SIDE - FIXED WITH REAL DATA */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
               {/* AI Performance Analytics - Left Side - USING REAL ANALYTICS DATA */}
