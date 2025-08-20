@@ -446,7 +446,7 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* Overview Tab */}
+        {/* Overview Tab - UPDATED WITH SIDE BY SIDE LAYOUT */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
             {/* Combined Statistics */}
@@ -483,40 +483,94 @@ export default function MainDashboard() {
               />
             </div>
 
-            {/* NEW: AI Analytics Quick View */}
-            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <Activity className="w-8 h-8 text-purple-400" />
-                  <div>
-                    <h3 className="text-xl font-bold text-white">AI Performance Analytics</h3>
-                    <p className="text-sm text-gray-300">Track real AI behaviors across all channels</p>
+            {/* AI ANALYTICS AND LEADS SECTIONS SIDE BY SIDE */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* AI Performance Analytics - Left Side */}
+              <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Activity className="w-8 h-8 text-purple-400" />
+                    <div>
+                      <h3 className="text-xl font-bold text-white">AI Performance Analytics</h3>
+                      <p className="text-sm text-gray-300">Track real AI behaviors across all channels</p>
+                    </div>
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-green-400">0</div>
+                    <div className="text-sm text-gray-300">Phone Requests Today</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-orange-400">0</div>
+                    <div className="text-sm text-gray-300">Hot Leads This Month</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-blue-400">0</div>
+                    <div className="text-sm text-gray-300">Appointments Scheduled</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-purple-400">$0</div>
+                    <div className="text-sm text-gray-300">Est. Business Value</div>
+                  </div>
+                </div>
+                
                 <button
-                  onClick={() => setActiveTab('analytics')}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                  onClick={() => router.push('/analytics')}
+                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
                 >
-                  View Full Analytics
-                  <ArrowUpRight className="w-4 h-4" />
+                  <span>View Full Analytics</span>
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                <div className="bg-white/10 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-green-400">0</div>
-                  <div className="text-sm text-gray-300">Phone Requests Today</div>
+
+              {/* Lead Management Section - Right Side */}
+              <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-cyan-500/30 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <UserCheck className="w-8 h-8 text-cyan-400" />
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Lead Management</h3>
+                      <p className="text-sm text-gray-300">Track and manage all your potential customers</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white/10 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-orange-400">0</div>
-                  <div className="text-sm text-gray-300">Hot Leads This Month</div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-white">{dashboardData.combined.totalLeads}</div>
+                    <div className="text-sm text-gray-300">Total Leads</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-red-400">{dashboardData.combined.hotLeadsToday}</div>
+                    <div className="text-sm text-gray-300">🔥 Hot Leads</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-yellow-400">0</div>
+                    <div className="text-sm text-gray-300">🌡️ Warm Leads</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-blue-400">0</div>
+                    <div className="text-sm text-gray-300">❄️ Cold Leads</div>
+                  </div>
                 </div>
-                <div className="bg-white/10 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-blue-400">0</div>
-                  <div className="text-sm text-gray-300">Appointments Scheduled</div>
-                </div>
-                <div className="bg-white/10 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-purple-400">$0</div>
-                  <div className="text-sm text-gray-300">Est. Business Value</div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => router.push('/leads')}
+                    className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <span>View All Leads</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => router.push('/leads?filter=hot')}
+                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-500/30"
+                  >
+                    Hot Only
+                  </button>
                 </div>
               </div>
             </div>
@@ -709,7 +763,7 @@ export default function MainDashboard() {
               </div>
             </div>
 
-            {/* Quick Actions - UPDATED WITH LEADS BUTTON */}
+            {/* Quick Actions */}
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Quick Actions</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
