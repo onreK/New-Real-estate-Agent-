@@ -20,7 +20,7 @@ export default function MainDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Enhanced state structure with social media data
+  // Enhanced state structure with social media data AND ANALYTICS
   const [dashboardData, setDashboardData] = useState({
     // Web Chat Data
     webChat: {
@@ -52,7 +52,7 @@ export default function MainDashboard() {
       totalMessages: 0,
       leadsGenerated: 0,
       hotLeadsToday: 0,
-      aiEngagementRate: 0, // 🎯 CHANGED: was aiResponseRate
+      aiEngagementRate: 0,
       emailSettings: null,
       templates: []
     },
@@ -85,6 +85,18 @@ export default function MainDashboard() {
       totalMessages: 0,
       hotLeadsToday: 0,
       totalSocialPosts: 0
+    },
+    // ADD ANALYTICS DATA TO STATE
+    analytics: {
+      phoneRequestsToday: 0,
+      hotLeadsMonth: 0,
+      appointmentsScheduled: 0,
+      businessValue: 0,
+      totalInteractions: 0,
+      aiEngagementRate: 0,
+      avgResponseTime: 0,
+      leadsCapture: 0,
+      effectiveness: 0
     }
   });
 
@@ -125,12 +137,12 @@ export default function MainDashboard() {
       const smsResponse = await fetch('/api/sms/conversations');
       const smsData = await smsResponse.json();
       
-      // 🎯 UPDATED: 4. Load Email data with better metrics handling
+      // 4. Load Email data with better metrics handling
       let emailConversations = [];
       let emailMessages = 0;
       let emailLeads = 0;
       let emailHotLeadsToday = 0;
-      let aiEngagementRate = 0; // 🎯 CHANGED: was aiResponseRate
+      let aiEngagementRate = 0;
       let emailSettingsData = { settings: null };
       let emailTemplatesData = { templates: [] };
       
@@ -162,7 +174,7 @@ export default function MainDashboard() {
         console.log('Email templates not available:', templatesError.message);
       }
 
-      // 🎯 NEW: Get real email metrics from our updated email stats API
+      // Get real email metrics from our updated email stats API
       try {
         const emailStatsResponse = await fetch('/api/customer/email-stats');
         if (emailStatsResponse.ok) {
@@ -180,6 +192,44 @@ export default function MainDashboard() {
       // Process email data (keep existing logic for conversations)
       emailMessages = emailConversations.reduce((acc, conv) => acc + (conv.messageCount || 0), 0);
       emailLeads = emailConversations.filter(conv => conv.status === 'lead').length;
+
+      // 🎯 NEW: LOAD ANALYTICS DATA FROM CENTRALIZED SERVICE
+      let analyticsData = {
+        phoneRequestsToday: 0,
+        hotLeadsMonth: 0,
+        appointmentsScheduled: 0,
+        businessValue: 0,
+        totalInteractions: 0,
+        aiEngagementRate: 0,
+        avgResponseTime: 0,
+        leadsCapture: 0,
+        effectiveness: 0
+      };
+
+      try {
+        const analyticsResponse = await fetch('/api/customer/analytics?period=month');
+        if (analyticsResponse.ok) {
+          const analytics = await analyticsResponse.json();
+          console.log('Analytics data received:', analytics); // Debug log
+          
+          if (analytics.success && analytics.analytics) {
+            // Extract metrics from the centralized analytics service
+            analyticsData = {
+              phoneRequestsToday: analytics.analytics.metrics?.events?.phone_request || 0,
+              hotLeadsMonth: analytics.analytics.metrics?.events?.hot_lead || 0,
+              appointmentsScheduled: analytics.analytics.metrics?.events?.appointment_scheduled || 0,
+              businessValue: analytics.analytics.metrics?.businessValue || 0,
+              totalInteractions: analytics.analytics.overview?.total_interactions_month || 0,
+              aiEngagementRate: analytics.analytics.overview?.ai_engagement_rate || 0,
+              avgResponseTime: analytics.analytics.overview?.avg_response_speed_minutes || 0,
+              leadsCapture: analytics.analytics.overview?.total_leads_captured || 0,
+              effectiveness: analytics.analytics.effectiveness || 0
+            };
+          }
+        }
+      } catch (analyticsError) {
+        console.log('Analytics not available:', analyticsError.message);
+      }
       
       // 5. Load Facebook data (with error handling)
       let facebookData = {
@@ -267,27 +317,37 @@ export default function MainDashboard() {
         }
       };
 
-      // 🎯 UPDATED: Email object with new metric name
       const email = {
         conversations: emailConversations,
         totalConversations: emailConversations.length,
         totalMessages: emailMessages,
         leadsGenerated: emailLeads,
         hotLeadsToday: emailHotLeadsToday,
-        aiEngagementRate, // 🎯 CHANGED: was aiResponseRate
+        aiEngagementRate,
         emailSettings: emailSettingsData.settings,
         templates: emailTemplatesData.templates || []
       };
 
+      // UPDATED: Include analytics data in combined stats
       const combined = {
-        totalLeads: webChat.leadsGenerated + sms.leadsGenerated + email.leadsGenerated + facebookData.leadsGenerated + instagramData.leadsGenerated,
+        totalLeads: analyticsData.leadsCapture || (webChat.leadsGenerated + sms.leadsGenerated + email.leadsGenerated + facebookData.leadsGenerated + instagramData.leadsGenerated),
         totalConversations: webChat.totalConversations + sms.totalConversations + email.totalConversations + facebookData.totalConversations + instagramData.totalConversations,
         totalMessages: webChat.totalMessages + sms.totalMessages + email.totalMessages + facebookData.totalMessages + instagramData.totalMessages,
-        hotLeadsToday: sms.hotLeadStats.alertsLast24h + email.hotLeadsToday,
-        totalSocialPosts: facebookData.postsManaged + instagramData.postsManaged
+        hotLeadsToday: analyticsData.hotLeadsMonth || (sms.hotLeadStats.alertsLast24h + email.hotLeadsToday),
+        totalSocialPosts: facebookData.postsManaged + instagramData.postsManaged,
+        analytics: analyticsData // Include analytics in combined
       };
 
-      setDashboardData({ webChat, sms, email, facebook: facebookData, instagram: instagramData, combined });
+      // SET ALL DATA INCLUDING ANALYTICS
+      setDashboardData({ 
+        webChat, 
+        sms, 
+        email, 
+        facebook: facebookData, 
+        instagram: instagramData, 
+        combined,
+        analytics: analyticsData // Add analytics to state
+      });
       
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -446,15 +506,15 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* Overview Tab - UPDATED WITH SIDE BY SIDE LAYOUT */}
+        {/* Overview Tab - UPDATED WITH ANALYTICS DATA */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            {/* Combined Statistics */}
+            {/* Combined Statistics - NOW USING REAL ANALYTICS DATA */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard
                 icon={Users}
                 title="Total Leads"
-                value={dashboardData.combined.totalLeads}
+                value={dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads}
                 subtitle="All channels + Social"
                 trend={23}
                 color="blue"
@@ -462,7 +522,7 @@ export default function MainDashboard() {
               <StatCard
                 icon={MessageCircle}
                 title="Conversations"
-                value={dashboardData.combined.totalConversations}
+                value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalConversations}
                 subtitle="All channels"
                 trend={15}
                 color="green"
@@ -477,16 +537,16 @@ export default function MainDashboard() {
               <StatCard
                 icon={Target}
                 title="Hot Leads (24h)"
-                value={dashboardData.combined.hotLeadsToday}
+                value={dashboardData.analytics?.hotLeadsMonth || dashboardData.combined.hotLeadsToday}
                 subtitle="High intent"
                 color="orange"
               />
             </div>
 
-            {/* AI ANALYTICS AND LEADS SECTIONS SIDE BY SIDE */}
+            {/* AI ANALYTICS AND LEADS SECTIONS SIDE BY SIDE - NOW WITH REAL DATA */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
-              {/* AI Performance Analytics - Left Side */}
+              {/* AI Performance Analytics - Left Side - USING REAL ANALYTICS DATA */}
               <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -500,19 +560,27 @@ export default function MainDashboard() {
                 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-green-400">0</div>
+                    <div className="text-2xl font-bold text-green-400">
+                      {dashboardData.analytics?.phoneRequestsToday || 0}
+                    </div>
                     <div className="text-sm text-gray-300">Phone Requests Today</div>
                   </div>
                   <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-orange-400">0</div>
+                    <div className="text-2xl font-bold text-orange-400">
+                      {dashboardData.analytics?.hotLeadsMonth || 0}
+                    </div>
                     <div className="text-sm text-gray-300">Hot Leads This Month</div>
                   </div>
                   <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-blue-400">0</div>
+                    <div className="text-2xl font-bold text-blue-400">
+                      {dashboardData.analytics?.appointmentsScheduled || 0}
+                    </div>
                     <div className="text-sm text-gray-300">Appointments Scheduled</div>
                   </div>
                   <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-purple-400">$0</div>
+                    <div className="text-2xl font-bold text-purple-400">
+                      ${dashboardData.analytics?.businessValue || 0}
+                    </div>
                     <div className="text-sm text-gray-300">Est. Business Value</div>
                   </div>
                 </div>
@@ -526,7 +594,7 @@ export default function MainDashboard() {
                 </button>
               </div>
 
-              {/* Lead Management Section - Right Side */}
+              {/* Lead Management Section - Right Side - USING REAL ANALYTICS DATA */}
               <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-cyan-500/30 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -540,11 +608,15 @@ export default function MainDashboard() {
                 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-white">{dashboardData.combined.totalLeads}</div>
+                    <div className="text-2xl font-bold text-white">
+                      {dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads || 0}
+                    </div>
                     <div className="text-sm text-gray-300">Total Leads</div>
                   </div>
                   <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-red-400">{dashboardData.combined.hotLeadsToday}</div>
+                    <div className="text-2xl font-bold text-red-400">
+                      {dashboardData.analytics?.hotLeadsMonth || dashboardData.combined.hotLeadsToday || 0}
+                    </div>
                     <div className="text-sm text-gray-300">🔥 Hot Leads</div>
                   </div>
                   <div className="bg-white/10 rounded-lg p-4">
@@ -651,7 +723,7 @@ export default function MainDashboard() {
                 </button>
               </div>
 
-              {/* 🎯 UPDATED: Email Status with new metric */}
+              {/* Email Status */}
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -917,6 +989,7 @@ export default function MainDashboard() {
           </div>
         )}
 
+        {/* Rest of the tabs remain the same... */}
         {/* SMS Tab */}
         {activeTab === 'sms' && (
           <div className="space-y-6">
@@ -959,7 +1032,7 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* 🎯 UPDATED: Email Tab with new metric */}
+        {/* Email Tab */}
         {activeTab === 'email' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
