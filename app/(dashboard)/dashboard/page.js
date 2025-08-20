@@ -2,17 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { SignOutButton, useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 // REMOVED: import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { 
   Users, MessageCircle, TrendingUp, Zap, Phone, Mail, 
   Calendar, BarChart3, DollarSign, Clock, Target, Sparkles,
   ArrowUpRight, ArrowDownRight, Activity, Star, Shield,
   Crown, CheckCircle, AlertTriangle, Settings, RefreshCw,
-  Send, FileText, Bot, Inbox, AlertCircle, ChevronRight, Info
+  Send, FileText, Bot, Inbox, AlertCircle, ChevronRight, Info,
+  UserCheck  // ADD THIS ICON FOR LEADS
 } from 'lucide-react';
 
 export default function MainDashboard() {
   const { user, isLoaded } = useUser();
+  const router = useRouter();  // ADD THIS FOR NAVIGATION
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,10 +88,11 @@ export default function MainDashboard() {
     }
   });
 
-  // Tab configuration with social media tabs AND ANALYTICS
+  // Tab configuration with social media tabs, ANALYTICS, and LEADS
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'analytics', label: 'AI Analytics', icon: Activity }, // ADD THIS TAB
+    { id: 'analytics', label: 'AI Analytics', icon: Activity },
+    { id: 'leads', label: 'Leads', icon: UserCheck },  // ADD THIS NEW TAB
     { id: 'webchat', label: 'Web Chat', icon: MessageCircle },
     { id: 'sms', label: 'SMS', icon: Phone },
     { id: 'email', label: 'Email AI', icon: Mail },
@@ -176,18 +180,6 @@ export default function MainDashboard() {
       // Process email data (keep existing logic for conversations)
       emailMessages = emailConversations.reduce((acc, conv) => acc + (conv.messageCount || 0), 0);
       emailLeads = emailConversations.filter(conv => conv.status === 'lead').length;
-      
-      // 🎯 REMOVED: Old broken calculation
-      // const today = new Date().toDateString();
-      // emailHotLeadsToday = emailConversations.filter(conv => {
-      //   return conv.lastMessageAt && new Date(conv.lastMessageAt).toDateString() === today;
-      // }).length;
-      // 
-      // // Calculate AI response rate
-      // const totalEmailsToday = emailConversations.filter(conv => {
-      //   return conv.createdAt && new Date(conv.createdAt).toDateString() === today;
-      // }).length;
-      // aiResponseRate = totalEmailsToday > 0 ? Math.round((emailHotLeadsToday / totalEmailsToday) * 100) : 0;
       
       // 5. Load Facebook data (with error handling)
       let facebookData = {
@@ -333,6 +325,11 @@ export default function MainDashboard() {
           bg: 'from-teal-500/20 to-cyan-500/20',
           iconBg: 'from-teal-500/20 to-cyan-500/20',
           iconColor: 'text-teal-400'
+        },
+        cyan: {
+          bg: 'from-cyan-500/20 to-blue-500/20',
+          iconBg: 'from-cyan-500/20 to-blue-500/20',
+          iconColor: 'text-cyan-400'
         }
       };
       return colors[colorName] || colors.blue;
@@ -408,13 +405,22 @@ export default function MainDashboard() {
             </div>
           </div>
           
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs - UPDATED WITH LEADS NAVIGATION */}
           <div className="mt-6">
             <nav className="flex space-x-1 flex-wrap gap-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    // Handle navigation for special tabs
+                    if (tab.id === 'analytics') {
+                      router.push('/analytics');
+                    } else if (tab.id === 'leads') {
+                      router.push('/leads');  // Navigate to leads page
+                    } else {
+                      setActiveTab(tab.id);
+                    }
+                  }}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                     activeTab === tab.id
                       ? 'bg-purple-500/30 border border-purple-500 text-purple-400'
@@ -703,7 +709,7 @@ export default function MainDashboard() {
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions - UPDATED WITH LEADS BUTTON */}
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Quick Actions</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -732,19 +738,19 @@ export default function MainDashboard() {
                 </button>
                 
                 <button
+                  onClick={() => window.location.href = '/leads'}
+                  className="flex flex-col items-center space-y-2 p-4 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg border border-cyan-500/30 transition-colors"
+                >
+                  <UserCheck className="w-6 h-6 text-cyan-400" />
+                  <span className="text-sm text-white">View Leads</span>
+                </button>
+                
+                <button
                   onClick={() => window.location.href = '/social/facebook'}
                   className="flex flex-col items-center space-y-2 p-4 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg border border-blue-600/30 transition-colors"
                 >
                   <Users className="w-6 h-6 text-blue-400" />
                   <span className="text-sm text-white">Facebook</span>
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/social/instagram'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg border border-pink-500/30 transition-colors"
-                >
-                  <Star className="w-6 h-6 text-pink-400" />
-                  <span className="text-sm text-white">Instagram</span>
                 </button>
                 
                 <button
