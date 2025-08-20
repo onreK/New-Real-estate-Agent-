@@ -1,263 +1,260 @@
-import { NextResponse } from 'next/server';
-import { query } from '../../../../lib/database.js';
+// app/api/admin/migrate-database/route.js
+// API endpoint to run the database migration
+// This creates the multi-tenant database structure
 
-export async function POST() {
+import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs';
+import { runFullMigration } from '@/lib/database-migration';
+import { query } from '@/lib/database';
+
+export async function GET(request) {
   try {
-    console.log('🔄 Starting database migration...');
+    // Check authentication
+    const { userId } = auth();
     
-    const migrationSteps = [];
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please login first' },
+        { status: 401 }
+      );
+    }
     
-    // Step 1: Check if customers table has clerk_user_id column
-    try {
-      const columnCheck = await query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'customers' AND column_name = 'clerk_user_id'
-      `);
+    // IMPORTANT: Only allow specific admin users to run migration
+    // Replace with your actual Clerk user ID
+    const ADMIN_USER_IDS = [
+      userId, // Allow current user for now
+      // Add your specific admin Clerk IDs here
+    ];
+    
+    if (!ADMIN_USER_IDS.includes(userId)) {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
+    }
+    
+    console.log('🚀 Starting database migration for user:', userId);
+    
+    // Run the migration
+    const result = await runFullMigration();
+    
+    if (result.success) {
+      console.log('✅ Migration completed successfully');
       
-      if (columnCheck.rows.length === 0) {
-        console.log('Adding clerk_user_id column to customers table...');
-        await query('ALTER TABLE customers ADD COLUMN clerk_user_id VARCHAR(255)');
-        migrationSteps.push('✅ Added clerk_user_id column to customers table');
-      } else {
-        migrationSteps.push('✅ clerk_user_id column already exists');
-      }
-    } catch (error) {
-      console.log('Creating customers table...');
-      await query(`
-        CREATE TABLE customers (
-          id SERIAL PRIMARY KEY,
-          clerk_user_id VARCHAR(255) UNIQUE NOT NULL,
-          email VARCHAR(255),
-          business_name VARCHAR(255),
-          plan VARCHAR(50) DEFAULT 'basic',
-          stripe_customer_id VARCHAR(255),
-          stripe_subscription_id VARCHAR(255),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      migrationSteps.push('✅ Created customers table');
-    }
-    
-    // Step 2: Check and add other missing columns to customers
-    const columnsToAdd = [
-      { name: 'business_name', type: 'VARCHAR(255)' },
-      { name: 'plan', type: 'VARCHAR(50) DEFAULT \'basic\'' },
-      { name: 'stripe_customer_id', type: 'VARCHAR(255)' },
-      { name: 'stripe_subscription_id', type: 'VARCHAR(255)' }
-    ];
-    
-    for (const column of columnsToAdd) {
-      try {
-        const columnCheck = await query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'customers' AND column_name = '${column.name}'
-        `);
-        
-        if (columnCheck.rows.length === 0) {
-          await query(`ALTER TABLE customers ADD COLUMN ${column.name} ${column.type}`);
-          migrationSteps.push(`✅ Added ${column.name} column to customers table`);
-        }
-      } catch (error) {
-        migrationSteps.push(`⚠️ Could not add ${column.name}: ${error.message}`);
-      }
-    }
-    
-    // Step 3: Update conversations table to reference customer_id instead of user_id
-    try {
-      const conversationCheck = await query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'conversations' AND column_name = 'customer_id'
-      `);
+      // Get current database stats
+      const stats = await getDatabaseStats();
       
-      if (conversationCheck.rows.length === 0) {
-        await query('ALTER TABLE conversations ADD COLUMN customer_id INTEGER REFERENCES customers(id)');
-        migrationSteps.push('✅ Added customer_id column to conversations table');
-      }
-    } catch (error) {
-      migrationSteps.push(`⚠️ Conversations table issue: ${error.message}`);
+      return NextResponse.json({
+        success: true,
+        message: 'Database migration completed successfully',
+        summary: result.summary,
+        stats: stats,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.error('❌ Migration failed:', result.error);
+      
+      return NextResponse.json(
+        {
+          success: false,
+          error: result.error,
+          message: 'Migration failed - check server logs'
+        },
+        { status: 500 }
+      );
     }
-    
-    // Step 4: Create missing tables
-    const tablesToCreate = [
-      {
-        name: 'hot_leads',
-        sql: `
-          CREATE TABLE IF NOT EXISTS hot_leads (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER REFERENCES customers(id),
-            conversation_id INTEGER REFERENCES conversations(id),
-            urgency_score INTEGER DEFAULT 0,
-            keywords TEXT[],
-            detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            status VARCHAR(50) DEFAULT 'new',
-            ai_analysis TEXT
-          )
-        `
-      },
-      {
-        name: 'sms_conversations',
-        sql: `
-          CREATE TABLE IF NOT EXISTS sms_conversations (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER REFERENCES customers(id),
-            customer_phone VARCHAR(50) NOT NULL,
-            customer_name VARCHAR(255),
-            status VARCHAR(50) DEFAULT 'active',
-            last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `
-      },
-      {
-        name: 'sms_messages',
-        sql: `
-          CREATE TABLE IF NOT EXISTS sms_messages (
-            id SERIAL PRIMARY KEY,
-            conversation_id INTEGER REFERENCES sms_conversations(id),
-            sender_type VARCHAR(50) NOT NULL,
-            content TEXT NOT NULL,
-            metadata JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `
-      },
-      {
-        name: 'email_settings',
-        sql: `
-          CREATE TABLE IF NOT EXISTS email_settings (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER REFERENCES customers(id),
-            setup_method VARCHAR(100),
-            custom_domain VARCHAR(255),
-            business_name VARCHAR(255),
-            email_address VARCHAR(255),
-            ai_personality TEXT,
-            tone VARCHAR(100) DEFAULT 'professional',
-            expertise VARCHAR(255),
-            specialties VARCHAR(255),
-            response_style TEXT,
-            hot_lead_keywords TEXT[] DEFAULT ARRAY['urgent', 'asap', 'immediately', 'budget', 'ready', 'buying now'],
-            auto_response_enabled BOOLEAN DEFAULT true,
-            alert_hot_leads BOOLEAN DEFAULT true,
-            include_availability BOOLEAN DEFAULT false,
-            ask_qualifying_questions BOOLEAN DEFAULT false,
-            require_approval BOOLEAN DEFAULT false,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `
-      },
-      {
-        name: 'email_conversations',
-        sql: `
-          CREATE TABLE IF NOT EXISTS email_conversations (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER REFERENCES customers(id),
-            contact_email VARCHAR(255) NOT NULL,
-            contact_name VARCHAR(255),
-            subject VARCHAR(500),
-            status VARCHAR(50) DEFAULT 'active',
-            last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `
-      },
-      {
-        name: 'email_messages',
-        sql: `
-          CREATE TABLE IF NOT EXISTS email_messages (
-            id SERIAL PRIMARY KEY,
-            conversation_id INTEGER REFERENCES email_conversations(id),
-            sender_type VARCHAR(50) NOT NULL,
-            content TEXT NOT NULL,
-            subject VARCHAR(500),
-            metadata JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `
-      }
-    ];
-    
-    for (const table of tablesToCreate) {
-      try {
-        await query(table.sql);
-        migrationSteps.push(`✅ Created/verified ${table.name} table`);
-      } catch (error) {
-        migrationSteps.push(`⚠️ Error with ${table.name} table: ${error.message}`);
-      }
-    }
-    
-    // Step 5: Create indexes
-    const indexesToCreate = [
-      'CREATE INDEX IF NOT EXISTS idx_customers_clerk_user_id ON customers(clerk_user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_conversations_customer_id ON conversations(customer_id)',
-      'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)',
-      'CREATE INDEX IF NOT EXISTS idx_hot_leads_customer_id ON hot_leads(customer_id)',
-      'CREATE INDEX IF NOT EXISTS idx_sms_conversations_customer_id ON sms_conversations(customer_id)',
-      'CREATE INDEX IF NOT EXISTS idx_sms_messages_conversation_id ON sms_messages(conversation_id)',
-      'CREATE INDEX IF NOT EXISTS idx_email_settings_customer_id ON email_settings(customer_id)',
-      'CREATE INDEX IF NOT EXISTS idx_email_conversations_customer_id ON email_conversations(customer_id)',
-      'CREATE INDEX IF NOT EXISTS idx_email_messages_conversation_id ON email_messages(conversation_id)'
-    ];
-    
-    for (const indexSql of indexesToCreate) {
-      try {
-        await query(indexSql);
-        migrationSteps.push(`✅ Created index: ${indexSql.split(' ')[5]}`);
-      } catch (error) {
-        migrationSteps.push(`⚠️ Index creation failed: ${error.message}`);
-      }
-    }
-    
-    // Step 6: Add unique constraint to clerk_user_id if it doesn't exist
-    try {
-      await query('ALTER TABLE customers ADD CONSTRAINT customers_clerk_user_id_unique UNIQUE (clerk_user_id)');
-      migrationSteps.push('✅ Added unique constraint to clerk_user_id');
-    } catch (error) {
-      if (error.message.includes('already exists')) {
-        migrationSteps.push('✅ Unique constraint on clerk_user_id already exists');
-      } else {
-        migrationSteps.push(`⚠️ Could not add unique constraint: ${error.message}`);
-      }
-    }
-    
-    console.log('✅ Database migration completed successfully');
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Database migration completed successfully!',
-      steps: migrationSteps,
-      nextSteps: [
-        '1. Database schema updated',
-        '2. Test your APIs now',
-        '3. Check if dashboard loads properly',
-        '4. Verify OpenAI connection works'
-      ]
-    });
     
   } catch (error) {
-    console.error('❌ Database migration failed:', error);
+    console.error('❌ Migration API error:', error);
     
-    return NextResponse.json({
-      success: false,
-      error: 'Database migration failed',
-      details: error.message,
-      steps: migrationSteps || []
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
+      { status: 500 }
+    );
   }
 }
 
-export async function GET() {
-  return NextResponse.json({
-    message: 'Use POST method to run database migration',
-    instructions: [
-      '1. Send a POST request to this endpoint',
-      '2. Or visit /test-fixes to run migration via UI',
-      '3. Check the response for migration results'
-    ]
-  });
+// POST endpoint to check migration status without running it
+export async function POST(request) {
+  try {
+    const { userId } = auth();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    // Check current database state
+    const status = await checkMigrationStatus();
+    const stats = await getDatabaseStats();
+    
+    return NextResponse.json({
+      success: true,
+      status: status,
+      stats: stats,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Status check error:', error);
+    
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Check if migration has been run
+ */
+async function checkMigrationStatus() {
+  const status = {
+    ai_analytics_events_exists: false,
+    contacts_table_exists: false,
+    contact_events_table_exists: false,
+    contacts_populated: false,
+    events_linked_to_contacts: false,
+    migration_complete: false
+  };
+  
+  try {
+    // Check if ai_analytics_events table exists
+    const eventsTable = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'ai_analytics_events'
+      )
+    `);
+    status.ai_analytics_events_exists = eventsTable.rows[0].exists;
+    
+    // Check if contacts table exists
+    const contactsTable = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'contacts'
+      )
+    `);
+    status.contacts_table_exists = contactsTable.rows[0].exists;
+    
+    // Check if contact_events table exists
+    const contactEventsTable = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'contact_events'
+      )
+    `);
+    status.contact_events_table_exists = contactEventsTable.rows[0].exists;
+    
+    // Check if contacts are populated
+    if (status.contacts_table_exists) {
+      const contactCount = await query('SELECT COUNT(*) as count FROM contacts');
+      status.contacts_populated = parseInt(contactCount.rows[0].count) > 0;
+    }
+    
+    // Check if events are linked to contacts
+    if (status.ai_analytics_events_exists) {
+      const linkedEvents = await query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE contact_id IS NOT NULL) as linked,
+          COUNT(*) as total
+        FROM ai_analytics_events
+      `);
+      const linked = parseInt(linkedEvents.rows[0].linked);
+      const total = parseInt(linkedEvents.rows[0].total);
+      status.events_linked_to_contacts = total > 0 && linked > 0;
+      status.link_percentage = total > 0 ? Math.round((linked / total) * 100) : 0;
+    }
+    
+    // Determine if migration is complete
+    status.migration_complete = 
+      status.ai_analytics_events_exists &&
+      status.contacts_table_exists &&
+      status.contact_events_table_exists;
+    
+  } catch (error) {
+    console.error('Error checking migration status:', error);
+  }
+  
+  return status;
+}
+
+/**
+ * Get current database statistics
+ */
+async function getDatabaseStats() {
+  const stats = {
+    customers: 0,
+    contacts: 0,
+    events: 0,
+    hot_leads: 0,
+    warm_leads: 0,
+    cold_leads: 0,
+    events_with_contact_id: 0,
+    events_without_contact_id: 0
+  };
+  
+  try {
+    // Count customers
+    const customers = await query('SELECT COUNT(*) as count FROM customers');
+    stats.customers = parseInt(customers.rows[0].count);
+    
+    // Count contacts if table exists
+    try {
+      const contacts = await query('SELECT COUNT(*) as count FROM contacts');
+      stats.contacts = parseInt(contacts.rows[0].count);
+      
+      // Count by temperature
+      const temperatures = await query(`
+        SELECT 
+          lead_temperature,
+          COUNT(*) as count
+        FROM contacts
+        GROUP BY lead_temperature
+      `);
+      
+      temperatures.rows.forEach(row => {
+        if (row.lead_temperature === 'hot') stats.hot_leads = parseInt(row.count);
+        if (row.lead_temperature === 'warm') stats.warm_leads = parseInt(row.count);
+        if (row.lead_temperature === 'cold') stats.cold_leads = parseInt(row.count);
+      });
+    } catch (e) {
+      console.log('Contacts table not yet created');
+    }
+    
+    // Count events if table exists
+    try {
+      const events = await query('SELECT COUNT(*) as count FROM ai_analytics_events');
+      stats.events = parseInt(events.rows[0].count);
+      
+      // Count events with/without contact_id
+      const eventLinks = await query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE contact_id IS NOT NULL) as with_contact,
+          COUNT(*) FILTER (WHERE contact_id IS NULL) as without_contact
+        FROM ai_analytics_events
+      `);
+      stats.events_with_contact_id = parseInt(eventLinks.rows[0].with_contact);
+      stats.events_without_contact_id = parseInt(eventLinks.rows[0].without_contact);
+    } catch (e) {
+      console.log('ai_analytics_events table not yet created');
+    }
+    
+  } catch (error) {
+    console.error('Error getting database stats:', error);
+  }
+  
+  return stats;
 }
