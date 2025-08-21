@@ -160,12 +160,12 @@ export async function POST(request) {
       }
     });
     
-    // Step 7: Generate AI response if enabled
+    // Step 7: Generate AI response (always enabled for now)
     let aiResponse = null;
-    if (customer.ai_enabled !== false) {
-      console.log('🤖 Generating AI response...');
-      
-      const aiResult = await generateAIResponseWithLeadTracking({
+    // Skip this check since ai_enabled column doesn't exist
+    console.log('🤖 Generating AI response...');
+    
+    const aiResult = await generateAIResponseWithLeadTracking({
         userMessage: body,
         channel: 'gmail',
         customerEmail: customer.email,
@@ -336,8 +336,7 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
           c.id as customer_id,
           c.business_name,
           c.email as customer_email,
-          c.clerk_user_id,
-          c.ai_enabled
+          c.clerk_user_id
         FROM gmail_connections gc
         JOIN customers c ON (gc.user_id = c.clerk_user_id OR gc.user_id = c.user_id::text)
         WHERE gc.gmail_email = $1 
@@ -360,8 +359,7 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
             id: row.customer_id,
             business_name: row.business_name,
             email: row.customer_email,
-            clerk_user_id: row.clerk_user_id,
-            ai_enabled: row.ai_enabled
+            clerk_user_id: row.clerk_user_id
           }
         };
       }
