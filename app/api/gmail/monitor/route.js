@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { query } from '@/lib/database.js';
 import { checkEmailFilter } from '@/lib/email-filtering.js';
-import { generateGmailResponse } from '@/lib/ai-service.js'; // 🎯 USE YOUR CENTRALIZED AI SERVICE!
+import { generateGmailResponse } from '@/lib/ai-service.js';
+// 🎯 NEW IMPORT: Add the leads service for contact management
+import { createOrUpdateContact, trackLeadEventWithContact, updateLeadScoring } from '@/lib/leads-service.js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -254,7 +256,7 @@ async function withTimeout(promise, timeoutMs, operation) {
 
 // MAIN POST HANDLER
 export async function POST(request) {
-  console.log('📧 === GMAIL MONITOR v3.0 WITH CENTRALIZED AI ===');
+  console.log('📧 === GMAIL MONITOR v3.1 WITH LEAD TRACKING ===');
   
   try {
     const requestTimeout = setTimeout(() => {
@@ -358,12 +360,12 @@ export async function POST(request) {
   }
 }
 
-// CHECK FOR NEW EMAILS WITH FILTERING
+// CHECK FOR NEW EMAILS WITH FILTERING AND LEAD CREATION
 async function checkForNewEmails(gmail, connection, dbConnectionId) {
   const startTime = Date.now();
   
   try {
-    console.log('🔍 Checking for new emails with filtering...');
+    console.log('🔍 Checking for new emails with filtering and lead tracking...');
 
     const response = await withTimeout(
       gmail.users.messages.list({
@@ -397,6 +399,7 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
     let processedCount = 0;
     let filteredCount = 0;
     let blacklistedCount = 0;
+    let leadsCreated = 0;
 
     const emailsToProcess = messages.slice(0, EMAIL_LIMITS.MAX_PROCESS);
 
@@ -479,6 +482,46 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                 }
                 
                 return; // Skip this email completely
+              }
+              
+              // 🎯 NEW: CREATE/UPDATE CONTACT FOR NON-BLACKLISTED EMAILS
+              if (customerSettings.customer_id) {
+                try {
+                  console.log(`📇 Creating/updating contact for ${customerEmail}`);
+                  
+                  const contactResult = await createOrUpdateContact(customerSettings.customer_id, {
+                    email: customerEmail,
+                    name: customerName,
+                    source_channel: 'gmail'
+                  });
+                  
+                  if (contactResult.success) {
+                    leadsCreated++;
+                    console.log(`✅ Contact ${contactResult.action}: ${contactResult.contact.id}`);
+                    
+                    // Track the email received event
+                    await trackLeadEventWithContact(
+                      customerSettings.customer_id,
+                      contactResult.contact.id,
+                      {
+                        type: 'email_received',
+                        channel: 'gmail',
+                        message: body.substring(0, 500),
+                        metadata: JSON.stringify({
+                          subject: subjectHeader?.value,
+                          from: customerEmail,
+                          gmail_message_id: message.id,
+                          thread_id: messageData.data.threadId
+                        })
+                      }
+                    );
+                    
+                    // Update lead scoring
+                    await updateLeadScoring(customerSettings.customer_id, contactResult.contact.id);
+                  }
+                } catch (contactError) {
+                  console.error('❌ Failed to create/update contact:', contactError);
+                }
               }
               
               // If whitelisted, skip other filters
@@ -591,17 +634,18 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
       );
     }
 
-    console.log(`✅ Processed ${processedCount} emails, filtered ${filteredCount} (including ${blacklistedCount} blacklisted)`);
+    console.log(`✅ Processed ${processedCount} emails, filtered ${filteredCount}, created/updated ${leadsCreated} leads`);
 
     return NextResponse.json({
       success: true,
-      message: `Found ${messages.length} emails, processed ${processedCount}, filtered ${filteredCount}`,
+      message: `Found ${messages.length} emails, processed ${processedCount}, filtered ${filteredCount}, leads: ${leadsCreated}`,
       emails: emailDetails,
       connectedEmail: connection.email,
       totalFound: messages.length,
       totalProcessed: processedCount,
       totalFiltered: filteredCount,
       blacklistedCount: blacklistedCount,
+      leadsCreatedOrUpdated: leadsCreated,
       processingTime: Date.now() - startTime
     });
     
@@ -615,7 +659,7 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
   }
 }
 
-// RESPOND TO EMAIL USING CENTRALIZED AI SERVICE
+// RESPOND TO EMAIL USING CENTRALIZED AI SERVICE WITH LEAD TRACKING
 async function respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend) {
   if (!emailId) {
     return NextResponse.json({ 
@@ -623,7 +667,7 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
     }, { status: 400 });
   }
 
-  console.log('🤖 Processing email for AI response using CENTRALIZED SERVICE...');
+  console.log('🤖 Processing email for AI response with LEAD TRACKING...');
 
   try {
     // Get original email
@@ -649,6 +693,7 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
     const fromEmail = fromHeader?.value || '';
     const emailMatch = fromEmail.match(/<(.+?)>/) || fromEmail.match(/([^\s<>]+@[^\s<>]+)/);
     const replyToEmail = emailMatch ? emailMatch[1] || emailMatch[0] : fromEmail;
+    const customerName = fromEmail.replace(/<.*>/, '').trim() || replyToEmail.split('@')[0];
     const subject = subjectHeader?.value || '';
 
     // Get email body
@@ -675,7 +720,45 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
     // Get customer settings for filtering
     const customerSettings = await getCustomerAISettings(connection.email);
     
-    // 🎯 CHECK BUSINESS RULES FIRST
+    // 🎯 CREATE/UPDATE CONTACT BEFORE RESPONDING
+    let contactId = null;
+    if (customerSettings && customerSettings.customer_id) {
+      try {
+        console.log(`📇 Creating/updating contact for ${replyToEmail} before responding`);
+        
+        const contactResult = await createOrUpdateContact(customerSettings.customer_id, {
+          email: replyToEmail,
+          name: customerName,
+          source_channel: 'gmail'
+        });
+        
+        if (contactResult.success) {
+          contactId = contactResult.contact.id;
+          console.log(`✅ Contact ${contactResult.action}: ${contactId}`);
+          
+          // Track that we received an email from this contact
+          await trackLeadEventWithContact(
+            customerSettings.customer_id,
+            contactId,
+            {
+              type: 'email_received',
+              channel: 'gmail',
+              message: originalBody.substring(0, 500),
+              metadata: JSON.stringify({
+                subject: subject,
+                from: replyToEmail,
+                gmail_message_id: emailId,
+                thread_id: messageData.data.threadId
+              })
+            }
+          );
+        }
+      } catch (contactError) {
+        console.error('❌ Failed to create/update contact:', contactError);
+      }
+    }
+    
+    // 🎯 CHECK BUSINESS RULES
     if (customerSettings) {
       const businessRules = checkBusinessRules(
         fromEmail,
@@ -854,6 +937,38 @@ ${businessName}`;
         console.warn('⚠️ Failed to mark as read:', markError.message);
       }
 
+      // 🎯 TRACK AI RESPONSE IN CONTACT
+      if (customerSettings && customerSettings.customer_id && contactId) {
+        try {
+          console.log(`📊 Tracking AI response for contact ${contactId}`);
+          
+          await trackLeadEventWithContact(
+            customerSettings.customer_id,
+            contactId,
+            {
+              type: 'ai_response',
+              channel: 'gmail',
+              message: originalBody.substring(0, 500),
+              ai_response: aiText.substring(0, 500),
+              metadata: JSON.stringify({
+                subject: replySubject,
+                to: replyToEmail,
+                gmail_message_id: sendResponse.data.id,
+                thread_id: messageData.data.threadId,
+                response_time: responseTime
+              })
+            }
+          );
+          
+          // Update lead scoring after response
+          await updateLeadScoring(customerSettings.customer_id, contactId);
+          
+          console.log('✅ AI response tracked in contact/lead system');
+        } catch (trackError) {
+          console.error('❌ Failed to track AI response:', trackError);
+        }
+      }
+
       // Save to database
       if (dbConnectionId) {
         try {
@@ -882,11 +997,11 @@ ${businessName}`;
         }
       }
 
-      console.log('🎉 Email sent successfully!');
+      console.log('🎉 Email sent successfully with lead tracking!');
 
       return NextResponse.json({
         success: true,
-        message: 'AI response sent successfully using centralized AI service!',
+        message: 'AI response sent successfully with lead tracking!',
         response: aiText,
         sentTo: replyToEmail,
         threadId: messageData.data.threadId,
@@ -897,7 +1012,9 @@ ${businessName}`;
         trackedEvents: trackedEvents,
         usingCentralizedAI: true,
         knowledgeBaseUsed: true,
-        customInstructionsUsed: true
+        customInstructionsUsed: true,
+        leadTracked: !!contactId,
+        contactId: contactId
       });
 
     } else {
@@ -906,7 +1023,7 @@ ${businessName}`;
       
       return NextResponse.json({
         success: true,
-        message: 'AI response generated (preview mode) using centralized AI service',
+        message: 'AI response generated (preview mode) with lead tracking',
         response: aiText,
         wouldReplyTo: replyToEmail,
         threadId: messageData.data.threadId,
@@ -918,7 +1035,9 @@ ${businessName}`;
         trackedEvents: trackedEvents,
         usingCentralizedAI: true,
         knowledgeBaseUsed: true,
-        customInstructionsUsed: true
+        customInstructionsUsed: true,
+        leadWouldBeTracked: !!contactId,
+        contactId: contactId
       });
     }
 
@@ -936,13 +1055,17 @@ ${businessName}`;
 // GET endpoint for testing
 export async function GET() {
   return NextResponse.json({
-    message: 'Gmail Monitor API v3.0 with Centralized AI and Business Rules',
+    message: 'Gmail Monitor API v3.1 with Lead Tracking',
     status: 'Active',
-    version: '3.0-centralized-with-rules',
+    version: '3.1-with-lead-tracking',
     features: [
+      '🎯 CREATES/UPDATES CONTACTS IN LEADS DATABASE',
+      '📊 Tracks all interactions in contacts table',
+      '🔥 Updates lead scoring automatically',
+      '📇 Creates leads when emails arrive',
+      '💬 Updates leads when AI responds',
       '🎯 USES CENTRALIZED AI SERVICE from lib/ai-service.js',
       '📚 Knowledge base and custom instructions from centralized service',
-      '📊 Event tracking through centralized service',
       '🚫 Blacklist checking - blocks specified emails/domains',
       '✅ Whitelist checking - always responds to specified emails',
       '🔥 Priority keywords detection',
@@ -952,24 +1075,20 @@ export async function GET() {
       '⚡ Safe processing limits',
       '⏰ Timeout protection'
     ],
+    leadTracking: {
+      whenEmailsArrive: 'Creates/updates contact in contacts table',
+      whenAIResponds: 'Updates contact and tracks AI response',
+      leadScoring: 'Automatically calculates and updates lead scores',
+      eventTracking: 'Tracks all interactions in ai_analytics_events'
+    },
     businessRules: {
       blacklist: 'Emails/domains that should never get responses',
       whitelist: 'Emails/domains that always get responses (bypass filters)',
       priority: 'Keywords that mark emails as high priority/hot leads'
     },
-    centralizedAI: {
-      location: 'lib/ai-service.js',
-      function: 'generateGmailResponse',
-      benefits: [
-        'Consistent AI responses across all channels',
-        'Unified knowledge base management',
-        'Event tracking for analytics',
-        'Easy maintenance from single file'
-      ]
-    },
     endpoints: {
-      check: 'POST with action: "check"',
-      respond: 'POST with action: "respond", emailId required'
+      check: 'POST with action: "check" - checks emails and creates leads',
+      respond: 'POST with action: "respond", emailId required - responds and updates leads'
     }
   });
 }
