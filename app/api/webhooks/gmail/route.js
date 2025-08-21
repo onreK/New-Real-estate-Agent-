@@ -2,7 +2,7 @@
 // COMPLETE REPLACEMENT FILE - Gmail webhook that creates leads
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { getDbClient, query } from '../../../../lib/database.js';
+import { query } from '../../../../lib/database.js';
 import { 
   saveGmailConnection,
   getGmailConnection,
@@ -63,8 +63,6 @@ export async function POST(request) {
     // This is the key to identifying which customer this email belongs to
     console.log('📬 Email TO (your Gmail):', gmailAccountEmail);
     console.log('📤 Email FROM (the lead):', from);
-    
-    console.log('📨 Processing email from:', from);
     console.log('📝 Subject:', subject);
     
     // Step 1: Extract sender information
@@ -162,10 +160,10 @@ export async function POST(request) {
     
     // Step 7: Generate AI response (always enabled for now)
     let aiResponse = null;
-    // Skip this check since ai_enabled column doesn't exist
-    console.log('🤖 Generating AI response...');
-    
-    const aiResult = await generateAIResponseWithLeadTracking({
+    try {
+      console.log('🤖 Generating AI response...');
+      
+      const aiResult = await generateAIResponseWithLeadTracking({
         userMessage: body,
         channel: 'gmail',
         customerEmail: customer.email,
@@ -226,6 +224,9 @@ export async function POST(request) {
           });
         }
       }
+    } catch (aiError) {
+      console.error('⚠️ AI response generation failed:', aiError);
+      // Don't fail the whole webhook if AI fails
     }
     
     // Step 8: Update lead scoring
@@ -265,9 +266,9 @@ export async function POST(request) {
         id: contact.id,
         email: contact.email,
         name: contact.name,
-        score: scoringResult.score,
-        temperature: scoringResult.temperature,
-        potential_value: scoringResult.potential_value,
+        score: scoringResult.score || 0,
+        temperature: scoringResult.temperature || 'cold',
+        potential_value: scoringResult.potential_value || 0,
         action: contactResult.action // 'created' or 'updated'
       },
       conversation: {
@@ -331,7 +332,7 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
     if (gmailAccountEmail) {
       console.log('🔍 Looking for Gmail connection by email:', gmailAccountEmail);
       
-      // Find the Gmail connection (using gmail_email column)
+      // Find the Gmail connection
       const connectionResult = await query(`
         SELECT 
           gc.*,
