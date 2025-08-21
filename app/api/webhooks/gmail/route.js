@@ -1,23 +1,7 @@
 // app/api/webhooks/gmail/route.js
-// COMPLETE REPLACEMENT FILE - Gmail webhook that creates leads
+// COMPLETE SELF-CONTAINED Gmail webhook - No external dependencies except database
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
-import { query } from '../../../../lib/database.js';
-import { 
-  saveGmailConnection,
-  getGmailConnection,
-  createOrUpdateConversation,
-  saveGmailMessage,
-  updateConversationActivity,
-  logAIResponse
-} from '../../../../lib/gmail-database.js';
-import { 
-  createOrUpdateContact,
-  trackLeadEventWithContact,
-  updateLeadScoring
-} from '../../../../lib/leads-service.js';
-import { checkEmailFilter } from '../../../../lib/email-filtering.js';
-import { generateAIResponseWithLeadTracking } from '../../../../lib/ai-service.js';
+import { query } from '@/lib/database.js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -54,13 +38,11 @@ export async function POST(request) {
       subject = emailData.subject || 'No Subject',
       body = emailData.body || emailData.content || emailData.text || '',
       messageId = emailData.messageId || emailData.id || `msg_${Date.now()}`,
-      threadId = emailData.threadId || emailData.thread_id,
+      threadId = emailData.threadId || emailData.thread_id || `thread_${Date.now()}`,
       userId = emailData.userId || emailData.user_id,
       gmailAccountEmail = emailData.gmailAccountEmail || to || emailData.accountEmail
     } = emailData;
     
-    // For real Gmail webhooks, the 'to' field contains YOUR Gmail account
-    // This is the key to identifying which customer this email belongs to
     console.log('📬 Email TO (your Gmail):', gmailAccountEmail);
     console.log('📤 Email FROM (the lead):', from);
     console.log('📝 Subject:', subject);
@@ -69,189 +51,90 @@ export async function POST(request) {
     const senderInfo = extractSenderInfo(from);
     console.log('👤 Extracted sender info:', senderInfo);
     
-    // Step 2: Get Gmail connection and customer info
-    const connectionInfo = await getConnectionAndCustomerInfo(userId, gmailAccountEmail);
-    if (!connectionInfo) {
-      console.error('❌ No Gmail connection or customer found');
-      return NextResponse.json({ 
-        error: 'No Gmail connection or customer found',
-        userId,
-        gmailAccountEmail
-      }, { status: 404 });
+    // Step 2: Find the customer (business owner) by Gmail account
+    const customer = await findCustomerByGmail(gmailAccountEmail, userId);
+    
+    if (!customer) {
+      console.log('⚠️ No customer found, using default customer ID 863');
+      // Use your default customer ID 863 for testing
+      const defaultCustomer = await query(
+        'SELECT * FROM customers WHERE id = 863 LIMIT 1'
+      );
+      
+      if (defaultCustomer.rows[0]) {
+        customer = defaultCustomer.rows[0];
+      } else {
+        console.error('❌ Default customer not found');
+        return NextResponse.json({ 
+          error: 'No customer found for this Gmail account',
+          gmailAccountEmail
+        }, { status: 404 });
+      }
     }
     
-    const { gmailConnection, customer } = connectionInfo;
     console.log('✅ Found customer:', customer.business_name, '(ID:', customer.id, ')');
     
-    // Step 3: Check email filters
-    const filterSettings = await getEmailFilterSettings(customer.id);
-    const filterResult = await checkEmailFilter(
-      { from, subject, body },
-      filterSettings
-    );
+    // Step 3: CREATE OR UPDATE CONTACT IN CONTACTS TABLE
+    console.log('🎯 Creating/updating contact for:', senderInfo.email);
+    const contact = await createOrUpdateContact(customer.id, senderInfo, subject, body);
     
-    if (filterResult.shouldFilter) {
-      console.log('🚫 Email filtered:', filterResult.reason);
-      return NextResponse.json({ 
-        success: true,
-        filtered: true,
-        reason: filterResult.reason
-      });
-    }
-    
-    // Step 4: CREATE OR UPDATE LEAD/CONTACT 🎯
-    console.log('🎯 Creating/updating lead for:', senderInfo.email);
-    const contactResult = await createOrUpdateContact(customer.id, {
-      email: senderInfo.email,
-      name: senderInfo.name || 'Unknown',
-      source_channel: 'gmail',
-      tags: ['email-lead']
-    });
-    
-    if (!contactResult.success) {
-      console.error('❌ Failed to create/update contact:', contactResult.error);
+    if (!contact) {
+      console.error('❌ Failed to create/update contact');
       throw new Error('Failed to create contact');
     }
     
-    const contact = contactResult.contact;
-    console.log('✅ Lead created/updated:', {
+    console.log('✅ Contact created/updated:', {
       id: contact.id,
       email: contact.email,
       name: contact.name,
-      action: contactResult.action
+      score: contact.lead_score,
+      temperature: contact.lead_temperature
     });
     
-    // Step 5: Save conversation and message to database
-    const conversation = await createOrUpdateConversation({
-      gmail_connection_id: gmailConnection.id,
-      thread_id: threadId || messageId,
-      customer_email: senderInfo.email,
-      customer_name: senderInfo.name,
-      subject: subject
+    // Step 4: Save Gmail message to database
+    await saveGmailMessage(customer.id, contact.id, {
+      threadId,
+      messageId,
+      senderEmail: senderInfo.email,
+      senderName: senderInfo.name,
+      recipientEmail: gmailAccountEmail,
+      subject,
+      body
     });
     
-    await saveGmailMessage({
-      conversation_id: conversation.id,
+    // Step 5: Track lead event
+    await trackContactEvent(customer.id, contact.id, 'email_received', {
+      subject,
+      from: senderInfo.email,
       gmail_message_id: messageId,
-      thread_id: threadId || messageId,
-      sender_type: 'customer',
-      sender_email: senderInfo.email,
-      recipient_email: gmailAccountEmail,
-      subject: subject,
-      body_text: body,  // FIXED: Using body_text instead of content
-      body_html: '',    // Add empty HTML for now
-      snippet: body.substring(0, 100),  // First 100 chars as snippet
-      sent_at: new Date()
+      preview: body.substring(0, 200)
     });
     
-    // Note: updateConversationActivity might not be needed with centralized DB
-    
-    // Step 6: Track as lead event
-    console.log('📊 Tracking lead event...');
-    await trackLeadEventWithContact(customer.id, contact.id, {
-      type: 'email_received',
-      channel: 'gmail',
-      message: body,
-      metadata: {
-        subject: subject,
-        from: from,
-        gmail_message_id: messageId
-      }
-    });
-    
-    // Step 7: Generate AI response (always enabled for now)
-    let aiResponse = null;
-    try {
-      console.log('🤖 Generating AI response...');
-      
-      const aiResult = await generateAIResponseWithLeadTracking({
-        userMessage: body,
-        channel: 'gmail',
-        customerEmail: customer.email,
-        customerPhone: null,
-        customerName: senderInfo.name,
-        clerkUserId: customer.clerk_user_id,
-        conversationHistory: [],
-        channelSpecificData: { subject }
+    // Step 6: Check for hot lead indicators
+    const isHotLead = checkHotLeadIndicators(subject, body);
+    if (isHotLead) {
+      console.log('🔥 HOT LEAD DETECTED!');
+      await createHotLeadAlert(customer.id, contact.id, subject, body);
+      await trackContactEvent(customer.id, contact.id, 'hot_lead_detected', {
+        reason: 'High-intent keywords in email',
+        subject
       });
       
-      if (aiResult.success) {
-        aiResponse = aiResult.response;
-        console.log('✅ AI response generated');
-        
-        // Note: AI response logging might need column adjustments for centralized DB
-        // Can be re-enabled after verifying ai_response_logs table structure
-        
-        // Save AI response as a message
-        await saveGmailMessage({
-          conversation_id: conversation.id,
-          gmail_message_id: `ai_${messageId}_response`,
-          thread_id: threadId || messageId,
-          sender_type: 'ai',
-          sender_email: gmailAccountEmail,
-          recipient_email: senderInfo.email,
-          subject: `Re: ${subject}`,
-          body_text: aiResponse,  // FIXED: Using body_text
-          body_html: '',
-          snippet: aiResponse.substring(0, 100),
-          is_ai_response: true,
-          ai_model: aiResult.metadata?.model || 'gpt-4o-mini',
-          sent_at: new Date()
-        });
-        
-        // Note: Activity tracking might be handled differently in centralized DB
-        
-        // Track hot lead if detected
-        if (aiResult.hotLead?.isHotLead) {
-          console.log('🔥 Hot lead detected! Score:', aiResult.hotLead.score);
-          await trackLeadEventWithContact(customer.id, contact.id, {
-            type: 'hot_lead',
-            channel: 'gmail',
-            message: `Hot lead detected with score ${aiResult.hotLead.score}`,
-            metadata: {
-              score: aiResult.hotLead.score,
-              reasoning: aiResult.hotLead.reasoning,
-              keywords: aiResult.hotLead.keywords
-            },
-            confidence_score: aiResult.hotLead.score
-          });
-        }
-      }
-    } catch (aiError) {
-      console.error('⚠️ AI response generation failed:', aiError);
-      // Don't fail the whole webhook if AI fails
+      // Update contact to hot status
+      await query(`
+        UPDATE contacts 
+        SET 
+          lead_temperature = 'hot',
+          hot_lead_count = COALESCE(hot_lead_count, 0) + 1,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [contact.id]);
     }
     
-    // Step 8: Update lead scoring
-    console.log('📈 Updating lead score...');
-    const scoringResult = await updateLeadScoring(customer.id, contact.id);
-    if (scoringResult.success) {
-      console.log('✅ Lead scoring updated:', {
-        score: scoringResult.score,
-        temperature: scoringResult.temperature,
-        value: scoringResult.potential_value
-      });
-    }
+    // Step 7: Update interaction metrics
+    await updateContactMetrics(contact.id);
     
-    // Step 9: Send AI response via Gmail if generated
-    if (aiResponse && gmailConnection.access_token) {
-      try {
-        await sendGmailResponse({
-          gmailConnection,
-          to: senderInfo.email,
-          subject: `Re: ${subject}`,
-          body: aiResponse,
-          threadId: threadId,
-          messageId: messageId
-        });
-        console.log('📤 AI response sent via Gmail');
-      } catch (sendError) {
-        console.error('❌ Failed to send Gmail response:', sendError);
-        // Don't fail the whole webhook if sending fails
-      }
-    }
-    
-    // Success response with all the details
+    // Success response
     return NextResponse.json({ 
       success: true,
       message: 'Email processed and lead created successfully',
@@ -259,18 +142,15 @@ export async function POST(request) {
         id: contact.id,
         email: contact.email,
         name: contact.name,
-        score: scoringResult.score || 0,
-        temperature: scoringResult.temperature || 'cold',
-        potential_value: scoringResult.potential_value || 0,
-        action: contactResult.action // 'created' or 'updated'
+        score: contact.lead_score,
+        temperature: contact.lead_temperature,
+        customer_id: customer.id
       },
-      conversation: {
-        id: conversation.id,
-        thread_id: conversation.thread_id,
-        subject: conversation.subject
-      },
-      ai_response_generated: !!aiResponse,
-      filtered: false
+      hot_lead: isHotLead,
+      customer: {
+        id: customer.id,
+        business_name: customer.business_name
+      }
     });
     
   } catch (error) {
@@ -316,52 +196,52 @@ function extractSenderInfo(from) {
 }
 
 /**
- * 🔍 Get Gmail connection and customer information
- * FIXED: Now properly finds customer by Gmail account
+ * 🔍 Find customer by Gmail account
  */
-async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
+async function findCustomerByGmail(gmailAccountEmail, userId) {
   try {
-    // Method 1: Try to find by Gmail account email (MOST RELIABLE)
+    // Special handling for your known Gmail account
+    if (gmailAccountEmail === 'kernojunk@gmail.com') {
+      console.log('🎯 Using known mapping for kernojunk@gmail.com');
+      const result = await query(
+        'SELECT * FROM customers WHERE id = 863 LIMIT 1'
+      );
+      if (result.rows[0]) return result.rows[0];
+    }
+    
+    // Try to find via gmail_connections table
     if (gmailAccountEmail) {
       console.log('🔍 Looking for Gmail connection by email:', gmailAccountEmail);
       
-      // Find the Gmail connection
       const connectionResult = await query(`
-        SELECT 
-          gc.*,
-          c.id as customer_id,
-          c.business_name,
-          c.email as customer_email,
-          c.clerk_user_id
-        FROM gmail_connections gc
-        JOIN customers c ON (gc.user_id = c.clerk_user_id OR gc.user_id = c.user_id::text)
+        SELECT c.* 
+        FROM customers c
+        JOIN gmail_connections gc ON gc.customer_id = c.id
         WHERE gc.gmail_email = $1 
           AND gc.status = 'connected'
         LIMIT 1
       `, [gmailAccountEmail]);
       
       if (connectionResult.rows[0]) {
-        const row = connectionResult.rows[0];
-        console.log('✅ Found customer by Gmail account:', row.business_name);
-        return {
-          gmailConnection: {
-            id: row.id,
-            email: row.gmail_email,  // Using gmail_email column
-            access_token: row.access_token,
-            refresh_token: row.refresh_token,
-            token_expiry: row.token_expiry
-          },
-          customer: {
-            id: row.customer_id,
-            business_name: row.business_name,
-            email: row.customer_email,
-            clerk_user_id: row.clerk_user_id
-          }
-        };
+        return connectionResult.rows[0];
+      }
+      
+      // Also try user_id based lookup
+      const userConnectionResult = await query(`
+        SELECT c.* 
+        FROM customers c
+        JOIN gmail_connections gc ON (gc.user_id = c.clerk_user_id OR gc.user_id = c.user_id::text)
+        WHERE gc.gmail_email = $1 
+          AND gc.status = 'connected'
+        LIMIT 1
+      `, [gmailAccountEmail]);
+      
+      if (userConnectionResult.rows[0]) {
+        return userConnectionResult.rows[0];
       }
     }
     
-    // Method 2: Try to find by user_id if provided
+    // Try to find by user_id if provided
     if (userId) {
       console.log('🔍 Looking for customer by user ID:', userId);
       
@@ -371,132 +251,340 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
       );
       
       if (customerResult.rows[0]) {
-        const customer = customerResult.rows[0];
-        
-        // Get their Gmail connection
-        const gmailConnection = await getGmailConnection(
-          customer.clerk_user_id || customer.user_id
-        );
-        
-        if (gmailConnection) {
-          console.log('✅ Found customer by user ID:', customer.business_name);
-          return { gmailConnection, customer };
-        }
+        return customerResult.rows[0];
       }
     }
     
-    // Method 3: If all else fails, use the first active customer (for testing)
-    if (process.env.NODE_ENV === 'development' || process.env.ALLOW_TEST_MODE === 'true') {
-      console.log('⚠️ No customer found, using first customer for testing');
-      const fallbackResult = await query(`
-        SELECT 
-          c.*,
-          gc.id as gmail_connection_id,
-          gc.gmail_email as gmail_email,
-          gc.access_token,
-          gc.refresh_token,
-          gc.token_expiry
-        FROM customers c
-        LEFT JOIN gmail_connections gc ON (gc.user_id = c.clerk_user_id OR gc.user_id = c.user_id::text)
-        WHERE gc.status = 'connected'
-        LIMIT 1
-      `);
+    return null;
+  } catch (error) {
+    console.error('Error finding customer:', error.message);
+    return null;
+  }
+}
+
+/**
+ * 👤 Create or update contact in the contacts table
+ */
+async function createOrUpdateContact(customerId, senderInfo, subject, body) {
+  try {
+    // Check if contact exists
+    const existing = await query(`
+      SELECT * FROM contacts 
+      WHERE customer_id = $1 
+        AND email = $2
+      LIMIT 1
+    `, [customerId, senderInfo.email]);
+    
+    const leadScore = calculateLeadScore(subject, body);
+    const temperature = leadScore >= 70 ? 'hot' : leadScore >= 40 ? 'warm' : 'cold';
+    
+    if (existing.rows[0]) {
+      // Update existing contact
+      console.log('📝 Updating existing contact...');
+      const result = await query(`
+        UPDATE contacts 
+        SET 
+          name = COALESCE($1, name),
+          last_interaction_at = CURRENT_TIMESTAMP,
+          total_interactions = COALESCE(total_interactions, 0) + 1,
+          lead_score = GREATEST(COALESCE(lead_score, 0), $2),
+          lead_temperature = $3,
+          channels_used = ARRAY(SELECT DISTINCT unnest(COALESCE(channels_used, ARRAY[]::text[]) || ARRAY['gmail']::text[])),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4
+        RETURNING *
+      `, [senderInfo.name, leadScore, temperature, existing.rows[0].id]);
       
-      if (fallbackResult.rows[0]) {
-        const row = fallbackResult.rows[0];
-        console.log('⚠️ Using fallback customer:', row.business_name);
-        return {
-          gmailConnection: {
-            id: row.gmail_connection_id,
-            email: row.gmail_email,
-            access_token: row.access_token,
-            refresh_token: row.refresh_token,
-            token_expiry: row.token_expiry
-          },
-          customer: row
-        };
+      return result.rows[0];
+    } else {
+      // Create new contact
+      console.log('🆕 Creating new contact...');
+      const result = await query(`
+        INSERT INTO contacts (
+          customer_id, email, name, 
+          lead_score, lead_temperature, lead_status,
+          first_interaction_at, last_interaction_at,
+          total_interactions, source_channel,
+          channels_used, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, 'new',
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+          1, 'gmail', ARRAY['gmail']::text[],
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        ) RETURNING *
+      `, [
+        customerId,
+        senderInfo.email,
+        senderInfo.name || 'Unknown',
+        leadScore,
+        temperature
+      ]);
+      
+      return result.rows[0];
+    }
+  } catch (error) {
+    console.error('Error creating/updating contact:', error);
+    
+    // If error is due to missing columns, try simpler insert
+    if (error.message.includes('column')) {
+      console.log('⚠️ Trying simplified contact creation...');
+      try {
+        // Check if table exists and what columns it has
+        const tableCheck = await query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'contacts'
+        `);
+        
+        if (tableCheck.rows.length === 0) {
+          console.error('❌ Contacts table does not exist!');
+          return null;
+        }
+        
+        // Try minimal insert with only required fields
+        const minimalResult = await query(`
+          INSERT INTO contacts (customer_id, email, name) 
+          VALUES ($1, $2, $3) 
+          ON CONFLICT (customer_id, email) 
+          DO UPDATE SET 
+            name = COALESCE($3, contacts.name),
+            updated_at = CURRENT_TIMESTAMP
+          RETURNING *
+        `, [customerId, senderInfo.email, senderInfo.name || 'Unknown']);
+        
+        return minimalResult.rows[0];
+      } catch (minimalError) {
+        console.error('Even minimal contact creation failed:', minimalError);
+        return null;
       }
     }
     
-    console.error('❌ No customer or Gmail connection found');
-    return null;
-  } catch (error) {
-    console.error('❌ Error getting connection info:', error);
     return null;
   }
 }
 
 /**
- * 🔧 Get email filter settings for customer
+ * 💾 Save Gmail message to database
  */
-async function getEmailFilterSettings(customerId) {
+async function saveGmailMessage(customerId, contactId, messageData) {
   try {
-    const result = await query(
-      'SELECT * FROM email_settings WHERE customer_id = $1 LIMIT 1',
-      [customerId]
-    );
+    // First check if gmail_messages table exists
+    const tableCheck = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'gmail_messages'
+      )
+    `);
     
-    return result.rows[0] || {
-      auto_archive_spam: true,
-      block_mass_emails: true,
-      skip_auto_generated: true,
-      personal_only: false,
-      whitelist_emails: [],
-      blacklist_emails: [],
-      priority_keywords: []
-    };
+    if (!tableCheck.rows[0].exists) {
+      console.log('⚠️ gmail_messages table does not exist, skipping message save');
+      return null;
+    }
+    
+    // Try to insert the message
+    const result = await query(`
+      INSERT INTO gmail_messages (
+        thread_id, message_id,
+        sender_email, sender_name, recipient_email,
+        subject, body_text,
+        is_from_customer, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, true, CURRENT_TIMESTAMP
+      ) RETURNING id
+    `, [
+      messageData.threadId,
+      messageData.messageId,
+      messageData.senderEmail,
+      messageData.senderName,
+      messageData.recipientEmail,
+      messageData.subject,
+      messageData.body
+    ]);
+    
+    console.log('✅ Gmail message saved');
+    return result.rows[0];
   } catch (error) {
-    console.error('Error getting filter settings:', error);
-    return {};
+    console.log('⚠️ Could not save Gmail message (non-critical):', error.message);
+    return null;
   }
 }
 
 /**
- * 📤 Send response via Gmail API
+ * 📊 Track contact event
  */
-async function sendGmailResponse({ gmailConnection, to, subject, body, threadId, messageId }) {
+async function trackContactEvent(customerId, contactId, eventType, metadata) {
   try {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
+    // Try contact_events table first
+    const contactEventsExists = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'contact_events'
+      )
+    `);
     
-    oauth2Client.setCredentials({
-      access_token: gmailConnection.access_token,
-      refresh_token: gmailConnection.refresh_token,
-      expiry_date: gmailConnection.token_expiry
-    });
+    if (contactEventsExists.rows[0].exists) {
+      await query(`
+        INSERT INTO contact_events (
+          customer_id, contact_id, event_type,
+          event_category, channel, description, metadata,
+          created_at
+        ) VALUES (
+          $1, $2, $3, 'engagement', 'gmail',
+          $4, $5, CURRENT_TIMESTAMP
+        )
+      `, [
+        customerId,
+        contactId,
+        eventType,
+        `${eventType} via Gmail`,
+        JSON.stringify(metadata)
+      ]);
+      console.log(`✅ Event tracked in contact_events: ${eventType}`);
+    }
     
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    // Also try ai_analytics_events table
+    const aiEventsExists = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'ai_analytics_events'
+      )
+    `);
     
-    // Create email message
-    const message = [
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      messageId ? `In-Reply-To: ${messageId}` : '',
-      messageId ? `References: ${messageId}` : '',
-      'Content-Type: text/plain; charset=utf-8',
-      '',
-      body
-    ].filter(line => line).join('\n');
-    
-    const encodedMessage = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    
-    const response = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedMessage,
-        threadId: threadId
-      }
-    });
-    
-    console.log('✅ Gmail response sent:', response.data.id);
-    return response.data;
+    if (aiEventsExists.rows[0].exists) {
+      await query(`
+        INSERT INTO ai_analytics_events (
+          customer_id, contact_id, event_type,
+          channel, metadata, created_at
+        ) VALUES ($1, $2, $3, 'gmail', $4, CURRENT_TIMESTAMP)
+      `, [customerId, contactId, eventType, JSON.stringify(metadata)]);
+      console.log(`✅ Event tracked in ai_analytics_events: ${eventType}`);
+    }
     
   } catch (error) {
-    console.error('❌ Error sending Gmail response:', error);
-    throw error;
+    console.log('⚠️ Event tracking failed (non-critical):', error.message);
+  }
+}
+
+/**
+ * 📈 Calculate lead score based on email content
+ */
+function calculateLeadScore(subject, body) {
+  let score = 10; // Base score
+  const content = `${subject} ${body}`.toLowerCase();
+  
+  // High-intent keywords (20 points each)
+  const highIntent = [
+    'urgent', 'asap', 'immediately', 'buy', 'purchase', 
+    'pricing', 'cost', 'quote', 'ready to', 'need now'
+  ];
+  
+  // Medium-intent keywords (10 points each)
+  const mediumIntent = [
+    'interested', 'information', 'details', 'learn more', 
+    'demo', 'trial', 'considering', 'looking for'
+  ];
+  
+  // Count high-intent keywords
+  highIntent.forEach(keyword => {
+    if (content.includes(keyword)) score += 20;
+  });
+  
+  // Count medium-intent keywords
+  mediumIntent.forEach(keyword => {
+    if (content.includes(keyword)) score += 10;
+  });
+  
+  // Questions indicate interest
+  if (content.includes('?')) score += 5;
+  
+  // Phone number or call request indicates high intent
+  if (content.includes('call me') || content.includes('phone')) score += 15;
+  if (/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/.test(content)) score += 10; // Phone number pattern
+  
+  // Cap at 100
+  return Math.min(score, 100);
+}
+
+/**
+ * 🔥 Check for hot lead indicators
+ */
+function checkHotLeadIndicators(subject, body) {
+  const content = `${subject} ${body}`.toLowerCase();
+  const hotIndicators = [
+    'urgent', 'asap', 'immediately', 'ready to buy',
+    'want to purchase', 'need this today', 'call me',
+    'ready to move forward', 'need now', 'emergency'
+  ];
+  
+  let count = 0;
+  hotIndicators.forEach(indicator => {
+    if (content.includes(indicator)) count++;
+  });
+  
+  // Hot lead if 2+ indicators found
+  return count >= 2;
+}
+
+/**
+ * 🚨 Create hot lead alert
+ */
+async function createHotLeadAlert(customerId, contactId, subject, body) {
+  try {
+    // Check if hot_leads table exists
+    const tableCheck = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'hot_leads'
+      )
+    `);
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('⚠️ hot_leads table does not exist');
+      return null;
+    }
+    
+    // Create hot lead record
+    await query(`
+      INSERT INTO hot_leads (
+        customer_id, contact_id,
+        reason, details, status,
+        urgency_score, detected_at, created_at
+      ) VALUES ($1, $2, $3, $4, 'new', $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, [
+      customerId,
+      contactId,
+      `Hot lead from Gmail: ${subject}`,
+      JSON.stringify({ 
+        subject, 
+        preview: body.substring(0, 500),
+        source: 'gmail'
+      }),
+      80 // Default high urgency score
+    ]);
+    
+    console.log('🚨 Hot lead alert created');
+  } catch (error) {
+    console.error('⚠️ Hot lead alert failed:', error.message);
+  }
+}
+
+/**
+ * 📊 Update contact metrics
+ */
+async function updateContactMetrics(contactId) {
+  try {
+    // Update the last_interaction_at timestamp
+    await query(`
+      UPDATE contacts 
+      SET 
+        last_interaction_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [contactId]);
+    
+    console.log('✅ Contact metrics updated');
+  } catch (error) {
+    console.log('⚠️ Metrics update failed (non-critical):', error.message);
   }
 }
 
@@ -506,16 +594,18 @@ async function sendGmailResponse({ gmailConnection, to, subject, body, threadId,
 export async function GET(request) {
   return NextResponse.json({ 
     message: 'Gmail webhook endpoint is active',
-    version: '2.0',
+    version: '3.0',
+    status: 'ready',
     features: [
       '✅ Processes incoming emails',
-      '✅ Creates/updates leads automatically',
+      '✅ Creates/updates contacts in centralized database',
       '✅ Tracks lead events and interactions',
-      '✅ Generates AI responses',
-      '✅ Updates lead scoring',
-      '✅ Applies email filters',
-      '✅ Sends responses via Gmail'
+      '✅ Calculates lead scores automatically',
+      '✅ Detects hot leads with keyword analysis',
+      '✅ Updates lead temperature (hot/warm/cold)',
+      '✅ Tracks in multiple tables (contacts, events, hot_leads)'
     ],
-    test_endpoint: '/api/webhooks/gmail/test'
+    test_instructions: 'Send POST request with emailData object to test',
+    database: 'Using centralized multi-tenant database with contacts table'
   });
 }
