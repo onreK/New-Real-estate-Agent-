@@ -2,11 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { 
   Users, 
   Search, 
@@ -25,7 +20,8 @@ import {
   Snowflake,
   RefreshCw,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Trash2
 } from 'lucide-react';
 
 export default function LeadsPage() {
@@ -36,6 +32,8 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [temperatureFilter, setTemperatureFilter] = useState('all');
   const [sortBy, setSortBy] = useState('score');
+  const [deletingLeadId, setDeletingLeadId] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     hot: 0,
@@ -79,6 +77,31 @@ export default function LeadsPage() {
       console.error('Error fetching leads:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteLead = async (leadId) => {
+    try {
+      setDeletingLeadId(leadId);
+      
+      const response = await fetch(`/api/customer/leads/${leadId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Remove the lead from the list
+        setLeads(prevLeads => prevLeads.filter(lead => lead.id !== leadId));
+        setDeleteConfirmId(null);
+        
+        // Show success message (you could use a toast here)
+        console.log('Lead deleted successfully');
+      } else {
+        console.error('Failed to delete lead');
+      }
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+    } finally {
+      setDeletingLeadId(null);
     }
   };
 
@@ -135,7 +158,7 @@ export default function LeadsPage() {
     const csvContent = [
       headers.join(','),
       ...csvData.map(row => row.join(','))
-    ].join('\\n');
+    ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -226,13 +249,13 @@ export default function LeadsPage() {
                 <p className="text-gray-400 text-sm">Track and manage all your potential customers</p>
               </div>
             </div>
-            <Button 
+            <button 
               onClick={fetchLeads}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4" />
               Refresh
-            </Button>
+            </button>
           </div>
         </div>
       </div>
@@ -240,266 +263,281 @@ export default function LeadsPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Total Leads</p>
-                  <p className="text-2xl font-bold text-white">{stats.total}</p>
-                </div>
-                <Users className="w-8 h-8 text-blue-400" />
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Total Leads</p>
+                <p className="text-2xl font-bold text-white">{stats.total}</p>
               </div>
-            </CardContent>
-          </Card>
+              <Users className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
 
-          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Hot Leads</p>
-                  <p className="text-2xl font-bold text-red-400">{stats.hot}</p>
-                </div>
-                <Flame className="w-8 h-8 text-red-400" />
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Hot Leads</p>
+                <p className="text-2xl font-bold text-red-400">{stats.hot}</p>
               </div>
-            </CardContent>
-          </Card>
+              <Flame className="w-8 h-8 text-red-400" />
+            </div>
+          </div>
 
-          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Warm Leads</p>
-                  <p className="text-2xl font-bold text-orange-400">{stats.warm}</p>
-                </div>
-                <Thermometer className="w-8 h-8 text-orange-400" />
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Warm Leads</p>
+                <p className="text-2xl font-bold text-orange-400">{stats.warm}</p>
               </div>
-            </CardContent>
-          </Card>
+              <Thermometer className="w-8 h-8 text-orange-400" />
+            </div>
+          </div>
 
-          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Cold Leads</p>
-                  <p className="text-2xl font-bold text-blue-400">{stats.cold}</p>
-                </div>
-                <Snowflake className="w-8 h-8 text-blue-400" />
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Cold Leads</p>
+                <p className="text-2xl font-bold text-blue-400">{stats.cold}</p>
               </div>
-            </CardContent>
-          </Card>
+              <Snowflake className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
 
-          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Avg Score</p>
-                  <p className="text-2xl font-bold text-green-400">{stats.avgScore}</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-green-400" />
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Avg Score</p>
+                <p className="text-2xl font-bold text-green-400">{stats.avgScore}</p>
               </div>
-            </CardContent>
-          </Card>
+              <TrendingUp className="w-8 h-8 text-green-400" />
+            </div>
+          </div>
 
-          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Total Value</p>
-                  <p className="text-2xl font-bold text-purple-400">${stats.totalValue}</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-purple-400" />
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Total Value</p>
+                <p className="text-2xl font-bold text-purple-400">${stats.totalValue}</p>
               </div>
-            </CardContent>
-          </Card>
+              <TrendingUp className="w-8 h-8 text-purple-400" />
+            </div>
+          </div>
         </div>
 
         {/* Filters and Search */}
-        <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-6">
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search */}
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search by name, email, phone, or company..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-                  />
-                </div>
+        <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, phone, or company..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 text-white placeholder:text-gray-400 rounded-lg focus:outline-none focus:border-purple-500"
+                />
               </div>
-
-              {/* Temperature Filter */}
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setTemperatureFilter('all')}
-                  variant={temperatureFilter === 'all' ? 'default' : 'outline'}
-                  className={temperatureFilter === 'all' 
-                    ? 'bg-purple-600 hover:bg-purple-700' 
-                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}
-                >
-                  All
-                </Button>
-                <Button
-                  onClick={() => setTemperatureFilter('hot')}
-                  variant={temperatureFilter === 'hot' ? 'default' : 'outline'}
-                  className={temperatureFilter === 'hot' 
-                    ? 'bg-red-600 hover:bg-red-700' 
-                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}
-                >
-                  <Flame className="w-4 h-4 mr-1" />
-                  Hot
-                </Button>
-                <Button
-                  onClick={() => setTemperatureFilter('warm')}
-                  variant={temperatureFilter === 'warm' ? 'default' : 'outline'}
-                  className={temperatureFilter === 'warm' 
-                    ? 'bg-orange-600 hover:bg-orange-700' 
-                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}
-                >
-                  <Thermometer className="w-4 h-4 mr-1" />
-                  Warm
-                </Button>
-                <Button
-                  onClick={() => setTemperatureFilter('cold')}
-                  variant={temperatureFilter === 'cold' ? 'default' : 'outline'}
-                  className={temperatureFilter === 'cold' 
-                    ? 'bg-blue-600 hover:bg-blue-700' 
-                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}
-                >
-                  <Snowflake className="w-4 h-4 mr-1" />
-                  Cold
-                </Button>
-              </div>
-
-              {/* Sort Options */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg"
-              >
-                <option value="score">Sort by Score</option>
-                <option value="recent">Sort by Recent</option>
-                <option value="value">Sort by Value</option>
-              </select>
-
-              {/* Export Button */}
-              <Button
-                onClick={exportToCSV}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </Button>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Temperature Filter */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTemperatureFilter('all')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  temperatureFilter === 'all' 
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setTemperatureFilter('hot')}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
+                  temperatureFilter === 'hot' 
+                    ? 'bg-red-600 hover:bg-red-700 text-white' 
+                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                }`}
+              >
+                <Flame className="w-4 h-4" />
+                Hot
+              </button>
+              <button
+                onClick={() => setTemperatureFilter('warm')}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
+                  temperatureFilter === 'warm' 
+                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                }`}
+              >
+                <Thermometer className="w-4 h-4" />
+                Warm
+              </button>
+              <button
+                onClick={() => setTemperatureFilter('cold')}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
+                  temperatureFilter === 'cold' 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                }`}
+              >
+                <Snowflake className="w-4 h-4" />
+                Cold
+              </button>
+            </div>
+
+            {/* Sort Options */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:border-purple-500"
+            >
+              <option value="score">Sort by Score</option>
+              <option value="recent">Sort by Recent</option>
+              <option value="value">Sort by Value</option>
+            </select>
+
+            {/* Export Button */}
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+          </div>
+        </div>
 
         {/* Leads Table */}
-        <Card className="bg-white/10 backdrop-blur-lg border-white/20">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b border-white/10">
-                  <tr className="text-left">
-                    <th className="p-4 text-gray-400 font-medium">Lead</th>
-                    <th className="p-4 text-gray-400 font-medium">Contact</th>
-                    <th className="p-4 text-gray-400 font-medium">Score</th>
-                    <th className="p-4 text-gray-400 font-medium">Temperature</th>
-                    <th className="p-4 text-gray-400 font-medium">Last Activity</th>
-                    <th className="p-4 text-gray-400 font-medium">Channel</th>
-                    <th className="p-4 text-gray-400 font-medium">Value</th>
-                    <th className="p-4 text-gray-400 font-medium">Actions</th>
+        <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b border-white/10">
+                <tr className="text-left">
+                  <th className="p-4 text-gray-400 font-medium">Lead</th>
+                  <th className="p-4 text-gray-400 font-medium">Contact</th>
+                  <th className="p-4 text-gray-400 font-medium">Score</th>
+                  <th className="p-4 text-gray-400 font-medium">Temperature</th>
+                  <th className="p-4 text-gray-400 font-medium">Last Activity</th>
+                  <th className="p-4 text-gray-400 font-medium">Channel</th>
+                  <th className="p-4 text-gray-400 font-medium">Value</th>
+                  <th className="p-4 text-gray-400 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLeads.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="p-8 text-center text-gray-400">
+                      {searchTerm || temperatureFilter !== 'all' 
+                        ? 'No leads found matching your filters'
+                        : 'No leads yet. They will appear here as your AI interacts with customers.'}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredLeads.length === 0 ? (
-                    <tr>
-                      <td colSpan="8" className="p-8 text-center text-gray-400">
-                        {searchTerm || temperatureFilter !== 'all' 
-                          ? 'No leads found matching your filters'
-                          : 'No leads yet. They will appear here as your AI interacts with customers.'}
+                ) : (
+                  filteredLeads.map((lead) => (
+                    <tr key={lead.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="p-4">
+                        <div>
+                          <p className="text-white font-medium">{lead.name || 'Unknown'}</p>
+                          {lead.company && (
+                            <p className="text-gray-400 text-sm flex items-center mt-1">
+                              <Building className="w-3 h-3 mr-1" />
+                              {lead.company}
+                            </p>
+                          )}
+                        </div>
                       </td>
-                    </tr>
-                  ) : (
-                    filteredLeads.map((lead) => (
-                      <tr key={lead.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td className="p-4">
-                          <div>
-                            <p className="text-white font-medium">{lead.name || 'Unknown'}</p>
-                            {lead.company && (
-                              <p className="text-gray-400 text-sm flex items-center mt-1">
-                                <Building className="w-3 h-3 mr-1" />
-                                {lead.company}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="space-y-1">
-                            {lead.email && (
-                              <p className="text-gray-300 text-sm flex items-center">
-                                <Mail className="w-3 h-3 mr-1" />
-                                {lead.email}
-                              </p>
-                            )}
-                            {lead.phone && (
-                              <p className="text-gray-300 text-sm flex items-center">
-                                <Phone className="w-3 h-3 mr-1" />
-                                {lead.phone}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getScoreColor(lead.score)}`}>
-                            {lead.score}/100
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${getTemperatureColor(lead.temperature)}`}>
-                            {getTemperatureIcon(lead.temperature)}
-                            <span className="capitalize">{lead.temperature}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="text-gray-300 text-sm">{formatTimeAgo(lead.last_interaction)}</p>
-                            {lead.last_message && (
-                              <p className="text-gray-500 text-xs mt-1 truncate max-w-xs">
-                                "{lead.last_message}"
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge variant="outline" className="bg-white/10 text-gray-300 border-white/20">
-                            {lead.primary_channel}
-                          </Badge>
-                        </td>
-                        <td className="p-4">
-                          <p className="text-green-400 font-medium">${lead.potential_value}</p>
-                        </td>
-                        <td className="p-4">
-                          <Button
+                      <td className="p-4">
+                        <div className="space-y-1">
+                          {lead.email && (
+                            <p className="text-gray-300 text-sm flex items-center">
+                              <Mail className="w-3 h-3 mr-1" />
+                              {lead.email}
+                            </p>
+                          )}
+                          {lead.phone && (
+                            <p className="text-gray-300 text-sm flex items-center">
+                              <Phone className="w-3 h-3 mr-1" />
+                              {lead.phone}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getScoreColor(lead.score)}`}>
+                          {lead.score}/100
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${getTemperatureColor(lead.temperature)}`}>
+                          {getTemperatureIcon(lead.temperature)}
+                          <span className="capitalize">{lead.temperature}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div>
+                          <p className="text-gray-300 text-sm">{formatTimeAgo(lead.last_interaction)}</p>
+                          {lead.last_message && (
+                            <p className="text-gray-500 text-xs mt-1 truncate max-w-xs">
+                              "{lead.last_message}"
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="px-2 py-1 bg-white/10 text-gray-300 border border-white/20 rounded text-sm">
+                          {lead.primary_channel}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-green-400 font-medium">${lead.potential_value}</p>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <button
                             onClick={() => router.push(`/leads/${lead.id}`)}
-                            size="sm"
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm flex items-center gap-1"
                           >
                             View
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                          
+                          {deleteConfirmId === lead.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => deleteLead(lead.id)}
+                                disabled={deletingLeadId === lead.id}
+                                className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-xs disabled:opacity-50"
+                              >
+                                {deletingLeadId === lead.id ? 'Deleting...' : 'Confirm'}
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirmId(lead.id)}
+                              className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors"
+                              title="Delete lead"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );
