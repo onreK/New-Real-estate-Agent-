@@ -52,7 +52,7 @@ export async function POST(request) {
     console.log('👤 Extracted sender info:', senderInfo);
     
     // Step 2: Find the customer (business owner) by Gmail account
-    const customer = await findCustomerByGmail(gmailAccountEmail, userId);
+    let customer = await findCustomerByGmail(gmailAccountEmail, userId);
     
     if (!customer) {
       console.log('⚠️ No customer found, using default customer ID 863');
