@@ -24,7 +24,8 @@ import {
   CheckCircle,
   TrendingUp,
   Star,
-  Zap
+  Zap,
+  Trash2
 } from 'lucide-react';
 
 export default function LeadDetailsPage() {
@@ -37,6 +38,8 @@ export default function LeadDetailsPage() {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadLeadDetails();
@@ -84,6 +87,29 @@ export default function LeadDetailsPage() {
       setError('Failed to save notes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteLead = async () => {
+    try {
+      setDeleting(true);
+      
+      const response = await fetch(`/api/customer/leads/${params.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Redirect to leads page after successful deletion
+        router.push('/leads');
+      } else {
+        throw new Error('Failed to delete lead');
+      }
+    } catch (err) {
+      console.error('Error deleting lead:', err);
+      setError('Failed to delete lead');
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -147,9 +173,9 @@ export default function LeadDetailsPage() {
             {event.event_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
           </p>
           <p className="text-gray-400 text-sm">{event.channel} • {new Date(event.created_at).toLocaleString()}</p>
-          {event.metadata?.message && (
+          {(event.user_message || event.metadata?.message) && (
             <p className="text-gray-300 text-sm mt-1 bg-white/5 p-2 rounded">
-              "{event.metadata.message.substring(0, 100)}..."
+              "{(event.user_message || event.metadata?.message).substring(0, 100)}..."
             </p>
           )}
         </div>
@@ -194,6 +220,34 @@ export default function LeadDetailsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 border border-white/20 rounded-2xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-white mb-2">Delete Lead?</h3>
+            <p className="text-gray-400 mb-6">
+              Are you sure you want to delete <span className="text-white font-medium">{lead.name || 'this lead'}</span>? 
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={deleteLead}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete Lead'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-lg border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -246,6 +300,15 @@ export default function LeadDetailsPage() {
                   <Phone className="w-5 h-5" />
                 </button>
               )}
+              
+              {/* Delete Button */}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                title="Delete Lead"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
             </div>
           </div>
           
@@ -280,15 +343,13 @@ export default function LeadDetailsPage() {
                 <h3 className="text-lg font-semibold text-white mb-4">Contact Information</h3>
                 
                 <div className="space-y-4">
-                  {lead.name && (
-                    <div className="flex items-center space-x-3">
-                      <User className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <p className="text-xs text-gray-400">Name</p>
-                        <p className="text-white">{lead.name}</p>
-                      </div>
+                  <div className="flex items-center space-x-3">
+                    <User className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-400">Name</p>
+                      <p className="text-white">{lead.name || 'Unknown'}</p>
                     </div>
-                  )}
+                  </div>
                   
                   {lead.email && (
                     <div className="flex items-center space-x-3">
@@ -450,7 +511,7 @@ export default function LeadDetailsPage() {
                     <span className="text-xs text-gray-400">First Contact</span>
                   </div>
                   <p className="text-lg font-bold text-white">
-                    {new Date(lead.created_at).toLocaleDateString()}
+                    {new Date(lead.first_interaction_at || lead.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -466,7 +527,7 @@ export default function LeadDetailsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-400">No recent activity</p>
+                  <p className="text-gray-400">No recent activity tracked yet</p>
                 )}
                 
                 {lead.recent_events && lead.recent_events.length > 5 && (
@@ -507,7 +568,7 @@ export default function LeadDetailsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-400">No interaction history available</p>
+              <p className="text-gray-400">No interaction history tracked yet. Events will appear here as your AI interacts with this lead.</p>
             )}
           </div>
         )}
