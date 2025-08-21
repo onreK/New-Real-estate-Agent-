@@ -231,11 +231,13 @@ export async function POST(request) {
     // Step 8: Update lead scoring
     console.log('📈 Updating lead score...');
     const scoringResult = await updateLeadScoring(customer.id, contact.id);
-    console.log('✅ Lead scoring updated:', {
-      score: scoringResult.score,
-      temperature: scoringResult.temperature,
-      value: scoringResult.potential_value
-    });
+    if (scoringResult.success) {
+      console.log('✅ Lead scoring updated:', {
+        score: scoringResult.score,
+        temperature: scoringResult.temperature,
+        value: scoringResult.potential_value
+      });
+    }
     
     // Step 9: Send AI response via Gmail if generated
     if (aiResponse && gmailConnection.access_token) {
