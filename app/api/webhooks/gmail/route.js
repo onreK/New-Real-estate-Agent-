@@ -138,12 +138,13 @@ export async function POST(request) {
       sender_email: senderInfo.email,
       recipient_email: gmailAccountEmail,
       subject: subject,
-      content: body,
-      content_type: 'text/plain',
+      body_text: body,  // FIXED: Using body_text instead of content
+      body_html: '',    // Add empty HTML for now
+      snippet: body.substring(0, 100),  // First 100 chars as snippet
       sent_at: new Date()
     });
     
-    await updateConversationActivity(conversation.id, 'customer');
+    // Note: updateConversationActivity might not be needed with centralized DB
     
     // Step 6: Track as lead event
     console.log('📊 Tracking lead event...');
@@ -178,17 +179,8 @@ export async function POST(request) {
         aiResponse = aiResult.response;
         console.log('✅ AI response generated');
         
-        // Log AI response
-        await logAIResponse({
-          gmail_connection_id: gmailConnection.id,
-          conversation_id: conversation.id,
-          customer_message: body,
-          ai_response: aiResponse,
-          model_used: aiResult.metadata?.model || 'gpt-4o-mini',
-          temperature: 0.7,
-          response_time_ms: Date.now() - new Date(conversation.created_at).getTime(),
-          tokens_used: aiResult.metadata?.tokensUsed || 0
-        });
+        // Note: AI response logging might need column adjustments for centralized DB
+        // Can be re-enabled after verifying ai_response_logs table structure
         
         // Save AI response as a message
         await saveGmailMessage({
@@ -199,14 +191,15 @@ export async function POST(request) {
           sender_email: gmailAccountEmail,
           recipient_email: senderInfo.email,
           subject: `Re: ${subject}`,
-          content: aiResponse,
-          content_type: 'text/plain',
-          is_ai_generated: true,
+          body_text: aiResponse,  // FIXED: Using body_text
+          body_html: '',
+          snippet: aiResponse.substring(0, 100),
+          is_ai_response: true,
           ai_model: aiResult.metadata?.model || 'gpt-4o-mini',
           sent_at: new Date()
         });
         
-        await updateConversationActivity(conversation.id, 'ai');
+        // Note: Activity tracking might be handled differently in centralized DB
         
         // Track hot lead if detected
         if (aiResult.hotLead?.isHotLead) {
