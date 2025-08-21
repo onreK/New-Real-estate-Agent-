@@ -329,7 +329,7 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
     if (gmailAccountEmail) {
       console.log('🔍 Looking for Gmail connection by email:', gmailAccountEmail);
       
-      // Find the Gmail connection
+      // Find the Gmail connection (using gmail_email column)
       const connectionResult = await query(`
         SELECT 
           gc.*,
@@ -340,7 +340,7 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
           c.ai_enabled
         FROM gmail_connections gc
         JOIN customers c ON (gc.user_id = c.clerk_user_id OR gc.user_id = c.user_id::text)
-        WHERE gc.email = $1 
+        WHERE gc.gmail_email = $1 
           AND gc.status = 'connected'
         LIMIT 1
       `, [gmailAccountEmail]);
@@ -351,7 +351,7 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
         return {
           gmailConnection: {
             id: row.id,
-            email: row.email,
+            email: row.gmail_email,  // Using gmail_email column
             access_token: row.access_token,
             refresh_token: row.refresh_token,
             token_expiry: row.token_expiry
@@ -398,7 +398,7 @@ async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
         SELECT 
           c.*,
           gc.id as gmail_connection_id,
-          gc.email as gmail_email,
+          gc.gmail_email as gmail_email,
           gc.access_token,
           gc.refresh_token,
           gc.token_expiry
