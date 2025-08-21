@@ -50,14 +50,19 @@ export async function POST(request) {
     // Extract essential email information
     const {
       from = emailData.from || emailData.sender || emailData.email,
-      to = emailData.to || emailData.recipient,
+      to = emailData.to || emailData.recipient || emailData.gmailAccountEmail,
       subject = emailData.subject || 'No Subject',
       body = emailData.body || emailData.content || emailData.text || '',
-      messageId = emailData.messageId || emailData.id,
+      messageId = emailData.messageId || emailData.id || `msg_${Date.now()}`,
       threadId = emailData.threadId || emailData.thread_id,
       userId = emailData.userId || emailData.user_id,
-      gmailAccountEmail = emailData.gmailAccountEmail || to
+      gmailAccountEmail = emailData.gmailAccountEmail || to || emailData.accountEmail
     } = emailData;
+    
+    // For real Gmail webhooks, the 'to' field contains YOUR Gmail account
+    // This is the key to identifying which customer this email belongs to
+    console.log('📬 Email TO (your Gmail):', gmailAccountEmail);
+    console.log('📤 Email FROM (the lead):', from);
     
     console.log('📨 Processing email from:', from);
     console.log('📝 Subject:', subject);
@@ -316,46 +321,113 @@ function extractSenderInfo(from) {
 
 /**
  * 🔍 Get Gmail connection and customer information
+ * FIXED: Now properly finds customer by Gmail account
  */
 async function getConnectionAndCustomerInfo(userId, gmailAccountEmail) {
   try {
-    // First try to find by user_id
-    if (userId) {
-      const gmailConnection = await getGmailConnection(userId);
-      if (gmailConnection) {
-        // Get customer info
-        const customerResult = await query(
-          'SELECT * FROM customers WHERE clerk_user_id = $1 OR user_id = $1 LIMIT 1',
-          [userId]
-        );
-        
-        if (customerResult.rows[0]) {
-          return {
-            gmailConnection,
-            customer: customerResult.rows[0]
-          };
-        }
-      }
-    }
-    
-    // Try to find by Gmail account email
+    // Method 1: Try to find by Gmail account email (MOST RELIABLE)
     if (gmailAccountEmail) {
-      const connectionResult = await query(
-        'SELECT gc.*, c.* FROM gmail_connections gc JOIN customers c ON gc.user_id = c.clerk_user_id WHERE gc.email = $1 AND gc.status = $2 LIMIT 1',
-        [gmailAccountEmail, 'connected']
-      );
+      console.log('🔍 Looking for Gmail connection by email:', gmailAccountEmail);
+      
+      // Find the Gmail connection
+      const connectionResult = await query(`
+        SELECT 
+          gc.*,
+          c.id as customer_id,
+          c.business_name,
+          c.email as customer_email,
+          c.clerk_user_id,
+          c.ai_enabled
+        FROM gmail_connections gc
+        JOIN customers c ON (gc.user_id = c.clerk_user_id OR gc.user_id = c.user_id::text)
+        WHERE gc.email = $1 
+          AND gc.status = 'connected'
+        LIMIT 1
+      `, [gmailAccountEmail]);
       
       if (connectionResult.rows[0]) {
+        const row = connectionResult.rows[0];
+        console.log('✅ Found customer by Gmail account:', row.business_name);
         return {
-          gmailConnection: connectionResult.rows[0],
-          customer: connectionResult.rows[0]
+          gmailConnection: {
+            id: row.id,
+            email: row.email,
+            access_token: row.access_token,
+            refresh_token: row.refresh_token,
+            token_expiry: row.token_expiry
+          },
+          customer: {
+            id: row.customer_id,
+            business_name: row.business_name,
+            email: row.customer_email,
+            clerk_user_id: row.clerk_user_id,
+            ai_enabled: row.ai_enabled
+          }
         };
       }
     }
     
+    // Method 2: Try to find by user_id if provided
+    if (userId) {
+      console.log('🔍 Looking for customer by user ID:', userId);
+      
+      const customerResult = await query(
+        'SELECT * FROM customers WHERE clerk_user_id = $1 OR user_id = $1::text LIMIT 1',
+        [userId]
+      );
+      
+      if (customerResult.rows[0]) {
+        const customer = customerResult.rows[0];
+        
+        // Get their Gmail connection
+        const gmailConnection = await getGmailConnection(
+          customer.clerk_user_id || customer.user_id
+        );
+        
+        if (gmailConnection) {
+          console.log('✅ Found customer by user ID:', customer.business_name);
+          return { gmailConnection, customer };
+        }
+      }
+    }
+    
+    // Method 3: If all else fails, use the first active customer (for testing)
+    if (process.env.NODE_ENV === 'development' || process.env.ALLOW_TEST_MODE === 'true') {
+      console.log('⚠️ No customer found, using first customer for testing');
+      const fallbackResult = await query(`
+        SELECT 
+          c.*,
+          gc.id as gmail_connection_id,
+          gc.email as gmail_email,
+          gc.access_token,
+          gc.refresh_token,
+          gc.token_expiry
+        FROM customers c
+        LEFT JOIN gmail_connections gc ON (gc.user_id = c.clerk_user_id OR gc.user_id = c.user_id::text)
+        WHERE gc.status = 'connected'
+        LIMIT 1
+      `);
+      
+      if (fallbackResult.rows[0]) {
+        const row = fallbackResult.rows[0];
+        console.log('⚠️ Using fallback customer:', row.business_name);
+        return {
+          gmailConnection: {
+            id: row.gmail_connection_id,
+            email: row.gmail_email,
+            access_token: row.access_token,
+            refresh_token: row.refresh_token,
+            token_expiry: row.token_expiry
+          },
+          customer: row
+        };
+      }
+    }
+    
+    console.error('❌ No customer or Gmail connection found');
     return null;
   } catch (error) {
-    console.error('Error getting connection info:', error);
+    console.error('❌ Error getting connection info:', error);
     return null;
   }
 }
