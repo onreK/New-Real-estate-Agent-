@@ -15,13 +15,15 @@ import {
   Clock,
   Building,
   ChevronRight,
+  ChevronLeft,
   Flame,
   Thermometer,
   Snowflake,
   RefreshCw,
   AlertCircle,
   CheckCircle,
-  Trash2
+  Trash2,
+  DollarSign
 } from 'lucide-react';
 
 export default function LeadsPage() {
@@ -34,6 +36,11 @@ export default function LeadsPage() {
   const [sortBy, setSortBy] = useState('score');
   const [deletingLeadId, setDeletingLeadId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [leadsPerPage] = useState(10); // Show 10 leads per page
+  
   const [stats, setStats] = useState({
     total: 0,
     hot: 0,
@@ -51,6 +58,11 @@ export default function LeadsPage() {
     filterAndSortLeads();
   }, [leads, searchTerm, temperatureFilter, sortBy]);
 
+  useEffect(() => {
+    // Reset to first page when filters change
+    setCurrentPage(1);
+  }, [searchTerm, temperatureFilter, sortBy]);
+
   const fetchLeads = async () => {
     try {
       setLoading(true);
@@ -60,15 +72,19 @@ export default function LeadsPage() {
         const data = await response.json();
         setLeads(data.leads || []);
         
-        // Calculate stats
+        // Calculate stats with proper value handling
         const leadStats = {
           total: data.leads?.length || 0,
           hot: data.leads?.filter(l => l.temperature === 'hot').length || 0,
           warm: data.leads?.filter(l => l.temperature === 'warm').length || 0,
           cold: data.leads?.filter(l => l.temperature === 'cold').length || 0,
-          totalValue: data.leads?.reduce((sum, l) => sum + (l.potential_value || 0), 0) || 0,
+          totalValue: data.leads?.reduce((sum, lead) => {
+            // Parse the value properly - handle various formats
+            const value = parseFloat(lead.potential_value) || 0;
+            return sum + value;
+          }, 0) || 0,
           avgScore: data.leads?.length > 0 
-            ? Math.round(data.leads.reduce((sum, l) => sum + l.score, 0) / data.leads.length)
+            ? Math.round(data.leads.reduce((sum, l) => sum + (l.score || 0), 0) / data.leads.length)
             : 0
         };
         setStats(leadStats);
@@ -139,6 +155,28 @@ export default function LeadsPage() {
     }
 
     setFilteredLeads(filtered);
+  };
+
+  // Pagination logic
+  const indexOfLastLead = currentPage * leadsPerPage;
+  const indexOfFirstLead = indexOfLastLead - leadsPerPage;
+  const currentLeads = filteredLeads.slice(indexOfFirstLead, indexOfLastLead);
+  const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToPage = (pageNumber) => {
+    setCurrentPage(pageNumber);
   };
 
   const exportToCSV = () => {
@@ -218,6 +256,17 @@ export default function LeadsPage() {
       }
     }
     return 'Just now';
+  };
+
+  // Format currency properly
+  const formatCurrency = (value) => {
+    const num = parseFloat(value) || 0;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(num);
   };
 
   if (loading) {
@@ -317,9 +366,11 @@ export default function LeadsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Total Value</p>
-                <p className="text-2xl font-bold text-purple-400">${stats.totalValue}</p>
+                <p className="text-xl font-bold text-purple-400 truncate">
+                  {formatCurrency(stats.totalValue)}
+                </p>
               </div>
-              <TrendingUp className="w-8 h-8 text-purple-400" />
+              <DollarSign className="w-8 h-8 text-purple-400 flex-shrink-0" />
             </div>
           </div>
         </div>
@@ -427,7 +478,7 @@ export default function LeadsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLeads.length === 0 ? (
+                {currentLeads.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="p-8 text-center text-gray-400">
                       {searchTerm || temperatureFilter !== 'all' 
@@ -436,7 +487,7 @@ export default function LeadsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredLeads.map((lead) => (
+                  currentLeads.map((lead) => (
                     <tr key={lead.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                       <td className="p-4">
                         <div>
@@ -492,7 +543,7 @@ export default function LeadsPage() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <p className="text-green-400 font-medium">${lead.potential_value}</p>
+                        <p className="text-green-400 font-medium">{formatCurrency(lead.potential_value)}</p>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
@@ -537,6 +588,85 @@ export default function LeadsPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {filteredLeads.length > leadsPerPage && (
+            <div className="px-6 py-4 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-400">
+                  Showing {indexOfFirstLead + 1} to {Math.min(indexOfLastLead, filteredLeads.length)} of {filteredLeads.length} leads
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-lg transition-colors ${
+                      currentPage === 1
+                        ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                        : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  <div className="flex gap-1">
+                    {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = index + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = index + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + index;
+                      } else {
+                        pageNum = currentPage - 2 + index;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => goToPage(pageNum)}
+                          className={`px-3 py-1 rounded-lg transition-colors ${
+                            currentPage === pageNum
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    
+                    {totalPages > 5 && currentPage < totalPages - 2 && (
+                      <>
+                        <span className="px-2 text-gray-500">...</span>
+                        <button
+                          onClick={() => goToPage(totalPages)}
+                          className="px-3 py-1 bg-white/10 text-gray-300 hover:bg-white/20 rounded-lg transition-colors"
+                        >
+                          {totalPages}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  
+                  <button
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-lg transition-colors ${
+                      currentPage === totalPages
+                        ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                        : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
