@@ -33,7 +33,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [temperatureFilter, setTemperatureFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('score');
+  const [sortBy, setSortBy] = useState('recent');  // Changed default to 'recent'
   const [deletingLeadId, setDeletingLeadId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
@@ -443,11 +443,12 @@ export default function LeadsPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:border-purple-500"
+              className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:border-purple-500 [&>option]:bg-gray-800 [&>option]:text-white"
+              style={{ colorScheme: 'dark' }}
             >
-              <option value="score">Sort by Score</option>
-              <option value="recent">Sort by Recent</option>
-              <option value="value">Sort by Value</option>
+              <option value="recent" className="bg-gray-800 text-white">Sort by Recent</option>
+              <option value="score" className="bg-gray-800 text-white">Sort by Score</option>
+              <option value="value" className="bg-gray-800 text-white">Sort by Value</option>
             </select>
 
             {/* Export Button */}
