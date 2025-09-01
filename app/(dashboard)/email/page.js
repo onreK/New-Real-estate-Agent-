@@ -48,7 +48,10 @@ import {
   UserCheck,
   Play,
   Pause,
-  Square
+  Square,
+  Edit,
+  Save,
+  Loader2
 } from 'lucide-react';
 
 export default function CompleteEmailSystem() {
@@ -93,6 +96,13 @@ export default function CompleteEmailSystem() {
 
   const [activeEmailView, setActiveEmailView] = useState('inbox');
   const [sentEmails, setSentEmails] = useState([]);
+  
+  // 🎯 NEW: Preview Modal State
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewResponse, setPreviewResponse] = useState('');
+  const [editedResponse, setEditedResponse] = useState('');
+  const [sendingEditedResponse, setSendingEditedResponse] = useState(false);
+  const [previewEmailData, setPreviewEmailData] = useState(null);
   
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -797,6 +807,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
+  // 🎯 UPDATED: Modified sendAIResponse to handle preview modal
   const sendAIResponse = async (emailId, preview = false) => {
     if (!gmailConnection) return;
     
@@ -825,6 +836,20 @@ export default function CompleteEmailSystem() {
           return data;
         }
         
+        // 🎯 NEW: Handle preview mode - show modal with response
+        if (preview && data.success) {
+          setPreviewResponse(data.response);
+          setEditedResponse(data.response);
+          setPreviewEmailData({
+            emailId: emailId,
+            to: selectedGmailEmail?.fromEmail,
+            subject: selectedGmailEmail?.subject
+          });
+          setShowPreviewModal(true);
+          return data;
+        }
+        
+        // Handle actual send
         if (!preview && data.success) {
           const sentEmail = {
             id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -862,6 +887,62 @@ export default function CompleteEmailSystem() {
       console.error('❌ Error sending AI response:', error);
     } finally {
       setResponding(false);
+    }
+  };
+
+  // 🎯 NEW: Function to send edited response
+  const sendEditedResponse = async () => {
+    if (!previewEmailData || !editedResponse) return;
+    
+    setSendingEditedResponse(true);
+    try {
+      // Send the edited response
+      const response = await fetch('/api/gmail/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'respond',
+          emailAddress: gmailConnection.email,
+          emailId: previewEmailData.emailId,
+          actualSend: true,
+          customMessage: editedResponse // Pass the edited response as custom message
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Add to sent emails
+        const sentEmail = {
+          id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          originalEmailId: previewEmailData.emailId,
+          to: previewEmailData.to,
+          toName: selectedGmailEmail?.fromName || previewEmailData.to,
+          originalSubject: previewEmailData.subject,
+          response: editedResponse,
+          sentTime: new Date().toLocaleString(),
+          timestamp: new Date(),
+          status: 'sent'
+        };
+        
+        setSentEmails(prev => [sentEmail, ...prev]);
+        
+        // Close modal and switch to sent tab
+        setShowPreviewModal(false);
+        setPreviewResponse('');
+        setEditedResponse('');
+        setPreviewEmailData(null);
+        
+        setTimeout(() => {
+          setActiveEmailView('sent');
+          checkGmailEmails(false);
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Error sending edited response:', error);
+      alert('Failed to send response. Please try again.');
+    } finally {
+      setSendingEditedResponse(false);
     }
   };
 
@@ -955,13 +1036,135 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  // Keep all your existing component JSX (DashboardTab, AISettingsTab, AutomationTab) exactly the same
-  // I'm not repeating them here to save space, but they remain unchanged
+  // 🎯 NEW: Preview Modal Component
+  const PreviewModal = () => {
+    if (!showPreviewModal) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-gray-900 border border-white/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+          {/* Modal Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 border-b border-white/10">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Bot className="w-6 h-6" />
+                  AI Response Preview
+                </h2>
+                <p className="text-white/80 text-sm mt-1">
+                  Review and edit the AI response before sending
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPreviewModal(false);
+                  setPreviewResponse('');
+                  setEditedResponse('');
+                  setPreviewEmailData(null);
+                }}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Modal Body */}
+          <div className="p-6 max-h-[60vh] overflow-y-auto">
+            {/* Email Info */}
+            <div className="bg-white/5 rounded-lg p-4 mb-6 border border-white/10">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-400">To:</span>
+                  <p className="text-white font-medium">{previewEmailData?.to}</p>
+                </div>
+                <div>
+                  <span className="text-gray-400">Subject:</span>
+                  <p className="text-white font-medium">Re: {previewEmailData?.subject}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Editable Response */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-white font-medium">AI Generated Response:</label>
+                <span className="text-gray-400 text-sm">
+                  {editedResponse.length} characters
+                </span>
+              </div>
+              
+              <Textarea
+                value={editedResponse}
+                onChange={(e) => setEditedResponse(e.target.value)}
+                className="min-h-[300px] bg-white/10 border-white/20 text-white placeholder-gray-400 resize-none"
+                placeholder="Edit your response here..."
+              />
+              
+              {editedResponse !== previewResponse && (
+                <div className="flex items-center gap-2 text-yellow-400 text-sm">
+                  <Edit className="w-4 h-4" />
+                  <span>Response has been edited</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Modal Footer */}
+          <div className="bg-white/5 border-t border-white/10 p-6">
+            <div className="flex items-center justify-between">
+              <Button
+                onClick={() => setEditedResponse(previewResponse)}
+                disabled={editedResponse === previewResponse}
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reset to Original
+              </Button>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    setPreviewResponse('');
+                    setEditedResponse('');
+                    setPreviewEmailData(null);
+                  }}
+                  variant="outline"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                >
+                  Cancel
+                </Button>
+                
+                <Button
+                  onClick={sendEditedResponse}
+                  disabled={sendingEditedResponse || !editedResponse.trim()}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+                >
+                  {sendingEditedResponse ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Response
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
+  // COMPLETE DashboardTab component
   const DashboardTab = () => (
     <div className="space-y-6">
-      {/* Your existing DashboardTab JSX - no changes needed */}
-      {/* Keep all the existing content exactly as is */}
       {gmailConnection && (
         <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
           <div className="flex items-center justify-between">
@@ -1062,8 +1265,6 @@ export default function CompleteEmailSystem() {
         </div>
       )}
 
-      {/* Keep all the rest of your existing DashboardTab content */}
-      {/* Stats Grid, Email Lists, etc. - all remains the same */}
       {gmailConnection ? (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
@@ -1209,12 +1410,10 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Email Lists - Keep all existing email list code */}
+      {/* Email Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Keep all the existing email list JSX here - not changed */}
         <div className="lg:col-span-2">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
-            {/* All existing inbox/sent tabs code */}
             <div className="p-6 pb-0 flex-shrink-0 border-b border-white/10">
               <div className="flex items-center gap-3 mb-4">
                 <Inbox className="w-6 h-6 text-blue-400" />
@@ -1522,7 +1721,7 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* Email Details Panel - Keep all existing code */}
+        {/* Email Details Panel */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
@@ -1722,10 +1921,9 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // Keep AISettingsTab exactly the same
+  // COMPLETE AISettingsTab component
   const AISettingsTab = () => (
     <div className="space-y-6">
-      {/* Your existing AISettingsTab JSX - no changes needed */}
       {/* Status Indicator - Shows current state but not a toggle */}
       <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
         <div className="flex items-center gap-4">
@@ -1850,7 +2048,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* 📚 KNOWLEDGE BASE SECTION - THIS IS THE MISSING PART! */}
+      {/* 📚 KNOWLEDGE BASE SECTION */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-purple-400" />
@@ -2023,10 +2221,9 @@ SPECIAL INSTRUCTIONS:
     </div>
   );
 
-  // Keep AutomationTab exactly the same
+  // COMPLETE AutomationTab component
   const AutomationTab = () => (
     <div className="space-y-6">
-      {/* Your existing AutomationTab JSX - no changes needed */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-blue-400" />
@@ -2057,7 +2254,6 @@ SPECIAL INSTRUCTIONS:
         </div>
       </div>
 
-      {/* Keep all business rules sections */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-blue-400" />
@@ -2185,6 +2381,9 @@ SPECIAL INSTRUCTIONS:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+      {/* 🎯 NEW: Add the Preview Modal here */}
+      <PreviewModal />
+      
       <div className="p-6 max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-6">
           <Button 
