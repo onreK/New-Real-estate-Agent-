@@ -1042,9 +1042,9 @@ export default function CompleteEmailSystem() {
     
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-gray-900 border border-white/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+        <div className="bg-gray-900 border border-white/20 rounded-2xl max-w-5xl w-full h-[85vh] flex flex-col shadow-2xl">
           {/* Modal Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 border-b border-white/10">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 border-b border-white/10 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -1070,7 +1070,7 @@ export default function CompleteEmailSystem() {
           </div>
           
           {/* Modal Body */}
-          <div className="p-6 max-h-[60vh] overflow-y-auto">
+          <div className="flex-1 p-6 overflow-y-auto">
             {/* Email Info */}
             <div className="bg-white/5 rounded-lg p-4 mb-6 border border-white/10">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1094,11 +1094,12 @@ export default function CompleteEmailSystem() {
                 </span>
               </div>
               
-              <Textarea
+              <textarea
                 value={editedResponse}
                 onChange={(e) => setEditedResponse(e.target.value)}
-                className="min-h-[300px] bg-white/10 border-white/20 text-white placeholder-gray-400 resize-none"
+                className="w-full min-h-[400px] bg-white/10 border border-white/20 rounded-md p-4 text-white placeholder-gray-400 resize-none focus:outline-none focus:border-blue-400"
                 placeholder="Edit your response here..."
+                autoFocus
               />
               
               {editedResponse !== previewResponse && (
@@ -1111,7 +1112,7 @@ export default function CompleteEmailSystem() {
           </div>
           
           {/* Modal Footer */}
-          <div className="bg-white/5 border-t border-white/10 p-6">
+          <div className="bg-white/5 border-t border-white/10 p-6 flex-shrink-0">
             <div className="flex items-center justify-between">
               <Button
                 onClick={() => setEditedResponse(previewResponse)}
@@ -1512,11 +1513,12 @@ export default function CompleteEmailSystem() {
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <style jsx>{`
                       .custom-scrollbar {
-                        scrollbar-width: auto;
+                        scrollbar-width: thin;
                         scrollbar-color: rgba(59, 130, 246, 0.6) rgba(255, 255, 255, 0.1);
                       }
                       .custom-scrollbar::-webkit-scrollbar {
-                        width: 14px;
+                        width: 8px;
+                        height: 8px;
                       }
                       .custom-scrollbar::-webkit-scrollbar-track {
                         background: rgba(255, 255, 255, 0.05);
@@ -1527,7 +1529,7 @@ export default function CompleteEmailSystem() {
                       .custom-scrollbar::-webkit-scrollbar-thumb {
                         background: linear-gradient(180deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.8));
                         border-radius: 10px;
-                        border: 2px solid rgba(255, 255, 255, 0.1);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
                         box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
                       }
                       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -1624,11 +1626,12 @@ export default function CompleteEmailSystem() {
                   <div className="flex-1 overflow-y-auto custom-scrollbar-green">
                     <style jsx>{`
                       .custom-scrollbar-green {
-                        scrollbar-width: auto;
+                        scrollbar-width: thin;
                         scrollbar-color: rgba(34, 197, 94, 0.6) rgba(255, 255, 255, 0.1);
                       }
                       .custom-scrollbar-green::-webkit-scrollbar {
-                        width: 14px;
+                        width: 8px;
+                        height: 8px;
                       }
                       .custom-scrollbar-green::-webkit-scrollbar-track {
                         background: rgba(255, 255, 255, 0.05);
@@ -1639,7 +1642,7 @@ export default function CompleteEmailSystem() {
                       .custom-scrollbar-green::-webkit-scrollbar-thumb {
                         background: linear-gradient(180deg, rgba(34, 197, 94, 0.8), rgba(21, 128, 61, 0.8));
                         border-radius: 10px;
-                        border: 2px solid rgba(255, 255, 255, 0.1);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
                         box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
                       }
                       .custom-scrollbar-green::-webkit-scrollbar-thumb:hover {
