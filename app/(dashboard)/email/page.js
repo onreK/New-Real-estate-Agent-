@@ -1674,16 +1674,14 @@ export default function CompleteEmailSystem() {
 
                 {/* 🎯 NEW: INLINE PREVIEW SECTION - Shows below the buttons */}
                 {showingPreview && previewResponse && (
-                  <div className="bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm animate-fadeIn">
-                    <style jsx>{`
+                  <div className="bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm" 
+                       style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                    <style dangerouslySetInnerHTML={{ __html: `
                       @keyframes fadeIn {
                         from { opacity: 0; transform: translateY(-10px); }
                         to { opacity: 1; transform: translateY(0); }
                       }
-                      .animate-fadeIn {
-                        animation: fadeIn 0.3s ease-out;
-                      }
-                    `}</style>
+                    `}} />
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
@@ -1707,7 +1705,7 @@ export default function CompleteEmailSystem() {
                     </div>
                     <div className="space-y-3">
                       <textarea
-                        value={editedPreviewResponse}
+                        value={editedPreviewResponse || ''}
                         onChange={(e) => setEditedPreviewResponse(e.target.value)}
                         className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 transition-all placeholder-purple-300/50"
                         placeholder="Type your response here..."
