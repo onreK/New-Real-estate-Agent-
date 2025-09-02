@@ -837,11 +837,15 @@ export default function CompleteEmailSystem() {
         
         const generatedResponse = data.response || data.aiResponse || 'No preview available';
         setPreviewResponse(generatedResponse);
-        // Set the textarea value when preview is generated
-        if (previewTextareaRef.current) {
-          previewTextareaRef.current.value = generatedResponse;
-        }
         setShowingPreview(true);
+        
+        // Set the textarea value AFTER showing the preview (with a tiny delay for DOM update)
+        setTimeout(() => {
+          if (previewTextareaRef.current) {
+            previewTextareaRef.current.value = generatedResponse;
+            previewTextareaRef.current.focus();
+          }
+        }, 10);
       } else {
         console.error('❌ API response not ok:', response.status, response.statusText);
         alert('Failed to generate preview');
