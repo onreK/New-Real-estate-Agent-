@@ -256,7 +256,7 @@ async function withTimeout(promise, timeoutMs, operation) {
 
 // MAIN POST HANDLER
 export async function POST(request) {
-  console.log('📧 === GMAIL MONITOR v3.1 WITH LEAD TRACKING ===');
+  console.log('📧 === GMAIL MONITOR v3.2 WITH CUSTOM RESPONSE SUPPORT ===');
   
   try {
     const requestTimeout = setTimeout(() => {
@@ -264,11 +264,12 @@ export async function POST(request) {
     }, 30000);
 
     const body = await request.json();
-    const { action, emailAddress, emailId, customMessage, actualSend = false } = body;
+    const { action, emailAddress, emailId, customMessage, actualSend = false, customResponse } = body;
     
     console.log('📧 Action:', action);
     console.log('📧 Email:', emailAddress);
     console.log('🚀 Actual Send:', actualSend);
+    console.log('✏️ Has Custom Response:', !!customResponse);
     
     if (!emailAddress) {
       clearTimeout(requestTimeout);
@@ -339,7 +340,8 @@ export async function POST(request) {
     if (action === 'check') {
       result = await checkForNewEmails(gmail, connection, dbConnectionId);
     } else if (action === 'respond') {
-      result = await respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend);
+      // 🎯 UPDATED: Pass customResponse to the respond function
+      result = await respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend, customResponse);
     } else {
       clearTimeout(requestTimeout);
       return NextResponse.json({ 
@@ -659,15 +661,16 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
   }
 }
 
-// RESPOND TO EMAIL USING CENTRALIZED AI SERVICE WITH LEAD TRACKING
-async function respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend) {
+// 🎯 UPDATED: RESPOND TO EMAIL WITH CUSTOM RESPONSE SUPPORT
+async function respondToEmail(gmail, connection, dbConnectionId, emailId, customMessage, actualSend, customResponse) {
   if (!emailId) {
     return NextResponse.json({ 
       error: 'Email ID is required for response' 
     }, { status: 400 });
   }
 
-  console.log('🤖 Processing email for AI response with LEAD TRACKING...');
+  console.log('🤖 Processing email for response...');
+  console.log('✏️ Using custom response:', !!customResponse);
 
   try {
     // Get original email
@@ -842,60 +845,69 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
         }
       }
       
-      console.log(`✅ Email from ${fromEmail} passed all filters - generating AI response`);
+      console.log(`✅ Email from ${fromEmail} passed all filters - preparing response`);
     }
 
-    // 🎯 USE YOUR CENTRALIZED AI SERVICE HERE!
-    console.log('🧠 Using centralized AI service from lib/ai-service.js...');
-    
+    // 🎯 UPDATED: DECIDE WHETHER TO USE CUSTOM RESPONSE OR GENERATE AI RESPONSE
     const startTime = Date.now();
     let aiText = '';
     let eventsTracked = 0;
     let trackedEvents = [];
+    let isCustom = false;
     
-    try {
-      // Call your centralized AI service
-      const aiResult = await generateGmailResponse(
-        connection.email,  // customerEmail
-        customMessage || originalBody,  // emailContent
-        subject,  // subject
-        []  // conversationHistory (could load from DB if needed)
-      );
+    if (customResponse) {
+      // 🎯 USE THE EDITED/CUSTOM RESPONSE
+      console.log('📝 Using custom edited response provided by user');
+      aiText = customResponse;
+      isCustom = true;
+    } else {
+      // 🎯 GENERATE AI RESPONSE USING CENTRALIZED SERVICE
+      console.log('🧠 Using centralized AI service from lib/ai-service.js...');
       
-      if (aiResult.success) {
-        aiText = aiResult.response;
-        eventsTracked = aiResult.eventsTracked || 0;
-        trackedEvents = aiResult.trackedEvents || [];
+      try {
+        // Call your centralized AI service
+        const aiResult = await generateGmailResponse(
+          connection.email,  // customerEmail
+          customMessage || originalBody,  // emailContent
+          subject,  // subject
+          []  // conversationHistory (could load from DB if needed)
+        );
         
-        console.log('✅ AI response generated successfully using centralized service');
-        console.log('📊 Events tracked:', eventsTracked);
-        console.log('📝 Response preview:', aiText.substring(0, 150) + '...');
-        console.log('📚 Knowledge base used:', aiResult.metadata?.knowledgeBaseUsed);
-        console.log('🎯 Custom instructions used:', aiResult.metadata?.customPromptUsed);
-      } else {
-        throw new Error(aiResult.error || 'AI generation failed');
-      }
-      
-    } catch (aiError) {
-      console.error('❌ Centralized AI generation failed:', aiError.message);
-      
-      // Fallback response
-      const businessName = customerSettings?.business_name || 'our team';
-      aiText = `Thank you for reaching out to ${businessName}. We've received your message and will provide you with detailed information shortly.
+        if (aiResult.success) {
+          aiText = aiResult.response;
+          eventsTracked = aiResult.eventsTracked || 0;
+          trackedEvents = aiResult.trackedEvents || [];
+          
+          console.log('✅ AI response generated successfully using centralized service');
+          console.log('📊 Events tracked:', eventsTracked);
+          console.log('📍 Response preview:', aiText.substring(0, 150) + '...');
+          console.log('📚 Knowledge base used:', aiResult.metadata?.knowledgeBaseUsed);
+          console.log('🎯 Custom instructions used:', aiResult.metadata?.customPromptUsed);
+        } else {
+          throw new Error(aiResult.error || 'AI generation failed');
+        }
+        
+      } catch (aiError) {
+        console.error('❌ Centralized AI generation failed:', aiError.message);
+        
+        // Fallback response
+        const businessName = customerSettings?.business_name || 'our team';
+        aiText = `Thank you for reaching out to ${businessName}. We've received your message and will provide you with detailed information shortly.
 
 Best regards,
 ${businessName}`;
+      }
     }
     
     const responseTime = Date.now() - startTime;
-    console.log(`⏱️ Response generated in ${responseTime}ms`);
+    console.log(`⏱️ Response ${isCustom ? 'prepared' : 'generated'} in ${responseTime}ms`);
 
     const originalSubject = subjectHeader?.value || 'Your inquiry';
     const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
 
     // SEND OR PREVIEW EMAIL
     if (actualSend) {
-      console.log('📤 Sending AI response to:', replyToEmail);
+      console.log('📤 Sending response to:', replyToEmail);
       
       const rawMessage = [
         `From: ${connection.email}`,
@@ -937,16 +949,16 @@ ${businessName}`;
         console.warn('⚠️ Failed to mark as read:', markError.message);
       }
 
-      // 🎯 TRACK AI RESPONSE IN CONTACT
+      // 🎯 TRACK RESPONSE IN CONTACT
       if (customerSettings && customerSettings.customer_id && contactId) {
         try {
-          console.log(`📊 Tracking AI response for contact ${contactId}`);
+          console.log(`📊 Tracking ${isCustom ? 'custom' : 'AI'} response for contact ${contactId}`);
           
           await trackLeadEventWithContact(
             customerSettings.customer_id,
             contactId,
             {
-              type: 'ai_response',
+              type: isCustom ? 'custom_response' : 'ai_response',
               channel: 'gmail',
               message: originalBody.substring(0, 500),
               ai_response: aiText.substring(0, 500),
@@ -955,7 +967,8 @@ ${businessName}`;
                 to: replyToEmail,
                 gmail_message_id: sendResponse.data.id,
                 thread_id: messageData.data.threadId,
-                response_time: responseTime
+                response_time: responseTime,
+                is_custom: isCustom
               })
             }
           );
@@ -963,9 +976,9 @@ ${businessName}`;
           // Update lead scoring after response
           await updateLeadScoring(customerSettings.customer_id, contactId);
           
-          console.log('✅ AI response tracked in contact/lead system');
+          console.log(`✅ ${isCustom ? 'Custom' : 'AI'} response tracked in contact/lead system`);
         } catch (trackError) {
-          console.error('❌ Failed to track AI response:', trackError);
+          console.error('❌ Failed to track response:', trackError);
         }
       }
 
@@ -982,13 +995,13 @@ ${businessName}`;
             await saveMessageToDatabase(convResult.rows[0].id, {
               gmail_message_id: sendResponse.data.id,
               thread_id: messageData.data.threadId,
-              sender_type: 'ai',
+              sender_type: isCustom ? 'user' : 'ai',
               sender_email: connection.email,
               recipient_email: replyToEmail,
               subject: replySubject,
               body_text: aiText,
-              is_ai_response: true,
-              ai_model: 'gpt-4o-mini',
+              is_ai_response: !isCustom,
+              ai_model: isCustom ? 'custom' : 'gpt-4o-mini',
               sent_at: new Date()
             });
           }
@@ -997,11 +1010,11 @@ ${businessName}`;
         }
       }
 
-      console.log('🎉 Email sent successfully with lead tracking!');
+      console.log(`🎉 ${isCustom ? 'Custom' : 'AI'} response sent successfully with lead tracking!`);
 
       return NextResponse.json({
         success: true,
-        message: 'AI response sent successfully with lead tracking!',
+        message: `${isCustom ? 'Custom' : 'AI'} response sent successfully with lead tracking!`,
         response: aiText,
         sentTo: replyToEmail,
         threadId: messageData.data.threadId,
@@ -1010,9 +1023,10 @@ ${businessName}`;
         actualSent: true,
         eventsTracked: eventsTracked,
         trackedEvents: trackedEvents,
-        usingCentralizedAI: true,
-        knowledgeBaseUsed: true,
-        customInstructionsUsed: true,
+        usingCentralizedAI: !isCustom,
+        isCustomResponse: isCustom,
+        knowledgeBaseUsed: !isCustom,
+        customInstructionsUsed: !isCustom,
         leadTracked: !!contactId,
         contactId: contactId
       });
@@ -1023,7 +1037,7 @@ ${businessName}`;
       
       return NextResponse.json({
         success: true,
-        message: 'AI response generated (preview mode) with lead tracking',
+        message: `${isCustom ? 'Custom' : 'AI'} response generated (preview mode) with lead tracking`,
         response: aiText,
         wouldReplyTo: replyToEmail,
         threadId: messageData.data.threadId,
@@ -1033,9 +1047,10 @@ ${businessName}`;
         actualSend: false,
         eventsTracked: eventsTracked,
         trackedEvents: trackedEvents,
-        usingCentralizedAI: true,
-        knowledgeBaseUsed: true,
-        customInstructionsUsed: true,
+        usingCentralizedAI: !isCustom,
+        isCustomResponse: isCustom,
+        knowledgeBaseUsed: !isCustom,
+        customInstructionsUsed: !isCustom,
         leadWouldBeTracked: !!contactId,
         contactId: contactId
       });
@@ -1055,10 +1070,12 @@ ${businessName}`;
 // GET endpoint for testing
 export async function GET() {
   return NextResponse.json({
-    message: 'Gmail Monitor API v3.1 with Lead Tracking',
+    message: 'Gmail Monitor API v3.2 with Custom Response Support',
     status: 'Active',
-    version: '3.1-with-lead-tracking',
+    version: '3.2-with-custom-responses',
     features: [
+      '✏️ SUPPORTS CUSTOM/EDITED RESPONSES',
+      '📝 Send edited messages instead of AI-generated ones',
       '🎯 CREATES/UPDATES CONTACTS IN LEADS DATABASE',
       '📊 Tracks all interactions in contacts table',
       '🔥 Updates lead scoring automatically',
@@ -1075,9 +1092,15 @@ export async function GET() {
       '⚡ Safe processing limits',
       '⏰ Timeout protection'
     ],
+    customResponses: {
+      howToUse: 'Include "customResponse" in the request body with your edited text',
+      whenUsed: 'System will send your edited text instead of generating AI response',
+      tracking: 'Custom responses are tracked differently from AI responses in the database'
+    },
     leadTracking: {
       whenEmailsArrive: 'Creates/updates contact in contacts table',
       whenAIResponds: 'Updates contact and tracks AI response',
+      whenCustomResponds: 'Updates contact and tracks custom response',
       leadScoring: 'Automatically calculates and updates lead scores',
       eventTracking: 'Tracks all interactions in ai_analytics_events'
     },
@@ -1088,7 +1111,8 @@ export async function GET() {
     },
     endpoints: {
       check: 'POST with action: "check" - checks emails and creates leads',
-      respond: 'POST with action: "respond", emailId required - responds and updates leads'
+      respond: 'POST with action: "respond", emailId required - responds and updates leads',
+      customRespond: 'POST with action: "respond", emailId, and customResponse - sends edited message'
     }
   });
 }
