@@ -48,10 +48,7 @@ import {
   UserCheck,
   Play,
   Pause,
-  Square,
-  Edit,
-  Save,
-  Loader2
+  Square
 } from 'lucide-react';
 
 export default function CompleteEmailSystem() {
@@ -97,12 +94,10 @@ export default function CompleteEmailSystem() {
   const [activeEmailView, setActiveEmailView] = useState('inbox');
   const [sentEmails, setSentEmails] = useState([]);
   
-  // 🎯 NEW: Preview Modal State
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [previewResponse, setPreviewResponse] = useState('');
-  const [editedResponse, setEditedResponse] = useState('');
-  const [sendingEditedResponse, setSendingEditedResponse] = useState(false);
-  const [previewEmailData, setPreviewEmailData] = useState(null);
+  // 🎯 NEW: State for inline preview
+  const [previewResponse, setPreviewResponse] = useState(null);
+  const [showingPreview, setShowingPreview] = useState(false);
+  const [generatingPreview, setGeneratingPreview] = useState(false);
   
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -807,7 +802,52 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 UPDATED: Modified sendAIResponse to handle preview modal
+  // 🎯 MODIFIED: Handle preview generation
+  const handlePreviewAIResponse = async (emailId) => {
+    if (!gmailConnection) return;
+    
+    setGeneratingPreview(true);
+    setShowingPreview(false);
+    setPreviewResponse(null);
+    
+    try {
+      console.log('🚀 Generating AI preview:', { emailId });
+      
+      const response = await fetch('/api/gmail/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'respond',
+          emailAddress: gmailConnection.email,
+          emailId: emailId,
+          actualSend: false // Preview only
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📧 Preview Response:', data);
+        
+        if (data.filtered && data.isBlacklisted) {
+          alert(`🚫 This email is blacklisted. No response will be sent.`);
+          setGeneratingPreview(false);
+          return;
+        }
+        
+        setPreviewResponse(data.response || data.aiResponse || 'No preview available');
+        setShowingPreview(true);
+      } else {
+        console.error('❌ API response not ok:', response.status, response.statusText);
+        alert('Failed to generate preview');
+      }
+    } catch (error) {
+      console.error('❌ Error generating preview:', error);
+      alert('Error generating preview');
+    } finally {
+      setGeneratingPreview(false);
+    }
+  };
+
   const sendAIResponse = async (emailId, preview = false) => {
     if (!gmailConnection) return;
     
@@ -836,20 +876,6 @@ export default function CompleteEmailSystem() {
           return data;
         }
         
-        // 🎯 NEW: Handle preview mode - show modal with response
-        if (preview && data.success) {
-          setPreviewResponse(data.response);
-          setEditedResponse(data.response);
-          setPreviewEmailData({
-            emailId: emailId,
-            to: selectedGmailEmail?.fromEmail,
-            subject: selectedGmailEmail?.subject
-          });
-          setShowPreviewModal(true);
-          return data;
-        }
-        
-        // Handle actual send
         if (!preview && data.success) {
           const sentEmail = {
             id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -870,6 +896,10 @@ export default function CompleteEmailSystem() {
             return updated;
           });
           
+          // Clear preview after successful send
+          setShowingPreview(false);
+          setPreviewResponse(null);
+          
           setTimeout(() => {
             setActiveEmailView('sent');
             console.log('🔄 Switched to sent tab');
@@ -887,62 +917,6 @@ export default function CompleteEmailSystem() {
       console.error('❌ Error sending AI response:', error);
     } finally {
       setResponding(false);
-    }
-  };
-
-  // 🎯 NEW: Function to send edited response
-  const sendEditedResponse = async () => {
-    if (!previewEmailData || !editedResponse) return;
-    
-    setSendingEditedResponse(true);
-    try {
-      // Send the edited response
-      const response = await fetch('/api/gmail/monitor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'respond',
-          emailAddress: gmailConnection.email,
-          emailId: previewEmailData.emailId,
-          actualSend: true,
-          customMessage: editedResponse // Pass the edited response as custom message
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Add to sent emails
-        const sentEmail = {
-          id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          originalEmailId: previewEmailData.emailId,
-          to: previewEmailData.to,
-          toName: selectedGmailEmail?.fromName || previewEmailData.to,
-          originalSubject: previewEmailData.subject,
-          response: editedResponse,
-          sentTime: new Date().toLocaleString(),
-          timestamp: new Date(),
-          status: 'sent'
-        };
-        
-        setSentEmails(prev => [sentEmail, ...prev]);
-        
-        // Close modal and switch to sent tab
-        setShowPreviewModal(false);
-        setPreviewResponse('');
-        setEditedResponse('');
-        setPreviewEmailData(null);
-        
-        setTimeout(() => {
-          setActiveEmailView('sent');
-          checkGmailEmails(false);
-        }, 500);
-      }
-    } catch (error) {
-      console.error('Error sending edited response:', error);
-      alert('Failed to send response. Please try again.');
-    } finally {
-      setSendingEditedResponse(false);
     }
   };
 
@@ -1036,136 +1010,13 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  // 🎯 NEW: Preview Modal Component
-  const PreviewModal = () => {
-    if (!showPreviewModal) return null;
-    
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-gray-900 border border-white/20 rounded-2xl max-w-5xl w-full h-[85vh] flex flex-col shadow-2xl">
-          {/* Modal Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 border-b border-white/10 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Bot className="w-6 h-6" />
-                  AI Response Preview
-                </h2>
-                <p className="text-white/80 text-sm mt-1">
-                  Review and edit the AI response before sending
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowPreviewModal(false);
-                  setPreviewResponse('');
-                  setEditedResponse('');
-                  setPreviewEmailData(null);
-                }}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-          
-          {/* Modal Body */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            {/* Email Info */}
-            <div className="bg-white/5 rounded-lg p-4 mb-6 border border-white/10">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-400">To:</span>
-                  <p className="text-white font-medium">{previewEmailData?.to}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400">Subject:</span>
-                  <p className="text-white font-medium">Re: {previewEmailData?.subject}</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Editable Response */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-white font-medium">AI Generated Response:</label>
-                <span className="text-gray-400 text-sm">
-                  {editedResponse.length} characters
-                </span>
-              </div>
-              
-              <textarea
-                value={editedResponse}
-                onChange={(e) => setEditedResponse(e.target.value)}
-                className="w-full min-h-[400px] bg-white/10 border border-white/20 rounded-md p-4 text-white placeholder-gray-400 resize-none focus:outline-none focus:border-blue-400"
-                placeholder="Edit your response here..."
-                autoFocus
-              />
-              
-              {editedResponse !== previewResponse && (
-                <div className="flex items-center gap-2 text-yellow-400 text-sm">
-                  <Edit className="w-4 h-4" />
-                  <span>Response has been edited</span>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Modal Footer */}
-          <div className="bg-white/5 border-t border-white/10 p-6 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <Button
-                onClick={() => setEditedResponse(previewResponse)}
-                disabled={editedResponse === previewResponse}
-                variant="outline"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reset to Original
-              </Button>
-              
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => {
-                    setShowPreviewModal(false);
-                    setPreviewResponse('');
-                    setEditedResponse('');
-                    setPreviewEmailData(null);
-                  }}
-                  variant="outline"
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-                >
-                  Cancel
-                </Button>
-                
-                <Button
-                  onClick={sendEditedResponse}
-                  disabled={sendingEditedResponse || !editedResponse.trim()}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
-                >
-                  {sendingEditedResponse ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Send Response
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  // Keep all your existing component JSX (DashboardTab, AISettingsTab, AutomationTab) exactly the same
+  // I'm not repeating them here to save space, but they remain unchanged
 
-  // COMPLETE DashboardTab component
   const DashboardTab = () => (
     <div className="space-y-6">
+      {/* Your existing DashboardTab JSX - no changes needed */}
+      {/* Keep all the existing content exactly as is */}
       {gmailConnection && (
         <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
           <div className="flex items-center justify-between">
@@ -1266,6 +1117,8 @@ export default function CompleteEmailSystem() {
         </div>
       )}
 
+      {/* Keep all the rest of your existing DashboardTab content */}
+      {/* Stats Grid, Email Lists, etc. - all remains the same */}
       {gmailConnection ? (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
@@ -1411,10 +1264,12 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* Email Lists */}
+      {/* Email Lists - Keep all existing email list code */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Keep all the existing email list JSX here - not changed */}
         <div className="lg:col-span-2">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
+            {/* All existing inbox/sent tabs code */}
             <div className="p-6 pb-0 flex-shrink-0 border-b border-white/10">
               <div className="flex items-center gap-3 mb-4">
                 <Inbox className="w-6 h-6 text-blue-400" />
@@ -1513,12 +1368,11 @@ export default function CompleteEmailSystem() {
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <style jsx>{`
                       .custom-scrollbar {
-                        scrollbar-width: thin;
+                        scrollbar-width: auto;
                         scrollbar-color: rgba(59, 130, 246, 0.6) rgba(255, 255, 255, 0.1);
                       }
                       .custom-scrollbar::-webkit-scrollbar {
-                        width: 8px;
-                        height: 8px;
+                        width: 14px;
                       }
                       .custom-scrollbar::-webkit-scrollbar-track {
                         background: rgba(255, 255, 255, 0.05);
@@ -1529,7 +1383,7 @@ export default function CompleteEmailSystem() {
                       .custom-scrollbar::-webkit-scrollbar-thumb {
                         background: linear-gradient(180deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.8));
                         border-radius: 10px;
-                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        border: 2px solid rgba(255, 255, 255, 0.1);
                         box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
                       }
                       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -1584,6 +1438,9 @@ export default function CompleteEmailSystem() {
                             onClick={() => {
                               setSelectedGmailEmail(email);
                               setSelectedConversation(null);
+                              // Clear preview when selecting a new email
+                              setShowingPreview(false);
+                              setPreviewResponse(null);
                             }}
                           >
                             <div className="flex items-center justify-between mb-2">
@@ -1626,12 +1483,11 @@ export default function CompleteEmailSystem() {
                   <div className="flex-1 overflow-y-auto custom-scrollbar-green">
                     <style jsx>{`
                       .custom-scrollbar-green {
-                        scrollbar-width: thin;
+                        scrollbar-width: auto;
                         scrollbar-color: rgba(34, 197, 94, 0.6) rgba(255, 255, 255, 0.1);
                       }
                       .custom-scrollbar-green::-webkit-scrollbar {
-                        width: 8px;
-                        height: 8px;
+                        width: 14px;
                       }
                       .custom-scrollbar-green::-webkit-scrollbar-track {
                         background: rgba(255, 255, 255, 0.05);
@@ -1642,7 +1498,7 @@ export default function CompleteEmailSystem() {
                       .custom-scrollbar-green::-webkit-scrollbar-thumb {
                         background: linear-gradient(180deg, rgba(34, 197, 94, 0.8), rgba(21, 128, 61, 0.8));
                         border-radius: 10px;
-                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        border: 2px solid rgba(255, 255, 255, 0.1);
                         box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
                       }
                       .custom-scrollbar-green::-webkit-scrollbar-thumb:hover {
@@ -1692,7 +1548,7 @@ export default function CompleteEmailSystem() {
                               </h4>
                               <div className="flex items-center gap-2">
                                 <div className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-medium">
-                                  ✓ Sent
+                                  ✔ Sent
                                 </div>
                                 {selectedConversation?.id === sentEmail.id && (
                                   <div className="w-2 h-2 rounded-full bg-green-400"></div>
@@ -1724,7 +1580,7 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* Email Details Panel */}
+        {/* Email Details Panel with INLINE PREVIEW */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
@@ -1758,13 +1614,22 @@ export default function CompleteEmailSystem() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
-                    onClick={() => sendAIResponse(selectedGmailEmail.id, true)}
-                    disabled={responding || !autoPollStatus.isEnabled}
+                    onClick={() => handlePreviewAIResponse(selectedGmailEmail.id)}
+                    disabled={generatingPreview || !autoPollStatus.isEnabled}
                     variant="outline"
                     className="h-14 flex items-center justify-center gap-3 text-base bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg disabled:opacity-50"
                   >
-                    <Eye className="w-5 h-5" />
-                    Preview AI Response
+                    {generatingPreview ? (
+                      <>
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                        Generating Preview...
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-5 h-5" />
+                        {showingPreview ? 'Refresh Preview' : 'Preview AI Response'}
+                      </>
+                    )}
                   </Button>
                   <Button 
                     onClick={() => sendAIResponse(selectedGmailEmail.id, false)}
@@ -1785,6 +1650,45 @@ export default function CompleteEmailSystem() {
                   </Button>
                 </div>
 
+                {/* 🎯 NEW: INLINE PREVIEW SECTION - Shows below the buttons */}
+                {showingPreview && previewResponse && (
+                  <div className="bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm animate-fadeIn">
+                    <style jsx>{`
+                      @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(-10px); }
+                        to { opacity: 1; transform: translateY(0); }
+                      }
+                      .animate-fadeIn {
+                        animation: fadeIn 0.3s ease-out;
+                      }
+                    `}</style>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
+                        <Bot className="w-4 h-4" />
+                        AI Response Preview
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowingPreview(false);
+                          setPreviewResponse(null);
+                        }}
+                        className="text-purple-400 hover:text-purple-300 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/10 max-h-80 overflow-y-auto">
+                      <div className="text-sm text-purple-100 leading-relaxed whitespace-pre-wrap">
+                        {previewResponse}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2 text-xs text-purple-400">
+                      <Info className="w-3 h-3" />
+                      <span>This is a preview. Click "Send AI Response" to send this message.</span>
+                    </div>
+                  </div>
+                )}
+
                 {!autoPollStatus.isEnabled && (
                   <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4">
                     <div className="flex items-center gap-2">
@@ -1796,20 +1700,22 @@ export default function CompleteEmailSystem() {
                   </div>
                 )}
 
-                <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-5 h-5 text-blue-300" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-base font-medium text-blue-200 mb-2">AI Response Ready</p>
-                      <p className="text-sm text-blue-300 leading-relaxed">
-                        The AI will generate a professional response based on your business knowledge and custom instructions. 
-                        You can preview the response before sending to ensure it meets your standards.
-                      </p>
+                {!showingPreview && (
+                  <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-5 h-5 text-blue-300" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-base font-medium text-blue-200 mb-2">AI Response Ready</p>
+                        <p className="text-sm text-blue-300 leading-relaxed">
+                          The AI will generate a professional response based on your business knowledge and custom instructions. 
+                          You can preview the response before sending to ensure it meets your standards.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
                   <h4 className="font-medium text-white">Email Details</h4>
@@ -1886,7 +1792,7 @@ export default function CompleteEmailSystem() {
                     </div>
                     <div>
                       <span className="font-medium text-gray-400">Status:</span>
-                      <p className="text-green-300 font-medium">✓ Delivered</p>
+                      <p className="text-green-300 font-medium">✔ Delivered</p>
                     </div>
                   </div>
                 </div>
@@ -1924,9 +1830,10 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // COMPLETE AISettingsTab component
+  // Keep AISettingsTab exactly the same
   const AISettingsTab = () => (
     <div className="space-y-6">
+      {/* Your existing AISettingsTab JSX - no changes needed */}
       {/* Status Indicator - Shows current state but not a toggle */}
       <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
         <div className="flex items-center gap-4">
@@ -2051,7 +1958,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* 📚 KNOWLEDGE BASE SECTION */}
+      {/* 📚 KNOWLEDGE BASE SECTION - THIS IS THE MISSING PART! */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-purple-400" />
@@ -2224,9 +2131,10 @@ SPECIAL INSTRUCTIONS:
     </div>
   );
 
-  // COMPLETE AutomationTab component
+  // Keep AutomationTab exactly the same
   const AutomationTab = () => (
     <div className="space-y-6">
+      {/* Your existing AutomationTab JSX - no changes needed */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-blue-400" />
@@ -2257,6 +2165,7 @@ SPECIAL INSTRUCTIONS:
         </div>
       </div>
 
+      {/* Keep all business rules sections */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-blue-400" />
@@ -2384,9 +2293,6 @@ SPECIAL INSTRUCTIONS:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      {/* 🎯 NEW: Add the Preview Modal here */}
-      <PreviewModal />
-      
       <div className="p-6 max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-6">
           <Button 
