@@ -96,9 +96,9 @@ export default function CompleteEmailSystem() {
   
   // 🎯 NEW: State for inline preview
   const [previewResponse, setPreviewResponse] = useState(null);
-  const [editedPreviewResponse, setEditedPreviewResponse] = useState(null);
   const [showingPreview, setShowingPreview] = useState(false);
   const [generatingPreview, setGeneratingPreview] = useState(false);
+  const previewTextareaRef = useRef(null);
   
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -810,7 +810,6 @@ export default function CompleteEmailSystem() {
     setGeneratingPreview(true);
     setShowingPreview(false);
     setPreviewResponse(null);
-    setEditedPreviewResponse(null);
     
     try {
       console.log('🚀 Generating AI preview:', { emailId });
@@ -838,7 +837,6 @@ export default function CompleteEmailSystem() {
         
         const generatedResponse = data.response || data.aiResponse || 'No preview available';
         setPreviewResponse(generatedResponse);
-        setEditedPreviewResponse(generatedResponse); // Initialize edited version
         setShowingPreview(true);
       } else {
         console.error('❌ API response not ok:', response.status, response.statusText);
@@ -859,6 +857,11 @@ export default function CompleteEmailSystem() {
     try {
       console.log('🚀 Sending AI response:', { emailId, preview, selectedEmail: selectedGmailEmail });
       
+      // Get the edited value from the textarea ref if preview is showing
+      const editedResponse = showingPreview && previewTextareaRef.current 
+        ? previewTextareaRef.current.value 
+        : null;
+      
       // Build the request body
       const requestBody = {
         action: 'respond',
@@ -868,8 +871,8 @@ export default function CompleteEmailSystem() {
       };
       
       // 🎯 SIMPLIFIED: If we have an edited preview, include it in the request
-      if (!preview && showingPreview && editedPreviewResponse) {
-        requestBody.customResponse = editedPreviewResponse;
+      if (!preview && editedResponse) {
+        requestBody.customResponse = editedResponse;
         console.log('📝 Sending edited response');
       }
       
@@ -891,9 +894,7 @@ export default function CompleteEmailSystem() {
         
         if (!preview && data.success) {
           // Use the edited response if we have one, otherwise use the AI response
-          const finalResponse = (showingPreview && editedPreviewResponse) 
-            ? editedPreviewResponse 
-            : (data.response || data.aiResponse || 'Response sent successfully');
+          const finalResponse = editedResponse || (data.response || data.aiResponse || 'Response sent successfully');
           
           const sentEmail = {
             id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -917,7 +918,9 @@ export default function CompleteEmailSystem() {
           // Clear preview after successful send
           setShowingPreview(false);
           setPreviewResponse(null);
-          setEditedPreviewResponse(null);
+          if (previewTextareaRef.current) {
+            previewTextareaRef.current.value = '';
+          }
           
           setTimeout(() => {
             setActiveEmailView('sent');
@@ -1462,7 +1465,9 @@ export default function CompleteEmailSystem() {
                               // Clear preview when selecting a new email
                               setShowingPreview(false);
                               setPreviewResponse(null);
-                              setEditedPreviewResponse(null);
+                              if (previewTextareaRef.current) {
+                                previewTextareaRef.current.value = '';
+                              }
                             }}
                           >
                             <div className="flex items-center justify-between mb-2">
@@ -1689,7 +1694,9 @@ export default function CompleteEmailSystem() {
                         onClick={() => {
                           setShowingPreview(false);
                           setPreviewResponse(null);
-                          setEditedPreviewResponse(null);
+                          if (previewTextareaRef.current) {
+                            previewTextareaRef.current.value = '';
+                          }
                         }}
                         className="text-purple-400 hover:text-purple-300 transition-colors"
                       >
@@ -1698,10 +1705,10 @@ export default function CompleteEmailSystem() {
                     </div>
                     <div className="space-y-3">
                       <textarea
-                        key="preview-textarea"
-                        value={editedPreviewResponse || ''}
-                        onChange={(e) => setEditedPreviewResponse(e.target.value)}
-                        className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 transition-all placeholder-purple-300/50"
+                        ref={previewTextareaRef}
+                        key={`preview-${selectedGmailEmail?.id}`}
+                        defaultValue={previewResponse}
+                        className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 placeholder-purple-300/50"
                         placeholder="Type your response here..."
                         autoFocus
                       />
@@ -1712,13 +1719,17 @@ export default function CompleteEmailSystem() {
                         </div>
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => setEditedPreviewResponse(previewResponse)}
+                            onClick={() => {
+                              if (previewTextareaRef.current) {
+                                previewTextareaRef.current.value = previewResponse;
+                              }
+                            }}
                             className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
                           >
                             Reset to Original
                           </button>
                           <div className="text-xs text-purple-400">
-                            {editedPreviewResponse?.length || 0} characters
+                            {previewTextareaRef.current?.value?.length || previewResponse?.length || 0} characters
                           </div>
                         </div>
                       </div>
