@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1674,61 +1674,16 @@ export default function CompleteEmailSystem() {
 
                 {/* 🎯 NEW: INLINE PREVIEW SECTION - Shows below the buttons */}
                 {showingPreview && previewResponse && (
-                  <div className="bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm" 
-                       style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                    <style dangerouslySetInnerHTML={{ __html: `
-                      @keyframes fadeIn {
-                        from { opacity: 0; transform: translateY(-10px); }
-                        to { opacity: 1; transform: translateY(0); }
-                      }
-                    `}} />
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
-                          <Bot className="w-4 h-4" />
-                          AI Response Preview
-                        </p>
-                        <p className="text-xs text-purple-400 mt-1">
-                          ✏️ You can edit this message before sending
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setShowingPreview(false);
-                          setPreviewResponse(null);
-                          setEditedPreviewResponse(null);
-                        }}
-                        className="text-purple-400 hover:text-purple-300 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      <textarea
-                        value={editedPreviewResponse || ''}
-                        onChange={(e) => setEditedPreviewResponse(e.target.value)}
-                        className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 transition-all placeholder-purple-300/50"
-                        placeholder="Type your response here..."
-                      />
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="text-xs text-purple-400 flex items-center gap-2">
-                          <Info className="w-3 h-3" />
-                          <span>Edit the message above, then click "Send AI Response" to send it.</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => setEditedPreviewResponse(previewResponse)}
-                            className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
-                          >
-                            Reset to Original
-                          </button>
-                          <div className="text-xs text-purple-400">
-                            {editedPreviewResponse?.length || 0} characters
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <EmailPreviewEditor
+                    previewResponse={previewResponse}
+                    editedPreviewResponse={editedPreviewResponse}
+                    setEditedPreviewResponse={setEditedPreviewResponse}
+                    onClose={() => {
+                      setShowingPreview(false);
+                      setPreviewResponse(null);
+                      setEditedPreviewResponse(null);
+                    }}
+                  />
                 )}
 
                 {!autoPollStatus.isEnabled && (
