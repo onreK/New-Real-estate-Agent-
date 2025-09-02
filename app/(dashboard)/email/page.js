@@ -96,6 +96,7 @@ export default function CompleteEmailSystem() {
   
   // 🎯 NEW: State for inline preview
   const [previewResponse, setPreviewResponse] = useState(null);
+  const [editedPreviewResponse, setEditedPreviewResponse] = useState(null);
   const [showingPreview, setShowingPreview] = useState(false);
   const [generatingPreview, setGeneratingPreview] = useState(false);
   
@@ -809,6 +810,7 @@ export default function CompleteEmailSystem() {
     setGeneratingPreview(true);
     setShowingPreview(false);
     setPreviewResponse(null);
+    setEditedPreviewResponse(null);
     
     try {
       console.log('🚀 Generating AI preview:', { emailId });
@@ -834,7 +836,9 @@ export default function CompleteEmailSystem() {
           return;
         }
         
-        setPreviewResponse(data.response || data.aiResponse || 'No preview available');
+        const generatedResponse = data.response || data.aiResponse || 'No preview available';
+        setPreviewResponse(generatedResponse);
+        setEditedPreviewResponse(generatedResponse); // Initialize edited version
         setShowingPreview(true);
       } else {
         console.error('❌ API response not ok:', response.status, response.statusText);
@@ -855,35 +859,49 @@ export default function CompleteEmailSystem() {
     try {
       console.log('🚀 Sending AI response:', { emailId, preview, selectedEmail: selectedGmailEmail });
       
+      // Build the request body
+      const requestBody = {
+        action: 'respond',
+        emailAddress: gmailConnection.email,
+        emailId: emailId,
+        actualSend: !preview
+      };
+      
+      // 🎯 SIMPLIFIED: If we have an edited preview, include it in the request
+      if (!preview && showingPreview && editedPreviewResponse) {
+        requestBody.customResponse = editedPreviewResponse;
+        console.log('📝 Sending edited response');
+      }
+      
       const response = await fetch('/api/gmail/monitor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'respond',
-          emailAddress: gmailConnection.email,
-          emailId: emailId,
-          actualSend: !preview
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
         const data = await response.json();
         console.log('📧 API Response:', data);
         
-        // 🎯 NEW: Check if email was blacklisted
+        // 🎯 Check if email was blacklisted
         if (data.filtered && data.isBlacklisted) {
           alert(`🚫 This email is blacklisted. No response will be sent.`);
           return data;
         }
         
         if (!preview && data.success) {
+          // Use the edited response if we have one, otherwise use the AI response
+          const finalResponse = (showingPreview && editedPreviewResponse) 
+            ? editedPreviewResponse 
+            : (data.response || data.aiResponse || 'Response sent successfully');
+          
           const sentEmail = {
             id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             originalEmailId: emailId,
             to: selectedGmailEmail?.fromEmail || 'unknown@example.com',
             toName: selectedGmailEmail?.fromName || selectedGmailEmail?.fromEmail || 'Unknown Contact',
             originalSubject: selectedGmailEmail?.subject || 'No Subject',
-            response: data.response || data.aiResponse || 'Response sent successfully',
+            response: finalResponse,
             sentTime: new Date().toLocaleString(),
             timestamp: new Date(),
             status: 'sent'
@@ -899,6 +917,7 @@ export default function CompleteEmailSystem() {
           // Clear preview after successful send
           setShowingPreview(false);
           setPreviewResponse(null);
+          setEditedPreviewResponse(null);
           
           setTimeout(() => {
             setActiveEmailView('sent');
@@ -912,9 +931,11 @@ export default function CompleteEmailSystem() {
         return data;
       } else {
         console.error('❌ API response not ok:', response.status, response.statusText);
+        alert('Failed to send response. Please try again.');
       }
     } catch (error) {
       console.error('❌ Error sending AI response:', error);
+      alert('Error sending response. Please try again.');
     } finally {
       setResponding(false);
     }
@@ -1441,6 +1462,7 @@ export default function CompleteEmailSystem() {
                               // Clear preview when selecting a new email
                               setShowingPreview(false);
                               setPreviewResponse(null);
+                              setEditedPreviewResponse(null);
                             }}
                           >
                             <div className="flex items-center justify-between mb-2">
@@ -1663,28 +1685,50 @@ export default function CompleteEmailSystem() {
                       }
                     `}</style>
                     <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
-                        <Bot className="w-4 h-4" />
-                        AI Response Preview
-                      </p>
+                      <div>
+                        <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
+                          <Bot className="w-4 h-4" />
+                          AI Response Preview
+                        </p>
+                        <p className="text-xs text-purple-400 mt-1">
+                          ✏️ You can edit this message before sending
+                        </p>
+                      </div>
                       <button
                         onClick={() => {
                           setShowingPreview(false);
                           setPreviewResponse(null);
+                          setEditedPreviewResponse(null);
                         }}
                         className="text-purple-400 hover:text-purple-300 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="bg-white/5 rounded-lg p-4 border border-white/10 max-h-80 overflow-y-auto">
-                      <div className="text-sm text-purple-100 leading-relaxed whitespace-pre-wrap">
-                        {previewResponse}
+                    <div className="space-y-3">
+                      <textarea
+                        value={editedPreviewResponse}
+                        onChange={(e) => setEditedPreviewResponse(e.target.value)}
+                        className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 transition-all placeholder-purple-300/50"
+                        placeholder="Type your response here..."
+                      />
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="text-xs text-purple-400 flex items-center gap-2">
+                          <Info className="w-3 h-3" />
+                          <span>Edit the message above, then click "Send AI Response" to send it.</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setEditedPreviewResponse(previewResponse)}
+                            className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
+                          >
+                            Reset to Original
+                          </button>
+                          <div className="text-xs text-purple-400">
+                            {editedPreviewResponse?.length || 0} characters
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-4 flex items-center gap-2 text-xs text-purple-400">
-                      <Info className="w-3 h-3" />
-                      <span>This is a preview. Click "Send AI Response" to send this message.</span>
                     </div>
                   </div>
                 )}
