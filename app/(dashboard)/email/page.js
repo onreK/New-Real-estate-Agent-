@@ -837,6 +837,10 @@ export default function CompleteEmailSystem() {
         
         const generatedResponse = data.response || data.aiResponse || 'No preview available';
         setPreviewResponse(generatedResponse);
+        // Set the textarea value when preview is generated
+        if (previewTextareaRef.current) {
+          previewTextareaRef.current.value = generatedResponse;
+        }
         setShowingPreview(true);
       } else {
         console.error('❌ API response not ok:', response.status, response.statusText);
@@ -1677,65 +1681,61 @@ export default function CompleteEmailSystem() {
                   </Button>
                 </div>
 
-                {/* 🎯 NEW: INLINE PREVIEW SECTION - Shows below the buttons */}
-                {showingPreview && previewResponse && (
-                  <div className="bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
-                          <Bot className="w-4 h-4" />
-                          AI Response Preview
-                        </p>
-                        <p className="text-xs text-purple-400 mt-1">
-                          ✏️ You can edit this message before sending
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setShowingPreview(false);
-                          setPreviewResponse(null);
-                          if (previewTextareaRef.current) {
-                            previewTextareaRef.current.value = '';
-                          }
-                        }}
-                        className="text-purple-400 hover:text-purple-300 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                {/* 🎯 NEW: INLINE PREVIEW SECTION - Always rendered but conditionally visible */}
+                <div 
+                  className={`bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm ${
+                    showingPreview && previewResponse ? 'block' : 'hidden'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
+                        <Bot className="w-4 h-4" />
+                        AI Response Preview
+                      </p>
+                      <p className="text-xs text-purple-400 mt-1">
+                        ✏️ You can edit this message before sending
+                      </p>
                     </div>
-                    <div className="space-y-3">
-                      <textarea
-                        ref={previewTextareaRef}
-                        key={`preview-${selectedGmailEmail?.id}`}
-                        defaultValue={previewResponse}
-                        className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 placeholder-purple-300/50"
-                        placeholder="Type your response here..."
-                        autoFocus
-                      />
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="text-xs text-purple-400 flex items-center gap-2">
-                          <Info className="w-3 h-3" />
-                          <span>Edit the message above, then click "Send AI Response" to send it.</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => {
-                              if (previewTextareaRef.current) {
-                                previewTextareaRef.current.value = previewResponse;
-                              }
-                            }}
-                            className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
-                          >
-                            Reset to Original
-                          </button>
-                          <div className="text-xs text-purple-400">
-                            {previewTextareaRef.current?.value?.length || previewResponse?.length || 0} characters
-                          </div>
-                        </div>
+                    <button
+                      onClick={() => {
+                        setShowingPreview(false);
+                        setPreviewResponse(null);
+                        if (previewTextareaRef.current) {
+                          previewTextareaRef.current.value = '';
+                        }
+                      }}
+                      className="text-purple-400 hover:text-purple-300 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    <textarea
+                      ref={previewTextareaRef}
+                      className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 placeholder-purple-300/50"
+                      placeholder="Type your response here..."
+                    />
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="text-xs text-purple-400 flex items-center gap-2">
+                        <Info className="w-3 h-3" />
+                        <span>Edit the message above, then click "Send AI Response" to send it.</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            if (previewTextareaRef.current && previewResponse) {
+                              previewTextareaRef.current.value = previewResponse;
+                            }
+                          }}
+                          className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
+                        >
+                          Reset to Original
+                        </button>
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {!autoPollStatus.isEnabled && (
                   <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4">
