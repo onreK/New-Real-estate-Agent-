@@ -156,7 +156,7 @@ export default function HomePage() {
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                   <Brain className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-white font-bold text-xl">IntelliHub AI</span>
+                <span className="text-white font-bold text-xl">BizzyBot AI</span>
               </div>
               
               <div className="hidden md:flex items-center space-x-8">
@@ -491,11 +491,15 @@ export default function HomePage() {
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                   <Brain className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-white font-bold text-xl">IntelliHub AI</span>
+                <span className="text-white font-bold text-xl">BizzyBot AI</span>
               </div>
               <div className="flex space-x-6 text-gray-400 text-center">
-                <a href="/amanda" className="hover:text-white transition-colors">
-                  View Demo: Amanda's Real Estate Site →
+                <a href="/privacy" className="hover:text-white transition-colors">
+                  Privacy Policy
+                </a>
+                <span className="text-gray-600">•</span>
+                <a href="/terms" className="hover:text-white transition-colors">
+                  Terms of Service
                 </a>
               </div>
             </div>
