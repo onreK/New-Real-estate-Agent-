@@ -65,6 +65,12 @@ export default function CompleteEmailSystem() {
   
   const knowledgeBaseRef = useRef('');
   
+  // 🎯 ADDED: Preview state and ref for the textarea
+  const [showingPreview, setShowingPreview] = useState(false);
+  const [previewResponse, setPreviewResponse] = useState(null);
+  const [generatingPreview, setGeneratingPreview] = useState(false);
+  const previewTextareaRef = useRef(null);
+  
   // 🎯 UNIFIED: Single auto-poll state that controls everything
   const [autoPollStatus, setAutoPollStatus] = useState({
     isRunning: false,
@@ -93,12 +99,6 @@ export default function CompleteEmailSystem() {
 
   const [activeEmailView, setActiveEmailView] = useState('inbox');
   const [sentEmails, setSentEmails] = useState([]);
-  
-  // 🎯 NEW: State for inline preview
-  const [previewResponse, setPreviewResponse] = useState(null);
-  const [showingPreview, setShowingPreview] = useState(false);
-  const [generatingPreview, setGeneratingPreview] = useState(false);
-  const previewTextareaRef = useRef(null);
   
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -154,6 +154,121 @@ export default function CompleteEmailSystem() {
   const [newBlacklistItem, setNewBlacklistItem] = useState('');
   const [newWhitelistItem, setNewWhitelistItem] = useState('');
   const [newCustomKeyword, setNewCustomKeyword] = useState('');
+
+  // 🎯 ADDED: Handle preview generation
+  const handlePreviewAIResponse = async (emailId) => {
+    if (!gmailConnection) return;
+    
+    setGeneratingPreview(true);
+    setShowingPreview(false);
+    setPreviewResponse(null);
+    
+    try {
+      console.log('🚀 Generating AI preview for email:', emailId);
+      
+      const response = await fetch('/api/gmail/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'respond',
+          emailAddress: gmailConnection.email,
+          emailId: emailId,
+          actualSend: false  // Preview only
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📧 Preview generated:', data);
+        
+        const generatedResponse = data.response || data.aiResponse || 'No response generated';
+        setPreviewResponse(generatedResponse);
+        
+        // Show the preview section first
+        setShowingPreview(true);
+        
+        // Then set the textarea value after a tiny delay
+        setTimeout(() => {
+          if (previewTextareaRef.current) {
+            previewTextareaRef.current.value = generatedResponse;
+            previewTextareaRef.current.focus();
+          }
+        }, 10);
+        
+        return data;
+      }
+    } catch (error) {
+      console.error('❌ Error generating preview:', error);
+      alert('Failed to generate preview. Please try again.');
+    } finally {
+      setGeneratingPreview(false);
+    }
+  };
+
+  // 🎯 ADDED: Send edited response
+  const sendEditedResponse = async () => {
+    if (!gmailConnection || !selectedGmailEmail || !previewTextareaRef.current) return;
+    
+    const editedResponse = previewTextareaRef.current.value;
+    if (!editedResponse.trim()) {
+      alert('Please enter a response message');
+      return;
+    }
+    
+    setResponding(true);
+    try {
+      console.log('🚀 Sending edited response:', editedResponse);
+      
+      const response = await fetch('/api/gmail/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'respond',
+          emailAddress: gmailConnection.email,
+          emailId: selectedGmailEmail.id,
+          actualSend: true,
+          customResponse: editedResponse  // Send the edited text
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Response sent successfully');
+        
+        // Add to sent emails
+        const sentEmail = {
+          id: `sent-${Date.now()}-${selectedGmailEmail.id}`,
+          originalEmailId: selectedGmailEmail.id,
+          to: selectedGmailEmail.fromEmail || 'unknown@example.com',
+          toName: selectedGmailEmail.fromName || selectedGmailEmail.fromEmail || 'Unknown',
+          originalSubject: selectedGmailEmail.subject || 'No Subject',
+          response: editedResponse,
+          sentTime: new Date().toLocaleString(),
+          timestamp: new Date(),
+          status: 'sent'
+        };
+        
+        setSentEmails(prev => [sentEmail, ...prev]);
+        
+        // Hide preview and switch to sent tab
+        setShowingPreview(false);
+        setPreviewResponse(null);
+        setTimeout(() => {
+          setActiveEmailView('sent');
+          checkGmailEmails(false);
+        }, 500);
+        
+        alert('✅ Response sent successfully!');
+      } else {
+        throw new Error('Failed to send response');
+      }
+    } catch (error) {
+      console.error('❌ Error sending response:', error);
+      alert('Failed to send response. Please try again.');
+    } finally {
+      setResponding(false);
+    }
+  };
 
   // 🎯 UNIFIED: Toggle that controls both auto-polling AND AI responses
   const toggleAutoPoll = useCallback(async () => {
@@ -803,16 +918,12 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 MODIFIED: Handle preview generation
-  const handlePreviewAIResponse = async (emailId) => {
+  const sendAIResponse = async (emailId, preview = false) => {
     if (!gmailConnection) return;
     
-    setGeneratingPreview(true);
-    setShowingPreview(false);
-    setPreviewResponse(null);
-    
+    setResponding(true);
     try {
-      console.log('🚀 Generating AI preview:', { emailId });
+      console.log('🚀 Sending AI response:', { emailId, preview, selectedEmail: selectedGmailEmail });
       
       const response = await fetch('/api/gmail/monitor', {
         method: 'POST',
@@ -821,96 +932,28 @@ export default function CompleteEmailSystem() {
           action: 'respond',
           emailAddress: gmailConnection.email,
           emailId: emailId,
-          actualSend: false // Preview only
+          actualSend: !preview
         })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📧 Preview Response:', data);
-        
-        if (data.filtered && data.isBlacklisted) {
-          alert(`🚫 This email is blacklisted. No response will be sent.`);
-          setGeneratingPreview(false);
-          return;
-        }
-        
-        const generatedResponse = data.response || data.aiResponse || 'No preview available';
-        setPreviewResponse(generatedResponse);
-        setShowingPreview(true);
-        
-        // Set the textarea value AFTER showing the preview (with a tiny delay for DOM update)
-        setTimeout(() => {
-          if (previewTextareaRef.current) {
-            previewTextareaRef.current.value = generatedResponse;
-            previewTextareaRef.current.focus();
-          }
-        }, 10);
-      } else {
-        console.error('❌ API response not ok:', response.status, response.statusText);
-        alert('Failed to generate preview');
-      }
-    } catch (error) {
-      console.error('❌ Error generating preview:', error);
-      alert('Error generating preview');
-    } finally {
-      setGeneratingPreview(false);
-    }
-  };
-
-  const sendAIResponse = async (emailId, preview = false) => {
-    if (!gmailConnection) return;
-    
-    setResponding(true);
-    try {
-      console.log('🚀 Sending AI response:', { emailId, preview, selectedEmail: selectedGmailEmail });
-      
-      // Get the edited value from the textarea ref if preview is showing
-      const editedResponse = showingPreview && previewTextareaRef.current 
-        ? previewTextareaRef.current.value 
-        : null;
-      
-      // Build the request body
-      const requestBody = {
-        action: 'respond',
-        emailAddress: gmailConnection.email,
-        emailId: emailId,
-        actualSend: !preview
-      };
-      
-      // 🎯 SIMPLIFIED: If we have an edited preview, include it in the request
-      if (!preview && editedResponse) {
-        requestBody.customResponse = editedResponse;
-        console.log('📝 Sending edited response');
-      }
-      
-      const response = await fetch('/api/gmail/monitor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
         const data = await response.json();
         console.log('📧 API Response:', data);
         
-        // 🎯 Check if email was blacklisted
+        // 🎯 NEW: Check if email was blacklisted
         if (data.filtered && data.isBlacklisted) {
           alert(`🚫 This email is blacklisted. No response will be sent.`);
           return data;
         }
         
         if (!preview && data.success) {
-          // Use the edited response if we have one, otherwise use the AI response
-          const finalResponse = editedResponse || (data.response || data.aiResponse || 'Response sent successfully');
-          
           const sentEmail = {
             id: `sent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             originalEmailId: emailId,
             to: selectedGmailEmail?.fromEmail || 'unknown@example.com',
             toName: selectedGmailEmail?.fromName || selectedGmailEmail?.fromEmail || 'Unknown Contact',
             originalSubject: selectedGmailEmail?.subject || 'No Subject',
-            response: finalResponse,
+            response: data.response || data.aiResponse || 'Response sent successfully',
             sentTime: new Date().toLocaleString(),
             timestamp: new Date(),
             status: 'sent'
@@ -922,13 +965,6 @@ export default function CompleteEmailSystem() {
             console.log('📋 Updated sent emails:', updated);
             return updated;
           });
-          
-          // Clear preview after successful send
-          setShowingPreview(false);
-          setPreviewResponse(null);
-          if (previewTextareaRef.current) {
-            previewTextareaRef.current.value = '';
-          }
           
           setTimeout(() => {
             setActiveEmailView('sent');
@@ -942,11 +978,9 @@ export default function CompleteEmailSystem() {
         return data;
       } else {
         console.error('❌ API response not ok:', response.status, response.statusText);
-        alert('Failed to send response. Please try again.');
       }
     } catch (error) {
       console.error('❌ Error sending AI response:', error);
-      alert('Error sending response. Please try again.');
     } finally {
       setResponding(false);
     }
@@ -1470,12 +1504,8 @@ export default function CompleteEmailSystem() {
                             onClick={() => {
                               setSelectedGmailEmail(email);
                               setSelectedConversation(null);
-                              // Clear preview when selecting a new email
-                              setShowingPreview(false);
+                              setShowingPreview(false);  // Hide preview when selecting new email
                               setPreviewResponse(null);
-                              if (previewTextareaRef.current) {
-                                previewTextareaRef.current.value = '';
-                              }
                             }}
                           >
                             <div className="flex items-center justify-between mb-2">
@@ -1615,7 +1645,7 @@ export default function CompleteEmailSystem() {
           </div>
         </div>
 
-        {/* Email Details Panel with INLINE PREVIEW */}
+        {/* Email Details Panel - Keep all existing code */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
@@ -1647,6 +1677,55 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
+                {/* 🎯 ADDED: Preview section - Always rendered but conditionally visible */}
+                <div 
+                  className={`bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm ${
+                    showingPreview && previewResponse ? 'block' : 'hidden'
+                  }`}
+                >
+                  <p className="text-sm font-medium text-purple-300 mb-4 flex items-center gap-2">
+                    <Eye className="w-4 h-4" />
+                    AI Response Preview (Editable):
+                  </p>
+                  <textarea
+                    ref={previewTextareaRef}
+                    className="w-full h-48 px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-purple-400 focus:outline-none resize-none"
+                    placeholder="AI response will appear here..."
+                  />
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      onClick={() => {
+                        if (previewTextareaRef.current && previewResponse) {
+                          previewTextareaRef.current.value = previewResponse;
+                        }
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    >
+                      Reset to Original
+                    </Button>
+                    <Button
+                      onClick={sendEditedResponse}
+                      disabled={responding}
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {responding ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin mr-1" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-1" />
+                          Send Edited Response
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     onClick={() => handlePreviewAIResponse(selectedGmailEmail.id)}
@@ -1662,7 +1741,7 @@ export default function CompleteEmailSystem() {
                     ) : (
                       <>
                         <Eye className="w-5 h-5" />
-                        {showingPreview ? 'Refresh Preview' : 'Preview AI Response'}
+                        Preview AI Response
                       </>
                     )}
                   </Button>
@@ -1685,62 +1764,6 @@ export default function CompleteEmailSystem() {
                   </Button>
                 </div>
 
-                {/* 🎯 NEW: INLINE PREVIEW SECTION - Always rendered but conditionally visible */}
-                <div 
-                  className={`bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm ${
-                    showingPreview && previewResponse ? 'block' : 'hidden'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
-                        <Bot className="w-4 h-4" />
-                        AI Response Preview
-                      </p>
-                      <p className="text-xs text-purple-400 mt-1">
-                        ✏️ You can edit this message before sending
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowingPreview(false);
-                        setPreviewResponse(null);
-                        if (previewTextareaRef.current) {
-                          previewTextareaRef.current.value = '';
-                        }
-                      }}
-                      className="text-purple-400 hover:text-purple-300 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    <textarea
-                      ref={previewTextareaRef}
-                      className="w-full min-h-[200px] max-h-[400px] p-4 bg-white/5 border border-white/10 rounded-lg text-sm text-purple-100 leading-relaxed resize-y focus:outline-none focus:border-purple-400/50 focus:bg-white/10 placeholder-purple-300/50"
-                      placeholder="Type your response here..."
-                    />
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="text-xs text-purple-400 flex items-center gap-2">
-                        <Info className="w-3 h-3" />
-                        <span>Edit the message above, then click "Send AI Response" to send it.</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => {
-                            if (previewTextareaRef.current && previewResponse) {
-                              previewTextareaRef.current.value = previewResponse;
-                            }
-                          }}
-                          className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
-                        >
-                          Reset to Original
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {!autoPollStatus.isEnabled && (
                   <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4">
                     <div className="flex items-center gap-2">
@@ -1752,22 +1775,20 @@ export default function CompleteEmailSystem() {
                   </div>
                 )}
 
-                {!showingPreview && (
-                  <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-5 h-5 text-blue-300" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-base font-medium text-blue-200 mb-2">AI Response Ready</p>
-                        <p className="text-sm text-blue-300 leading-relaxed">
-                          The AI will generate a professional response based on your business knowledge and custom instructions. 
-                          You can preview the response before sending to ensure it meets your standards.
-                        </p>
-                      </div>
+                <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-5 h-5 text-blue-300" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-base font-medium text-blue-200 mb-2">AI Response Ready</p>
+                      <p className="text-sm text-blue-300 leading-relaxed">
+                        The AI will generate a professional response based on your business knowledge and custom instructions. 
+                        You can preview the response before sending to ensure it meets your standards.
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
 
                 <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
                   <h4 className="font-medium text-white">Email Details</h4>
