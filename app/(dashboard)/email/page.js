@@ -1088,100 +1088,54 @@ export default function CompleteEmailSystem() {
   // UPDATED DashboardTab Component with cleaner UI
   const DashboardTab = () => (
     <div className="space-y-6">
-      {/* REDESIGNED: Cleaner AI Auto-Responses Section */}
-      {gmailConnection && (
-        <div className="bg-gradient-to-r from-purple-600/10 to-blue-600/10 backdrop-blur-lg rounded-2xl border border-purple-500/20 p-6">
+      {/* CONSOLIDATED: Professional Gmail AI Control Panel */}
+      {gmailConnection ? (
+        <div className="bg-gradient-to-r from-purple-600/5 to-blue-600/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
           <div className="flex items-center justify-between">
+            {/* Left Section: Status & Connection Info */}
             <div className="flex items-center gap-4">
-              <div className="flex flex-col">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  AI Auto-Responses 
-                  {autoPollStatus.isRunning ? (
-                    <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-medium border border-green-500/30">
-                      ACTIVE
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 rounded-full bg-gray-500/20 text-gray-400 text-xs font-medium border border-gray-500/30">
-                      STOPPED
-                    </span>
-                  )}
-                </h3>
-                <p className="text-sm text-gray-300 mt-1">
-                  {autoPollStatus.isRunning 
-                    ? 'Click to start automatic email responses'
-                    : 'Monitoring Gmail and sending AI responses every 30 seconds'}
-                </p>
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <div>
+                  <h3 className="font-medium text-white flex items-center gap-2">
+                    AI Auto-Responses
+                    {autoPollStatus.isRunning ? (
+                      <span className="px-2 py-0.5 rounded-md bg-green-500/20 text-green-400 text-xs font-medium">
+                        ACTIVE
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-gray-500/20 text-gray-400 text-xs font-medium">
+                        STOPPED
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {gmailConnection.email} • Monitoring Gmail and sending AI responses every 30 seconds
+                  </p>
+                </div>
               </div>
             </div>
             
-            <Button 
-              onClick={toggleAutoPoll}
-              disabled={saving || !gmailConnection}
-              className={`px-6 py-2 font-medium transition-all ${
-                autoPollStatus.isRunning
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
-              }`}
-            >
-              {saving ? (
-                'Saving...'
-              ) : autoPollStatus.isRunning ? (
-                'Stop Auto-Responses'
-              ) : (
-                'Start Auto-Responses'
-              )}
-            </Button>
-          </div>
-          
-          {autoPollStatus.lastPoll && (
-            <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-sm">
-              <span className="text-gray-400">
-                Last checked: {autoPollStatus.lastPoll.toLocaleTimeString()}
-              </span>
-              <div className="flex gap-6">
-                <span className="text-gray-300">
-                  <span className="font-medium text-white">{autoPollStatus.totalEmailsProcessed}</span> Emails Checked
-                </span>
-                <span className="text-gray-300">
-                  <span className="font-medium text-white">{autoPollStatus.totalResponsesSent}</span> AI Responses Sent
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* REDESIGNED: Cleaner Gmail Connection Status */}
-      {gmailConnection ? (
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <div>
-                <h3 className="font-medium text-white">Gmail AI Connected</h3>
-                <p className="text-sm text-gray-400 mt-0.5">
-                  {gmailConnection.email} • Auto-monitoring active
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500">
+            {/* Right Section: Action Buttons */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 mr-2">
                 Last refreshed: {lastRefresh.toLocaleTimeString()}
               </span>
               <Button 
                 onClick={() => checkGmailEmails(false)}
                 disabled={gmailLoading}
                 size="sm"
-                className="bg-blue-600/80 hover:bg-blue-700 text-white text-sm px-3 py-1.5"
+                variant="outline"
+                className="bg-white/5 border-white/10 text-white hover:bg-white/10 text-xs px-3 py-1.5"
               >
                 {gmailLoading ? (
                   <>
-                    <RefreshCw className="w-3 h-3 animate-spin mr-1.5" />
+                    <RefreshCw className="w-3 h-3 animate-spin mr-1" />
                     Checking...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="w-3 h-3 mr-1.5" />
+                    <RefreshCw className="w-3 h-3 mr-1" />
                     Check Emails
                   </>
                 )}
@@ -1190,13 +1144,52 @@ export default function CompleteEmailSystem() {
                 size="sm" 
                 variant="outline"
                 onClick={() => window.open('/email/test', '_blank')}
-                className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-sm px-3 py-1.5"
+                className="bg-white/5 border-white/10 text-white hover:bg-white/10 text-xs px-3 py-1.5"
               >
-                <ExternalLink className="w-3 h-3 mr-1.5" />
+                <ExternalLink className="w-3 h-3 mr-1" />
                 Advanced Testing
+              </Button>
+              <Button 
+                onClick={toggleAutoPoll}
+                disabled={saving || !gmailConnection}
+                size="sm"
+                className={`px-4 py-1.5 text-xs font-medium transition-all ${
+                  autoPollStatus.isRunning
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
+              >
+                {saving ? (
+                  'Saving...'
+                ) : autoPollStatus.isRunning ? (
+                  'Stop Auto-Responses'
+                ) : (
+                  'Start Auto-Responses'
+                )}
               </Button>
             </div>
           </div>
+          
+          {/* Bottom Stats Bar - Only show when there's activity */}
+          {(autoPollStatus.lastPoll || autoPollStatus.totalEmailsProcessed > 0) && (
+            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-4 text-gray-400">
+                {autoPollStatus.lastPoll && (
+                  <span>
+                    Last checked: {autoPollStatus.lastPoll.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-4">
+                <span className="text-gray-400">
+                  <span className="font-medium text-white">{autoPollStatus.totalEmailsProcessed}</span> Emails Checked
+                </span>
+                <span className="text-gray-400">
+                  <span className="font-medium text-white">{autoPollStatus.totalResponsesSent}</span> AI Responses Sent
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-yellow-500/10 backdrop-blur-lg rounded-2xl border border-yellow-500/20 p-6">
