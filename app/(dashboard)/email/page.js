@@ -1110,7 +1110,7 @@ export default function CompleteEmailSystem() {
                     )}
                   </h3>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {gmailConnection.email} • Monitoring Gmail and sending AI responses every 30 seconds
+                    {gmailConnection.email} • Auto-monitoring active
                   </p>
                 </div>
               </div>
@@ -1139,15 +1139,6 @@ export default function CompleteEmailSystem() {
                     Check Emails
                   </>
                 )}
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => window.open('/email/test', '_blank')}
-                className="bg-white/5 border-white/10 text-white hover:bg-white/10 text-xs px-3 py-1.5"
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Advanced Testing
               </Button>
               <Button 
                 onClick={toggleAutoPoll}
@@ -1849,29 +1840,6 @@ export default function CompleteEmailSystem() {
   // Keep AISettingsTab exactly the same
   const AISettingsTab = () => (
     <div className="space-y-6">
-      {/* Status Indicator - Shows current state but not a toggle */}
-      <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
-        <div className="flex items-center gap-4">
-          <Power className={`w-8 h-8 ${autoPollStatus.isEnabled ? 'text-green-400' : 'text-gray-400'}`} />
-          <div>
-            <h3 className="text-xl font-semibold text-white">AI Response Status</h3>
-            <p className="text-gray-300">
-              {autoPollStatus.isEnabled 
-                ? '🟢 AI responses are enabled and configured'
-                : '⚪ AI responses are disabled - use Dashboard to enable'}
-            </p>
-            {!autoPollStatus.isEnabled && (
-              <Button 
-                onClick={() => setActiveTab('dashboard')}
-                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm"
-              >
-                Go to Dashboard to Enable
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* ALL OTHER AI SETTINGS SECTIONS REMAIN EXACTLY THE SAME */}
       {/* Business Profile */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
