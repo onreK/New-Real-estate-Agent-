@@ -48,7 +48,11 @@ import {
   UserCheck,
   Play,
   Pause,
-  Square
+  Square,
+  Calendar,
+  DollarSign,
+  TrendingDown,
+  Activity
 } from 'lucide-react';
 
 export default function CompleteEmailSystem() {
@@ -72,11 +76,12 @@ export default function CompleteEmailSystem() {
   const previewTextareaRef = useRef(null);
   
   // 🎯 UNIFIED: Single auto-poll state that controls everything
+  // FIXED: Set interval to 30 seconds permanently
   const [autoPollStatus, setAutoPollStatus] = useState({
     isRunning: false,
-    isEnabled: false, // This replaces enableAIResponses - single source of truth
+    isEnabled: false,
     lastPoll: null,
-    interval: 30,
+    interval: 30, // Fixed at 30 seconds
     totalEmailsProcessed: 0,
     totalResponsesSent: 0
   });
@@ -100,13 +105,12 @@ export default function CompleteEmailSystem() {
   const [activeEmailView, setActiveEmailView] = useState('inbox');
   const [sentEmails, setSentEmails] = useState([]);
   
+  // UPDATED STATS - Only the 4 metrics you want
   const [stats, setStats] = useState({
-    totalConversations: 0,
-    activeToday: 0,
-    aiEngagementRate: 0,
-    contactCaptureRate: 0,
-    avgResponseTimeMinutes: 0,
-    totalLeadsCaptured: 0
+    totalResponsesSent: 0,      // AI Responses Sent
+    totalLeadsCaptured: 0,      // Leads Captured
+    meetingsBooked: 0,          // Meetings Booked
+    avgResponseTimeMinutes: 0   // Response Time
   });
 
   const formatTime = (minutes) => {
@@ -250,6 +254,12 @@ export default function CompleteEmailSystem() {
         
         setSentEmails(prev => [sentEmail, ...prev]);
         
+        // Update stats - increment responses sent
+        setStats(prev => ({
+          ...prev,
+          totalResponsesSent: prev.totalResponsesSent + 1
+        }));
+        
         // Hide preview and switch to sent tab
         setShowingPreview(false);
         setPreviewResponse(null);
@@ -325,7 +335,8 @@ export default function CompleteEmailSystem() {
             clearInterval(autoPollIntervalRef.current);
           }
           
-          const effectiveInterval = Math.max(autoPollStatus.interval, 30);
+          // Fixed 30 second interval
+          const effectiveInterval = 30;
           console.log('🚀 Starting auto-poll with interval:', effectiveInterval, 'seconds');
           
           // Delay first run by 3 seconds
@@ -393,13 +404,6 @@ export default function CompleteEmailSystem() {
       // Update the email list in UI
       setGmailEmails(emails);
       
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        totalConversations: emails.length + conversations.length,
-        activeToday: emails.length
-      }));
-      
       // Step 2: If enabled and we have emails, send AI responses
       if (autoPollStatus.isEnabled && emails.length > 0) {
         console.log('🤖 Processing emails with AI responses...');
@@ -444,6 +448,12 @@ export default function CompleteEmailSystem() {
                 };
                 
                 setSentEmails(prev => [sentEmail, ...prev]);
+                
+                // Update stats
+                setStats(prev => ({
+                  ...prev,
+                  totalResponsesSent: prev.totalResponsesSent + 1
+                }));
               } else {
                 console.log(`⚠️ Response not sent for email ${i + 1}:`, responseData.error);
               }
@@ -486,7 +496,7 @@ export default function CompleteEmailSystem() {
     } catch (error) {
       console.error('❌ Auto-poll error:', error);
     }
-  }, [gmailConnection?.email, autoPollStatus.isEnabled, conversations.length]);
+  }, [gmailConnection?.email, autoPollStatus.isEnabled]);
 
   // Stop auto-poll function
   const stopAutoPoll = useCallback(() => {
@@ -635,13 +645,12 @@ export default function CompleteEmailSystem() {
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         if (statsData.success && statsData.stats) {
+          // Map to our simplified 4 metrics
           setStats({
-            totalConversations: statsData.stats.totalConversations || 0,
-            activeToday: statsData.stats.activeToday || 0,
-            aiEngagementRate: statsData.stats.aiEngagementRate || 0,
-            contactCaptureRate: statsData.stats.contactCaptureRate || 0,
-            avgResponseTimeMinutes: statsData.stats.avgResponseTimeMinutes || 0,
-            totalLeadsCaptured: statsData.stats.totalLeadsCaptured || 0
+            totalResponsesSent: statsData.stats.totalResponsesSent || autoPollStatus.totalResponsesSent || 0,
+            totalLeadsCaptured: statsData.stats.totalLeadsCaptured || 0,
+            meetingsBooked: statsData.stats.meetingsBooked || 0,
+            avgResponseTimeMinutes: statsData.stats.avgResponseTimeMinutes || 0
           });
         }
       }
@@ -658,7 +667,6 @@ export default function CompleteEmailSystem() {
         
         if (data.connected && data.connection) {
           setGmailConnection(data.connection);
-          setStats(prev => ({ ...prev, aiEngagementRate: 95 }));
         } else {
           setGmailConnection(null);
         }
@@ -891,11 +899,6 @@ export default function CompleteEmailSystem() {
       if (response.ok) {
         const data = await response.json();
         setGmailEmails(data.emails || []);
-        setStats(prev => ({
-          ...prev,
-          totalConversations: (data.emails?.length || 0) + conversations.length,
-          activeToday: data.emails?.length || 0
-        }));
         
         if (!silent) setLastRefresh(new Date());
         
@@ -965,6 +968,12 @@ export default function CompleteEmailSystem() {
             console.log('📋 Updated sent emails:', updated);
             return updated;
           });
+          
+          // Update stats
+          setStats(prev => ({
+            ...prev,
+            totalResponsesSent: prev.totalResponsesSent + 1
+          }));
           
           setTimeout(() => {
             setActiveEmailView('sent');
@@ -1076,255 +1085,196 @@ export default function CompleteEmailSystem() {
     }));
   }, []);
 
-  // Keep all your existing component JSX (DashboardTab, AISettingsTab, AutomationTab) exactly the same
-  // I'm not repeating them here to save space, but they remain unchanged
-
+  // UPDATED DashboardTab Component with cleaner UI
   const DashboardTab = () => (
     <div className="space-y-6">
-      {/* Your existing DashboardTab JSX - no changes needed */}
-      {/* Keep all the existing content exactly as is */}
+      {/* REDESIGNED: Cleaner AI Auto-Responses Section */}
       {gmailConnection && (
-        <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
+        <div className="bg-gradient-to-r from-purple-600/10 to-blue-600/10 backdrop-blur-lg rounded-2xl border border-purple-500/20 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl backdrop-blur-sm border ${
-                autoPollStatus.isRunning 
-                  ? 'bg-green-500/20 border-green-500/30' 
-                  : 'bg-gray-500/20 border-gray-500/30'
-              }`}>
-                {autoPollStatus.isRunning ? (
-                  <Zap className="w-6 h-6 text-green-400 animate-pulse" />
-                ) : (
-                  <Power className="w-6 h-6 text-gray-400" />
-                )}
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-white">
-                  AI Auto-Responses {autoPollStatus.isRunning ? '🟢 ACTIVE' : '⚪ STOPPED'}
-                </h3>
-                <p className="text-gray-300">
-                  {autoPollStatus.isRunning 
-                    ? `Running every ${Math.max(autoPollStatus.interval, 30)}s • ${autoPollStatus.totalResponsesSent} responses sent`
-                    : 'Click to start automatic email responses'}
-                </p>
-                {autoPollStatus.isEnabled && !autoPollStatus.isRunning && (
-                  <p className="text-xs text-yellow-300 mt-1">
-                    AI is enabled but not running - click Start to begin
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {autoPollStatus.lastPoll && (
-                <span className="text-sm text-gray-400">
-                  Last poll: {autoPollStatus.lastPoll.toLocaleTimeString()}
-                </span>
-              )}
-              <div className="flex gap-2">
-                <Button 
-                  onClick={toggleAutoPoll}
-                  disabled={saving || !gmailConnection}
-                  className={`flex items-center gap-2 ${
-                    autoPollStatus.isRunning
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-green-600 hover:bg-green-700'
-                  } text-white`}
-                >
-                  {saving ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : autoPollStatus.isRunning ? (
-                    <>
-                      <Pause className="w-4 h-4" />
-                      Stop Auto-Responses
-                    </>
+              <div className="flex flex-col">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  AI Auto-Responses 
+                  {autoPollStatus.isRunning ? (
+                    <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-medium border border-green-500/30">
+                      ACTIVE
+                    </span>
                   ) : (
-                    <>
-                      <Play className="w-4 h-4" />
-                      Start Auto-Responses
-                    </>
+                    <span className="px-2 py-1 rounded-full bg-gray-500/20 text-gray-400 text-xs font-medium border border-gray-500/30">
+                      STOPPED
+                    </span>
                   )}
-                </Button>
+                </h3>
+                <p className="text-sm text-gray-300 mt-1">
+                  {autoPollStatus.isRunning 
+                    ? 'Click to start automatic email responses'
+                    : 'Monitoring Gmail and sending AI responses every 30 seconds'}
+                </p>
               </div>
             </div>
+            
+            <Button 
+              onClick={toggleAutoPoll}
+              disabled={saving || !gmailConnection}
+              className={`px-6 py-2 font-medium transition-all ${
+                autoPollStatus.isRunning
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
+            >
+              {saving ? (
+                'Saving...'
+              ) : autoPollStatus.isRunning ? (
+                'Stop Auto-Responses'
+              ) : (
+                'Start Auto-Responses'
+              )}
+            </Button>
           </div>
           
-          <div className="mt-4 flex items-center gap-4">
-            <label className="text-sm text-gray-300">Check interval:</label>
-            <select
-              value={autoPollStatus.interval}
-              onChange={(e) => setAutoPollStatus(prev => ({ ...prev, interval: parseInt(e.target.value) }))}
-              disabled={autoPollStatus.isRunning}
-              className="px-3 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
-            >
-              <option value={30}>30 seconds</option>
-              <option value={60}>1 minute</option>
-              <option value={120}>2 minutes</option>
-              <option value={300}>5 minutes</option>
-            </select>
-            
-            <div className="text-xs text-gray-400">
-              (Minimum 30s due to Gmail API limits)
-            </div>
-            
-            <div className="ml-auto flex gap-6 text-sm">
-              <div className="text-center">
-                <div className="text-white font-bold">{autoPollStatus.totalEmailsProcessed}</div>
-                <div className="text-gray-400">Emails Checked</div>
-              </div>
-              <div className="text-center">
-                <div className="text-white font-bold">{autoPollStatus.totalResponsesSent}</div>
-                <div className="text-gray-400">AI Responses Sent</div>
+          {autoPollStatus.lastPoll && (
+            <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-sm">
+              <span className="text-gray-400">
+                Last checked: {autoPollStatus.lastPoll.toLocaleTimeString()}
+              </span>
+              <div className="flex gap-6">
+                <span className="text-gray-300">
+                  <span className="font-medium text-white">{autoPollStatus.totalEmailsProcessed}</span> Emails Checked
+                </span>
+                <span className="text-gray-300">
+                  <span className="font-medium text-white">{autoPollStatus.totalResponsesSent}</span> AI Responses Sent
+                </span>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* Keep all the rest of your existing DashboardTab content */}
-      {/* Stats Grid, Email Lists, etc. - all remains the same */}
+      {/* REDESIGNED: Cleaner Gmail Connection Status */}
       {gmailConnection ? (
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-green-500/20 backdrop-blur-sm border border-green-500/30">
-                <CheckCircle className="w-6 h-6 text-green-400" />
-              </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-green-400" />
               <div>
-                <h3 className="font-semibold text-xl text-white">Gmail AI Connected</h3>
-                <p className="text-gray-300">
+                <h3 className="font-medium text-white">Gmail AI Connected</h3>
+                <p className="text-sm text-gray-400 mt-0.5">
                   {gmailConnection.email} • Auto-monitoring active
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-400">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500">
                 Last refreshed: {lastRefresh.toLocaleTimeString()}
               </span>
               <Button 
                 onClick={() => checkGmailEmails(false)}
                 disabled={gmailLoading}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                size="sm"
+                className="bg-blue-600/80 hover:bg-blue-700 text-white text-sm px-3 py-1.5"
               >
                 {gmailLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <>
+                    <RefreshCw className="w-3 h-3 animate-spin mr-1.5" />
+                    Checking...
+                  </>
                 ) : (
-                  <RefreshCw className="w-4 h-4" />
+                  <>
+                    <RefreshCw className="w-3 h-3 mr-1.5" />
+                    Check Emails
+                  </>
                 )}
-                Check Emails
               </Button>
               <Button 
                 size="sm" 
                 variant="outline"
                 onClick={() => window.open('/email/test', '_blank')}
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg"
+                className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-sm px-3 py-1.5"
               >
-                <ExternalLink className="w-4 h-4 mr-1" />
+                <ExternalLink className="w-3 h-3 mr-1.5" />
                 Advanced Testing
               </Button>
             </div>
           </div>
         </div>
       ) : (
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="bg-yellow-500/10 backdrop-blur-lg rounded-2xl border border-yellow-500/20 p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/30">
-                <AlertCircle className="w-6 h-6 text-yellow-400" />
-              </div>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-400" />
               <div>
-                <h3 className="font-semibold text-xl text-white">Gmail AI Setup Required</h3>
-                <p className="text-gray-300">
+                <h3 className="font-medium text-white">Gmail AI Setup Required</h3>
+                <p className="text-sm text-gray-400 mt-0.5">
                   Connect Gmail for AI-powered email automation
                 </p>
               </div>
             </div>
-            <Button onClick={connectGmail} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-              <LinkIcon className="w-4 h-4" />
+            <Button 
+              onClick={connectGmail} 
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm"
+            >
+              <LinkIcon className="w-3.5 h-3.5 mr-1.5" />
               Connect Gmail
             </Button>
           </div>
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-          <div className="flex items-center justify-between">
+      {/* UPDATED: New 4-Metric Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* AI Responses Sent */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+          <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-300">Total Conversations</p>
-              <p className="text-3xl font-bold text-white">{stats.totalConversations}</p>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">AI Responses</p>
+              <p className="text-2xl font-bold text-white mt-1">{stats.totalResponsesSent || autoPollStatus.totalResponsesSent}</p>
+              <p className="text-xs text-gray-500 mt-1">Total sent</p>
             </div>
-            <div className="p-3 rounded-xl bg-blue-500/20">
-              <MessageSquare className="w-8 h-8 text-blue-400" />
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <Send className="w-5 h-5 text-green-400" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-          <div className="flex items-center justify-between">
+        {/* Leads Captured */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+          <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-300">Active Today</p>
-              <p className="text-3xl font-bold text-white">{stats.activeToday}</p>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Leads Captured</p>
+              <p className="text-2xl font-bold text-white mt-1">{stats.totalLeadsCaptured}</p>
+              <p className="text-xs text-gray-500 mt-1">With contact info</p>
             </div>
-            <div className="p-3 rounded-xl bg-green-500/20">
-              <Zap className="w-8 h-8 text-green-400" />
+            <div className="p-2 rounded-lg bg-blue-500/10">
+              <UserCheck className="w-5 h-5 text-blue-400" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-          <div className="flex items-center justify-between">
+        {/* Meetings Booked */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+          <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-300">AI Engagement Rate</p>
-              <p className="text-3xl font-bold text-white">{stats.aiEngagementRate.toFixed(1)}%</p>
-              <p className="text-xs text-gray-400 mt-1">Replies to AI responses</p>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Meetings Booked</p>
+              <p className="text-2xl font-bold text-white mt-1">{stats.meetingsBooked}</p>
+              <p className="text-xs text-gray-500 mt-1">This month</p>
             </div>
-            <div className="p-3 rounded-xl bg-purple-500/20">
-              <TrendingUp className="w-8 h-8 text-purple-400" />
+            <div className="p-2 rounded-lg bg-purple-500/10">
+              <Calendar className="w-5 h-5 text-purple-400" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-          <div className="flex items-center justify-between">
+        {/* Response Time */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+          <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-300">Contact Capture Rate</p>
-              <p className="text-3xl font-bold text-white">{stats.contactCaptureRate.toFixed(1)}%</p>
-              <p className="text-xs text-gray-400 mt-1">Leads with contact info</p>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Response Time</p>
+              <p className="text-2xl font-bold text-white mt-1">{formatTime(stats.avgResponseTimeMinutes)}</p>
+              <p className="text-xs text-gray-500 mt-1">Average speed</p>
             </div>
-            <div className="p-3 rounded-xl bg-orange-500/20">
-              <UserCheck className="w-8 h-8 text-orange-400" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-300">Avg Response Speed</p>
-              <p className="text-3xl font-bold text-white">{formatTime(stats.avgResponseTimeMinutes)}</p>
-              <p className="text-xs text-gray-400 mt-1">How fast AI responds</p>
-            </div>
-            <div className="p-3 rounded-xl bg-green-500/20">
-              <Clock className="w-8 h-8 text-green-400" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-300">Total Leads Captured</p>
-              <p className="text-3xl font-bold text-white">{stats.totalLeadsCaptured}</p>
-              <p className="text-xs text-gray-400 mt-1">Cumulative growth</p>
-            </div>
-            <div className="p-3 rounded-xl bg-blue-500/20">
-              <Target className="w-8 h-8 text-blue-400" />
+            <div className="p-2 rounded-lg bg-orange-500/10">
+              <Clock className="w-5 h-5 text-orange-400" />
             </div>
           </div>
         </div>
@@ -1613,7 +1563,7 @@ export default function CompleteEmailSystem() {
                               </h4>
                               <div className="flex items-center gap-2">
                                 <div className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-medium">
-                                  ✔ Sent
+                                  ✓ Sent
                                 </div>
                                 {selectedConversation?.id === sentEmail.id && (
                                   <div className="w-2 h-2 rounded-full bg-green-400"></div>
@@ -1865,7 +1815,7 @@ export default function CompleteEmailSystem() {
                     </div>
                     <div>
                       <span className="font-medium text-gray-400">Status:</span>
-                      <p className="text-green-300 font-medium">✔ Delivered</p>
+                      <p className="text-green-300 font-medium">✓ Delivered</p>
                     </div>
                   </div>
                 </div>
@@ -1906,7 +1856,6 @@ export default function CompleteEmailSystem() {
   // Keep AISettingsTab exactly the same
   const AISettingsTab = () => (
     <div className="space-y-6">
-      {/* Your existing AISettingsTab JSX - no changes needed */}
       {/* Status Indicator - Shows current state but not a toggle */}
       <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
         <div className="flex items-center gap-4">
@@ -1930,6 +1879,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
+      {/* ALL OTHER AI SETTINGS SECTIONS REMAIN EXACTLY THE SAME */}
       {/* Business Profile */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
@@ -2031,7 +1981,7 @@ export default function CompleteEmailSystem() {
         </div>
       </div>
 
-      {/* 📚 KNOWLEDGE BASE SECTION - THIS IS THE MISSING PART! */}
+      {/* 📚 KNOWLEDGE BASE SECTION */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-purple-400" />
@@ -2207,7 +2157,7 @@ SPECIAL INSTRUCTIONS:
   // Keep AutomationTab exactly the same
   const AutomationTab = () => (
     <div className="space-y-6">
-      {/* Your existing AutomationTab JSX - no changes needed */}
+      {/* ALL AUTOMATION TAB CONTENT REMAINS EXACTLY THE SAME */}
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-blue-400" />
