@@ -10,7 +10,7 @@ import {
   ArrowUpRight, ArrowDownRight, Activity, Star, Shield,
   Crown, CheckCircle, AlertTriangle, Settings, RefreshCw,
   Send, FileText, Bot, Inbox, AlertCircle, ChevronRight, Info,
-  UserCheck  // ADD THIS ICON FOR LEADS
+  UserCheck, Sliders, Cpu  // ADD ICONS FOR AI SETTINGS
 } from 'lucide-react';
 
 export default function MainDashboard() {
@@ -19,6 +19,7 @@ export default function MainDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeAITab, setActiveAITab] = useState('email'); // ADD STATE FOR AI SETTINGS TABS
   
   // Enhanced state structure with social media data AND ANALYTICS
   const [dashboardData, setDashboardData] = useState({
@@ -112,6 +113,15 @@ export default function MainDashboard() {
     { id: 'facebook', label: 'Facebook', icon: Users },
     { id: 'instagram', label: 'Instagram', icon: Star },
     { id: 'settings', label: 'Settings', icon: Settings }
+  ];
+
+  // AI Settings tabs configuration
+  const aiSettingsTabs = [
+    { id: 'email', label: 'Email', icon: Mail },
+    { id: 'facebook', label: 'Facebook', icon: Users },
+    { id: 'instagram', label: 'Instagram', icon: Star },
+    { id: 'text', label: 'Text/SMS', icon: Phone },
+    { id: 'chatbot', label: 'Chatbot', icon: MessageCircle }
   ];
 
   useEffect(() => {
@@ -455,6 +465,300 @@ export default function MainDashboard() {
           <p className="text-2xl font-bold text-white">{value?.toLocaleString() || 0}</p>
           <p className="text-sm text-gray-300 font-medium">{title}</p>
           {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+        </div>
+      </div>
+    );
+  };
+
+  // AI Settings Component
+  const AISettingsSection = () => {
+    return (
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+            <Cpu className="w-8 h-8 text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white">AI Settings</h3>
+            <p className="text-sm text-gray-300">Unified Gmail automation with smart AI responses and filtering</p>
+          </div>
+        </div>
+
+        {/* Tab navigation */}
+        <div className="flex space-x-2 mb-6 border-b border-white/10 pb-2">
+          {aiSettingsTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveAITab(tab.id)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeAITab === tab.id
+                  ? 'bg-purple-500/30 text-purple-400 border border-purple-500/50'
+                  : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="space-y-6">
+          {activeAITab === 'email' && (
+            <div className="space-y-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-purple-400" />
+                  Business Profile
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Tell the AI about your business
+                </p>
+                <div className="space-y-3">
+                  <input 
+                    placeholder="Business Name"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <input 
+                    placeholder="Industry"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <textarea 
+                    placeholder="Business description..."
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-purple-400" />
+                  Communication Settings
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response tone</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Professional</option>
+                      <option>Casual</option>
+                      <option>Formal</option>
+                      <option>Friendly</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response length</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Short</option>
+                      <option>Medium</option>
+                      <option>Long</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-purple-400" />
+                  Business Knowledge Base
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Add specific information about your business that the AI should know
+                </p>
+                <textarea 
+                  placeholder="Enter business-specific information, FAQs, policies, etc..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-purple-400" />
+                  Custom AI Instructions
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Tell the AI exactly how to behave and respond to customers
+                </p>
+                <textarea 
+                  placeholder="Enter custom instructions for AI behavior..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                  Test AI Response
+                </button>
+                <button className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                  Save All Settings
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeAITab === 'facebook' && (
+            <div className="space-y-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-400" />
+                  Facebook AI Configuration
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Configure AI for Facebook Messenger and post responses
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Auto-respond to messages</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Auto-respond to comments</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => window.location.href = '/social/facebook/setup'}
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Configure Facebook AI
+              </button>
+            </div>
+          )}
+
+          {activeAITab === 'instagram' && (
+            <div className="space-y-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-pink-400" />
+                  Instagram AI Configuration
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Configure AI for Instagram DMs and post responses
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Auto-respond to DMs</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-pink-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Auto-respond to comments</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-pink-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => window.location.href = '/social/instagram/setup'}
+                className="w-full px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Configure Instagram AI
+              </button>
+            </div>
+          )}
+
+          {activeAITab === 'text' && (
+            <div className="space-y-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Phone className="w-5 h-5 text-green-400" />
+                  SMS/Text AI Configuration
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Configure AI for text message responses and lead qualification
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Enable auto-responses</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-green-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Hot lead detection</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-green-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    </label>
+                  </div>
+                  <input 
+                    placeholder="Response delay (seconds)"
+                    type="number"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                </div>
+              </div>
+
+              <button 
+                onClick={() => window.location.href = '/customer-sms-dashboard'}
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Configure SMS AI
+              </button>
+            </div>
+          )}
+
+          {activeAITab === 'chatbot' && (
+            <div className="space-y-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-blue-400" />
+                  Web Chatbot AI Configuration
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Configure AI for website chat widget responses
+                </p>
+                <div className="space-y-3">
+                  <input 
+                    placeholder="Welcome message"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Proactive engagement</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Collect contact info</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => window.location.href = '/ai-config'}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Configure Chatbot
+                </button>
+                <button 
+                  onClick={() => window.location.href = '/demo'}
+                  className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg font-medium border border-blue-500/30 transition-colors"
+                >
+                  Test Chatbot
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -876,59 +1180,8 @@ export default function MainDashboard() {
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-6">Quick Actions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <button
-                  onClick={() => window.location.href = '/demo'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 transition-colors"
-                >
-                  <MessageCircle className="w-6 h-6 text-blue-400" />
-                  <span className="text-sm text-white">Test Chat</span>
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/customer-sms-dashboard'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-green-500/20 hover:bg-green-500/30 rounded-lg border border-green-500/30 transition-colors"
-                >
-                  <Phone className="w-6 h-6 text-green-400" />
-                  <span className="text-sm text-white">SMS Setup</span>
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/ai-config'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-orange-500/20 hover:bg-orange-500/30 rounded-lg border border-orange-500/30 transition-colors"
-                >
-                  <Bot className="w-6 h-6 text-orange-400" />
-                  <span className="text-sm text-white">AI Config</span>
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/leads'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg border border-cyan-500/30 transition-colors"
-                >
-                  <UserCheck className="w-6 h-6 text-cyan-400" />
-                  <span className="text-sm text-white">View Leads</span>
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/social/facebook'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg border border-blue-600/30 transition-colors"
-                >
-                  <Users className="w-6 h-6 text-blue-400" />
-                  <span className="text-sm text-white">Facebook</span>
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/email'}
-                  className="flex flex-col items-center space-y-2 p-4 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg border border-purple-500/30 transition-colors"
-                >
-                  <Inbox className="w-6 h-6 text-purple-400" />
-                  <span className="text-sm text-white">Email Inbox</span>
-                </button>
-              </div>
-            </div>
+            {/* NEW AI SETTINGS SECTION */}
+            <AISettingsSection />
           </div>
         )}
 
