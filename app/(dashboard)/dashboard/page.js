@@ -600,6 +600,84 @@ export default function MainDashboard() {
               <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                 <h4 className="text-white font-medium mb-3 flex items-center gap-2">
                   <Users className="w-5 h-5 text-blue-400" />
+                  Business Profile
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Tell the AI about your business
+                </p>
+                <div className="space-y-3">
+                  <input 
+                    placeholder="Business Name"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <input 
+                    placeholder="Industry"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <textarea 
+                    placeholder="Business description..."
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-blue-400" />
+                  Communication Settings
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response tone</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Professional</option>
+                      <option>Casual</option>
+                      <option>Formal</option>
+                      <option>Friendly</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response length</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Short</option>
+                      <option>Medium</option>
+                      <option>Long</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-400" />
+                  Business Knowledge Base
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Add specific information about your business that the AI should know
+                </p>
+                <textarea 
+                  placeholder="Enter business-specific information, FAQs, policies, etc..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-blue-400" />
+                  Custom AI Instructions
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Tell the AI exactly how to behave and respond to customers
+                </p>
+                <textarea 
+                  placeholder="Enter custom instructions for AI behavior..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-400" />
                   Facebook AI Configuration
                 </h4>
                 <p className="text-sm text-gray-300 mb-4">
@@ -637,6 +715,84 @@ export default function MainDashboard() {
               <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                 <h4 className="text-white font-medium mb-3 flex items-center gap-2">
                   <Star className="w-5 h-5 text-pink-400" />
+                  Business Profile
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Tell the AI about your business
+                </p>
+                <div className="space-y-3">
+                  <input 
+                    placeholder="Business Name"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <input 
+                    placeholder="Industry"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <textarea 
+                    placeholder="Business description..."
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-pink-400" />
+                  Communication Settings
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response tone</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Professional</option>
+                      <option>Casual</option>
+                      <option>Formal</option>
+                      <option>Friendly</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response length</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Short</option>
+                      <option>Medium</option>
+                      <option>Long</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-pink-400" />
+                  Business Knowledge Base
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Add specific information about your business that the AI should know
+                </p>
+                <textarea 
+                  placeholder="Enter business-specific information, FAQs, policies, etc..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-pink-400" />
+                  Custom AI Instructions
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Tell the AI exactly how to behave and respond to customers
+                </p>
+                <textarea 
+                  placeholder="Enter custom instructions for AI behavior..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-pink-400" />
                   Instagram AI Configuration
                 </h4>
                 <p className="text-sm text-gray-300 mb-4">
@@ -671,6 +827,84 @@ export default function MainDashboard() {
 
           {activeAITab === 'text' && (
             <div className="space-y-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Phone className="w-5 h-5 text-green-400" />
+                  Business Profile
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Tell the AI about your business
+                </p>
+                <div className="space-y-3">
+                  <input 
+                    placeholder="Business Name"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <input 
+                    placeholder="Industry"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <textarea 
+                    placeholder="Business description..."
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-green-400" />
+                  Communication Settings
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response tone</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Professional</option>
+                      <option>Casual</option>
+                      <option>Formal</option>
+                      <option>Friendly</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response length</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Short</option>
+                      <option>Medium</option>
+                      <option>Long</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-green-400" />
+                  Business Knowledge Base
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Add specific information about your business that the AI should know
+                </p>
+                <textarea 
+                  placeholder="Enter business-specific information, FAQs, policies, etc..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-green-400" />
+                  Custom AI Instructions
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Tell the AI exactly how to behave and respond to customers
+                </p>
+                <textarea 
+                  placeholder="Enter custom instructions for AI behavior..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
               <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                 <h4 className="text-white font-medium mb-3 flex items-center gap-2">
                   <Phone className="w-5 h-5 text-green-400" />
@@ -713,6 +947,84 @@ export default function MainDashboard() {
 
           {activeAITab === 'chatbot' && (
             <div className="space-y-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-blue-400" />
+                  Business Profile
+                </h4>
+                <p className="text-sm text-gray-300 mb-4">
+                  Tell the AI about your business
+                </p>
+                <div className="space-y-3">
+                  <input 
+                    placeholder="Business Name"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <input 
+                    placeholder="Industry"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                  <textarea 
+                    placeholder="Business description..."
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-blue-400" />
+                  Communication Settings
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response tone</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Professional</option>
+                      <option>Casual</option>
+                      <option>Formal</option>
+                      <option>Friendly</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Response length</span>
+                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm">
+                      <option>Short</option>
+                      <option>Medium</option>
+                      <option>Long</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-400" />
+                  Business Knowledge Base
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Add specific information about your business that the AI should know
+                </p>
+                <textarea 
+                  placeholder="Enter business-specific information, FAQs, policies, etc..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-blue-400" />
+                  Custom AI Instructions
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Tell the AI exactly how to behave and respond to customers
+                </p>
+                <textarea 
+                  placeholder="Enter custom instructions for AI behavior..."
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                />
+              </div>
+
               <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                 <h4 className="text-white font-medium mb-3 flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-blue-400" />
