@@ -584,14 +584,9 @@ export default function MainDashboard() {
                 />
               </div>
 
-              <div className="flex gap-3">
-                <button className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-                  Test AI Response
-                </button>
-                <button className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
-                  Save All Settings
-                </button>
-              </div>
+              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                Save Email Settings
+              </button>
             </div>
           )}
 
@@ -701,11 +696,8 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <button 
-                onClick={() => window.location.href = '/social/facebook/setup'}
-                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-              >
-                Configure Facebook AI
+              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                Save Facebook Settings
               </button>
             </div>
           )}
@@ -816,11 +808,8 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <button 
-                onClick={() => window.location.href = '/social/instagram/setup'}
-                className="w-full px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-lg font-medium transition-colors"
-              >
-                Configure Instagram AI
+              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                Save Instagram Settings
               </button>
             </div>
           )}
@@ -936,11 +925,8 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <button 
-                onClick={() => window.location.href = '/customer-sms-dashboard'}
-                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-              >
-                Configure SMS AI
+              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                Save SMS Settings
               </button>
             </div>
           )}
@@ -1055,20 +1041,9 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => window.location.href = '/ai-config'}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  Configure Chatbot
-                </button>
-                <button 
-                  onClick={() => window.location.href = '/demo'}
-                  className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg font-medium border border-blue-500/30 transition-colors"
-                >
-                  Test Chatbot
-                </button>
-              </div>
+              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                Save Chatbot Settings
+              </button>
             </div>
           )}
         </div>
