@@ -472,6 +472,106 @@ export default function MainDashboard() {
 
   // AI Settings Component
   const AISettingsSection = () => {
+    const [settingsData, setSettingsData] = useState({
+      email: {
+        businessName: '',
+        industry: '',
+        businessDescription: '',
+        responseTone: 'Professional',
+        responseLength: 'Short',
+        knowledgeBase: '',
+        customInstructions: ''
+      },
+      facebook: {
+        businessName: '',
+        industry: '',
+        businessDescription: '',
+        responseTone: 'Professional',
+        responseLength: 'Short',
+        knowledgeBase: '',
+        customInstructions: '',
+        autoRespondMessages: false,
+        autoRespondComments: false
+      },
+      instagram: {
+        businessName: '',
+        industry: '',
+        businessDescription: '',
+        responseTone: 'Professional',
+        responseLength: 'Short',
+        knowledgeBase: '',
+        customInstructions: '',
+        autoRespondDMs: false,
+        autoRespondComments: false
+      },
+      text: {
+        businessName: '',
+        industry: '',
+        businessDescription: '',
+        responseTone: 'Professional',
+        responseLength: 'Short',
+        knowledgeBase: '',
+        customInstructions: '',
+        enableAutoResponses: false,
+        hotLeadDetection: false,
+        responseDelay: ''
+      },
+      chatbot: {
+        businessName: '',
+        industry: '',
+        businessDescription: '',
+        responseTone: 'Professional',
+        responseLength: 'Short',
+        knowledgeBase: '',
+        customInstructions: '',
+        proactiveEngagement: false,
+        collectContactInfo: false
+      }
+    });
+
+    const [saving, setSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState('');
+
+    const handleSaveSettings = async (channel) => {
+      setSaving(true);
+      setSaveMessage('');
+      
+      try {
+        const response = await fetch('/api/ai-settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            channel: channel,
+            settings: settingsData[channel]
+          })
+        });
+
+        if (response.ok) {
+          setSaveMessage(`${channel.charAt(0).toUpperCase() + channel.slice(1)} settings saved successfully!`);
+          setTimeout(() => setSaveMessage(''), 3000);
+        } else {
+          setSaveMessage('Failed to save settings. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error saving settings:', error);
+        setSaveMessage('Error saving settings. Please try again.');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const updateSettings = (channel, field, value) => {
+      setSettingsData(prev => ({
+        ...prev,
+        [channel]: {
+          ...prev[channel],
+          [field]: value
+        }
+      }));
+    };
+
     return (
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
         <div className="flex items-center space-x-3 mb-6">
@@ -517,14 +617,20 @@ export default function MainDashboard() {
                 <div className="space-y-3">
                   <input 
                     placeholder="Business Name"
+                    value={settingsData.email.businessName}
+                    onChange={(e) => updateSettings('email', 'businessName', e.target.value)}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
                   />
                   <input 
                     placeholder="Industry"
+                    value={settingsData.email.industry}
+                    onChange={(e) => updateSettings('email', 'industry', e.target.value)}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
                   />
                   <textarea 
                     placeholder="Business description..."
+                    value={settingsData.email.businessDescription}
+                    onChange={(e) => updateSettings('email', 'businessDescription', e.target.value)}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
                   />
                 </div>
@@ -538,7 +644,11 @@ export default function MainDashboard() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-300">Response tone</span>
-                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white">
+                    <select 
+                      value={settingsData.email.responseTone}
+                      onChange={(e) => updateSettings('email', 'responseTone', e.target.value)}
+                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                    >
                       <option>Professional</option>
                       <option>Casual</option>
                       <option>Formal</option>
@@ -547,7 +657,11 @@ export default function MainDashboard() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-300">Response length</span>
-                    <select className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white">
+                    <select 
+                      value={settingsData.email.responseLength}
+                      onChange={(e) => updateSettings('email', 'responseLength', e.target.value)}
+                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                    >
                       <option>Short</option>
                       <option>Medium</option>
                       <option>Long</option>
@@ -584,9 +698,22 @@ export default function MainDashboard() {
                 />
               </div>
 
-              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
-                Save Email Settings
+              <button 
+                onClick={() => handleSaveSettings('email')}
+                disabled={saving}
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Email Settings'}
               </button>
+              {saveMessage && activeAITab === 'email' && (
+                <div className={`mt-2 p-3 rounded-lg text-center ${
+                  saveMessage.includes('successfully') 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}>
+                  {saveMessage}
+                </div>
+              )}
             </div>
           )}
 
@@ -696,9 +823,22 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
-                Save Facebook Settings
+              <button 
+                onClick={() => handleSaveSettings('facebook')}
+                disabled={saving}
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Facebook Settings'}
               </button>
+              {saveMessage && activeAITab === 'facebook' && (
+                <div className={`mt-2 p-3 rounded-lg text-center ${
+                  saveMessage.includes('successfully') 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}>
+                  {saveMessage}
+                </div>
+              )}
             </div>
           )}
 
@@ -808,9 +948,22 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
-                Save Instagram Settings
+              <button 
+                onClick={() => handleSaveSettings('instagram')}
+                disabled={saving}
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Instagram Settings'}
               </button>
+              {saveMessage && activeAITab === 'instagram' && (
+                <div className={`mt-2 p-3 rounded-lg text-center ${
+                  saveMessage.includes('successfully') 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}>
+                  {saveMessage}
+                </div>
+              )}
             </div>
           )}
 
@@ -925,9 +1078,22 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
-                Save SMS Settings
+              <button 
+                onClick={() => handleSaveSettings('text')}
+                disabled={saving}
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save SMS Settings'}
               </button>
+              {saveMessage && activeAITab === 'text' && (
+                <div className={`mt-2 p-3 rounded-lg text-center ${
+                  saveMessage.includes('successfully') 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}>
+                  {saveMessage}
+                </div>
+              )}
             </div>
           )}
 
@@ -1037,9 +1203,22 @@ export default function MainDashboard() {
                 </div>
               </div>
 
-              <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
-                Save Chatbot Settings
+              <button 
+                onClick={() => handleSaveSettings('chatbot')}
+                disabled={saving}
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Chatbot Settings'}
               </button>
+              {saveMessage && activeAITab === 'chatbot' && (
+                <div className={`mt-2 p-3 rounded-lg text-center ${
+                  saveMessage.includes('successfully') 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}>
+                  {saveMessage}
+                </div>
+              )}
             </div>
           )}
         </div>
