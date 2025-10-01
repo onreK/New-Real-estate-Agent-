@@ -531,6 +531,43 @@ export default function MainDashboard() {
 
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
+    const [loadingSettings, setLoadingSettings] = useState(true);
+
+    // Load existing settings when component mounts
+    useEffect(() => {
+      loadAllSettings();
+    }, []);
+
+    const loadAllSettings = async () => {
+      try {
+        setLoadingSettings(true);
+        const response = await fetch('/api/ai-settings');
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.settings) {
+            // Update state with loaded settings for each channel
+            const updatedSettings = { ...settingsData };
+            
+            Object.keys(data.settings).forEach(channel => {
+              if (data.settings[channel] && updatedSettings[channel]) {
+                updatedSettings[channel] = {
+                  ...updatedSettings[channel],
+                  ...data.settings[channel]
+                };
+              }
+            });
+            
+            setSettingsData(updatedSettings);
+            console.log('✅ Loaded existing AI settings');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading AI settings:', error);
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
 
     const handleSaveSettings = async (channel) => {
       setSaving(true);
@@ -571,6 +608,17 @@ export default function MainDashboard() {
         }
       }));
     };
+
+    if (loadingSettings) {
+      return (
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 text-purple-400 animate-spin mx-auto mb-2" />
+            <p className="text-white">Loading AI Settings...</p>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
