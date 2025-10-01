@@ -1,406 +1,359 @@
-// Replace just the AISettingsSection component in your dashboard/page.js with this:
+import { NextResponse } from 'next/server';
+import { currentUser } from '@clerk/nextjs';
+import { getCustomerByClerkId, getDbClient } from '../../../lib/database';
 
-const AISettingsSection = () => {
-  const [settingsData, setSettingsData] = useState({
-    email: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Professional',
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: ''
-    },
-    facebook: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Casual',  // Default to casual for Facebook
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: '',
-      autoRespondMessages: false,
-      autoRespondComments: false
-    },
-    instagram: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Friendly',  // Default to friendly for Instagram
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: '',
-      autoRespondDMs: false,
-      autoRespondComments: false
-    },
-    text: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Professional',
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: '',
-      enableAutoResponses: false,
-      hotLeadDetection: false,
-      responseDelay: ''
-    },
-    chatbot: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Friendly',
-      responseLength: 'Medium',
-      knowledgeBase: '',
-      customInstructions: '',
-      proactiveEngagement: false,
-      collectContactInfo: false
+// GET endpoint to load AI settings for all channels
+export async function GET() {
+  try {
+    const user = await currentUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-  });
 
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
-  const [loadingSettings, setLoadingSettings] = useState(true);
+    // Get customer from database
+    let customer = await getCustomerByClerkId(user.id);
+    
+    if (!customer) {
+      // Create customer if not exists
+      customer = await createCustomerIfNotExists(user);
+    }
 
-  // Load existing settings when component mounts
-  useEffect(() => {
-    loadAllSettings();
-  }, []);
-
-  const loadAllSettings = async () => {
+    const client = await getDbClient().connect();
     try {
-      setLoadingSettings(true);
+      // First, ensure the ai_channel_settings table exists
+      await ensureChannelSettingsTableExists(client);
       
-      // First, try to load from the centralized AI settings endpoint
-      const response = await fetch('/api/ai-settings');
+      // Get all channel settings for this customer
+      const query = 'SELECT * FROM ai_channel_settings WHERE customer_id = $1';
+      const result = await client.query(query, [customer.id]);
       
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.settings) {
-          // Load the saved channel-specific settings
-          const updatedSettings = { ...settingsData };
-          
-          Object.keys(data.settings).forEach(channel => {
-            if (data.settings[channel] && updatedSettings[channel]) {
-              updatedSettings[channel] = {
-                ...updatedSettings[channel],
-                ...data.settings[channel]
-              };
-            }
-          });
-          
-          setSettingsData(updatedSettings);
-          console.log('✅ Loaded channel-specific AI settings');
+      // Also get email settings as fallback for email channel
+      const emailQuery = 'SELECT * FROM email_settings WHERE customer_id = $1';
+      const emailResult = await client.query(emailQuery, [customer.id]);
+      const emailSettings = emailResult.rows[0];
+      
+      // Structure the settings by channel
+      const settings = {};
+      
+      // Process channel-specific settings
+      result.rows.forEach(row => {
+        settings[row.channel] = {
+          businessName: row.business_name || '',
+          industry: row.industry || '',
+          businessDescription: row.business_description || '',
+          responseTone: row.response_tone || 'Professional',
+          responseLength: row.response_length || 'Short',
+          knowledgeBase: row.knowledge_base || '',
+          customInstructions: row.custom_instructions || '',
+          // Channel-specific settings
+          ...(row.channel === 'facebook' && {
+            autoRespondMessages: row.auto_respond_messages || false,
+            autoRespondComments: row.auto_respond_comments || false
+          }),
+          ...(row.channel === 'instagram' && {
+            autoRespondDMs: row.auto_respond_dms || false,
+            autoRespondComments: row.auto_respond_comments || false
+          }),
+          ...(row.channel === 'text' && {
+            enableAutoResponses: row.enable_auto_responses || false,
+            hotLeadDetection: row.hot_lead_detection || false,
+            responseDelay: row.response_delay || ''
+          }),
+          ...(row.channel === 'chatbot' && {
+            proactiveEngagement: row.proactive_engagement || false,
+            collectContactInfo: row.collect_contact_info || false
+          })
+        };
+      });
+      
+      // If no email channel settings, use data from email_settings table as fallback
+      if (!settings.email && emailSettings) {
+        settings.email = {
+          businessName: customer.business_name || '',
+          industry: emailSettings.expertise || '',
+          businessDescription: emailSettings.specialties || '',
+          responseTone: (emailSettings.tone || 'professional').charAt(0).toUpperCase() + (emailSettings.tone || 'professional').slice(1).toLowerCase(),
+          responseLength: (emailSettings.response_length || 'short').charAt(0).toUpperCase() + (emailSettings.response_length || 'short').slice(1).toLowerCase(),
+          knowledgeBase: emailSettings.knowledge_base || '',
+          customInstructions: emailSettings.custom_instructions || emailSettings.ai_system_prompt || ''
+        };
+      }
+      
+      return NextResponse.json({
+        success: true,
+        settings: settings,
+        customer: {
+          id: customer.id,
+          business_name: customer.business_name,
+          email: customer.email
         }
-      } else {
-        // Fallback: Load from customer AI settings for email channel
-        const fallbackResponse = await fetch('/api/customer/ai-settings');
+      });
+      
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error('❌ Error getting AI settings:', error);
+    return NextResponse.json({ 
+      error: 'Failed to get AI settings',
+      details: error.message 
+    }, { status: 500 });
+  }
+}
+
+// POST endpoint to save AI settings for a specific channel
+export async function POST(request) {
+  try {
+    const user = await currentUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get customer from database
+    let customer = await getCustomerByClerkId(user.id);
+    
+    if (!customer) {
+      customer = await createCustomerIfNotExists(user);
+    }
+
+    const body = await request.json();
+    const { channel, settings } = body;
+    
+    console.log('💾 Saving AI settings for channel:', channel);
+    console.log('Settings data:', settings);
+
+    const client = await getDbClient().connect();
+    try {
+      // Ensure table exists
+      await ensureChannelSettingsTableExists(client);
+      
+      // Check if settings exist for this channel
+      const checkQuery = 'SELECT id FROM ai_channel_settings WHERE customer_id = $1 AND channel = $2';
+      const checkResult = await client.query(checkQuery, [customer.id, channel]);
+      
+      let query, values;
+      
+      if (checkResult.rows.length > 0) {
+        // Update existing settings
+        console.log('🔄 Updating existing settings for channel:', channel);
         
-        if (fallbackResponse.ok) {
-          const data = await fallbackResponse.json();
+        // Build dynamic update query based on channel
+        const baseFields = {
+          business_name: settings.businessName || '',
+          industry: settings.industry || '',
+          business_description: settings.businessDescription || '',
+          response_tone: settings.responseTone || 'Professional',
+          response_length: settings.responseLength || 'Short',
+          knowledge_base: settings.knowledgeBase || '',
+          custom_instructions: settings.customInstructions || ''
+        };
+        
+        // Add channel-specific fields
+        const channelSpecificFields = {};
+        
+        if (channel === 'facebook') {
+          channelSpecificFields.auto_respond_messages = settings.autoRespondMessages || false;
+          channelSpecificFields.auto_respond_comments = settings.autoRespondComments || false;
+        } else if (channel === 'instagram') {
+          channelSpecificFields.auto_respond_dms = settings.autoRespondDMs || false;
+          channelSpecificFields.auto_respond_comments = settings.autoRespondComments || false;
+        } else if (channel === 'text') {
+          channelSpecificFields.enable_auto_responses = settings.enableAutoResponses || false;
+          channelSpecificFields.hot_lead_detection = settings.hotLeadDetection || false;
+          channelSpecificFields.response_delay = settings.responseDelay || '';
+        } else if (channel === 'chatbot') {
+          channelSpecificFields.proactive_engagement = settings.proactiveEngagement || false;
+          channelSpecificFields.collect_contact_info = settings.collectContactInfo || false;
+        }
+        
+        const allFields = { ...baseFields, ...channelSpecificFields };
+        const fieldNames = Object.keys(allFields);
+        const setClause = fieldNames.map((field, index) => `${field} = $${index + 1}`).join(', ');
+        
+        query = `
+          UPDATE ai_channel_settings 
+          SET ${setClause}, updated_at = CURRENT_TIMESTAMP
+          WHERE customer_id = $${fieldNames.length + 1} AND channel = $${fieldNames.length + 2}
+          RETURNING *
+        `;
+        
+        values = [...Object.values(allFields), customer.id, channel];
+        
+      } else {
+        // Insert new settings
+        console.log('➕ Creating new settings for channel:', channel);
+        
+        query = `
+          INSERT INTO ai_channel_settings (
+            customer_id, channel, business_name, industry, business_description,
+            response_tone, response_length, knowledge_base, custom_instructions,
+            auto_respond_messages, auto_respond_comments, auto_respond_dms,
+            enable_auto_responses, hot_lead_detection, response_delay,
+            proactive_engagement, collect_contact_info,
+            created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          ) RETURNING *
+        `;
+        
+        values = [
+          customer.id,
+          channel,
+          settings.businessName || '',
+          settings.industry || '',
+          settings.businessDescription || '',
+          settings.responseTone || 'Professional',
+          settings.responseLength || 'Short',
+          settings.knowledgeBase || '',
+          settings.customInstructions || '',
+          // Facebook settings
+          channel === 'facebook' ? (settings.autoRespondMessages || false) : false,
+          (channel === 'facebook' || channel === 'instagram') ? (settings.autoRespondComments || false) : false,
+          // Instagram settings
+          channel === 'instagram' ? (settings.autoRespondDMs || false) : false,
+          // Text settings
+          channel === 'text' ? (settings.enableAutoResponses || false) : false,
+          channel === 'text' ? (settings.hotLeadDetection || false) : false,
+          channel === 'text' ? (settings.responseDelay || '') : '',
+          // Chatbot settings
+          channel === 'chatbot' ? (settings.proactiveEngagement || false) : false,
+          channel === 'chatbot' ? (settings.collectContactInfo || false) : false
+        ];
+      }
+
+      const result = await client.query(query, values);
+      const savedSettings = result.rows[0];
+      
+      // If email channel, also update email_settings table for compatibility
+      if (channel === 'email' && settings) {
+        try {
+          const emailUpdateQuery = `
+            UPDATE email_settings 
+            SET expertise = $1, specialties = $2, knowledge_base = $3,
+                custom_instructions = $4, ai_system_prompt = $5,
+                tone = $6, response_length = $7,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE customer_id = $8
+          `;
           
-          if (data.settings) {
-            // Only update email channel with fallback data
-            setSettingsData(prev => ({
-              ...prev,
-              email: {
-                ...prev.email,
-                businessName: data.customer?.business_name || '',
-                industry: data.settings.expertise || '',
-                businessDescription: data.settings.specialties || '',
-                knowledgeBase: data.settings.knowledge_base || '',
-                customInstructions: data.settings.custom_instructions || data.settings.ai_system_prompt || '',
-                responseTone: (data.settings.tone || 'professional').charAt(0).toUpperCase() + (data.settings.tone || 'professional').slice(1).toLowerCase(),
-                responseLength: (data.settings.response_length || 'medium').charAt(0).toUpperCase() + (data.settings.response_length || 'medium').slice(1).toLowerCase()
-              }
-            }));
-            console.log('✅ Loaded email settings from fallback');
-          }
+          await client.query(emailUpdateQuery, [
+            settings.industry || '',
+            settings.businessDescription || '',
+            settings.knowledgeBase || '',
+            settings.customInstructions || '',
+            settings.customInstructions || '',
+            (settings.responseTone || 'Professional').toLowerCase(),
+            (settings.responseLength || 'Short').toLowerCase(),
+            customer.id
+          ]);
+          
+          console.log('✅ Also updated email_settings table for compatibility');
+        } catch (emailError) {
+          console.log('Email settings update skipped:', emailError.message);
         }
       }
-    } catch (error) {
-      console.error('Error loading AI settings:', error);
-    } finally {
-      setLoadingSettings(false);
-    }
-  };
 
-  const handleSaveSettings = async (channel) => {
-    setSaving(true);
-    setSaveMessage('');
-    
-    try {
-      // Save to the centralized AI settings endpoint with channel-specific data
-      const response = await fetch('/api/ai-settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          channel: channel,
-          settings: settingsData[channel]
-        })
+      console.log('✅ AI settings saved successfully for channel:', channel);
+      
+      return NextResponse.json({
+        success: true,
+        settings: savedSettings,
+        message: `${channel} settings saved successfully`
       });
 
-      if (response.ok) {
-        setSaveMessage(`${channel.charAt(0).toUpperCase() + channel.slice(1)} settings saved successfully!`);
-        setTimeout(() => setSaveMessage(''), 3000);
-        
-        // Also save core business info to email settings for compatibility
-        if (channel === 'email') {
-          try {
-            await fetch('/api/email-settings/save', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                business_name: settingsData.email.businessName,
-                expertise: settingsData.email.industry,
-                specialties: settingsData.email.businessDescription,
-                knowledge_base: settingsData.email.knowledgeBase,
-                custom_instructions: settingsData.email.customInstructions,
-                ai_system_prompt: settingsData.email.customInstructions,
-                tone: settingsData.email.responseTone.toLowerCase(),
-                response_length: settingsData.email.responseLength.toLowerCase()
-              })
-            });
-            console.log('✅ Also saved email settings to email-settings endpoint');
-          } catch (emailError) {
-            console.log('Email settings backup save failed:', emailError);
-          }
-        }
-      } else {
-        setSaveMessage('Failed to save settings. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      setSaveMessage('Error saving settings. Please try again.');
     } finally {
-      setSaving(false);
+      client.release();
     }
-  };
 
-  const updateSettings = (channel, field, value) => {
-    setSettingsData(prev => ({
-      ...prev,
-      [channel]: {
-        ...prev[channel],
-        [field]: value
-      }
-    }));
-  };
-
-  if (loadingSettings) {
-    return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 text-purple-400 animate-spin mx-auto mb-2" />
-          <p className="text-white">Loading AI Settings...</p>
-        </div>
-      </div>
-    );
+  } catch (error) {
+    console.error('❌ Error saving AI settings:', error);
+    return NextResponse.json({ 
+      success: false,
+      error: 'Failed to save AI settings',
+      details: error.message 
+    }, { status: 500 });
   }
+}
 
-  return (
-    <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-          <Cpu className="w-8 h-8 text-purple-400" />
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-white">AI Settings</h3>
-          <p className="text-sm text-gray-300">Configure unique AI behavior for each communication channel</p>
-        </div>
-      </div>
+// Helper function to create customer if not exists
+async function createCustomerIfNotExists(user) {
+  const client = await getDbClient().connect();
+  
+  try {
+    const businessName = user.firstName && user.lastName 
+      ? `${user.firstName} ${user.lastName}'s Business`
+      : 'My Business';
+    
+    const email = user.emailAddresses?.[0]?.emailAddress || 'user@example.com';
+    
+    const insertQuery = `
+      INSERT INTO customers (
+        clerk_user_id, business_name, email, plan, 
+        created_at, updated_at
+      ) 
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *
+    `;
+    
+    const result = await client.query(insertQuery, [
+      user.id, businessName, email, 'starter'
+    ]);
+    
+    return result.rows[0];
+    
+  } finally {
+    client.release();
+  }
+}
 
-      {/* Tab navigation */}
-      <div className="flex space-x-2 mb-6 border-b border-white/10 pb-2">
-        {aiSettingsTabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveAITab(tab.id)}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeAITab === tab.id
-                ? 'bg-purple-500/30 text-purple-400 border border-purple-500/50'
-                : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Show current channel's tone as a badge */}
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-xs text-gray-400">Current tone for {activeAITab}:</span>
-        <span className="px-2 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-medium">
-          {settingsData[activeAITab]?.responseTone || 'Not set'}
-        </span>
-      </div>
-
-      {/* Tab content - Include all channel tabs here */}
-      <div className="space-y-6">
-        {/* For brevity, I'm showing the structure. You'll need to include all channels */}
-        {Object.keys(settingsData).map(channelKey => (
-          activeAITab === channelKey && (
-            <div key={channelKey} className="space-y-4">
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                  <aiSettingsTabs.find(t => t.id === channelKey)?.icon className="w-5 h-5 text-purple-400" />
-                  Business Profile
-                </h4>
-                <p className="text-sm text-gray-300 mb-4">Tell the AI about your business</p>
-                <div className="space-y-3">
-                  <input 
-                    placeholder="Business Name"
-                    value={settingsData[channelKey].businessName}
-                    onChange={(e) => updateSettings(channelKey, 'businessName', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                  />
-                  <input 
-                    placeholder="Industry"
-                    value={settingsData[channelKey].industry}
-                    onChange={(e) => updateSettings(channelKey, 'industry', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                  />
-                  <textarea 
-                    placeholder="Business description..."
-                    value={settingsData[channelKey].businessDescription}
-                    onChange={(e) => updateSettings(channelKey, 'businessDescription', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-purple-400" />
-                  Communication Settings for {channelKey.charAt(0).toUpperCase() + channelKey.slice(1)}
-                </h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-300">Response tone</span>
-                    <select 
-                      value={settingsData[channelKey].responseTone}
-                      onChange={(e) => updateSettings(channelKey, 'responseTone', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
-                    >
-                      <option>Professional</option>
-                      <option>Casual</option>
-                      <option>Formal</option>
-                      <option>Friendly</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-300">Response length</span>
-                    <select 
-                      value={settingsData[channelKey].responseLength}
-                      onChange={(e) => updateSettings(channelKey, 'responseLength', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
-                    >
-                      <option>Short</option>
-                      <option>Medium</option>
-                      <option>Long</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-purple-400" />
-                  {channelKey.charAt(0).toUpperCase() + channelKey.slice(1)}-Specific Knowledge Base
-                </h4>
-                <p className="text-sm text-gray-400 mb-3">
-                  Add channel-specific information (e.g., more casual FAQs for social media)
-                </p>
-                <textarea 
-                  placeholder={`Enter ${channelKey}-specific information...`}
-                  value={settingsData[channelKey].knowledgeBase}
-                  onChange={(e) => updateSettings(channelKey, 'knowledgeBase', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
-                />
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                  <Bot className="w-5 h-5 text-purple-400" />
-                  Custom AI Instructions for {channelKey.charAt(0).toUpperCase() + channelKey.slice(1)}
-                </h4>
-                <p className="text-sm text-gray-400 mb-3">
-                  {channelKey === 'email' && "Professional email responses with formal greetings"}
-                  {channelKey === 'facebook' && "Friendly, engaging responses with emojis okay 😊"}
-                  {channelKey === 'instagram' && "Trendy, visual-focused responses with hashtags"}
-                  {channelKey === 'text' && "Brief, to-the-point SMS responses"}
-                  {channelKey === 'chatbot' && "Interactive, helpful website chat responses"}
-                </p>
-                <textarea 
-                  placeholder={`Enter ${channelKey}-specific AI behavior instructions...`}
-                  value={settingsData[channelKey].customInstructions}
-                  onChange={(e) => updateSettings(channelKey, 'customInstructions', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
-                />
-              </div>
-
-              {/* Channel-specific toggles */}
-              {channelKey === 'facebook' && (
-                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                  <h4 className="text-white font-medium mb-3">Facebook Configuration</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-300">Auto-respond to messages</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={settingsData.facebook.autoRespondMessages}
-                          onChange={(e) => updateSettings('facebook', 'autoRespondMessages', e.target.checked)}
-                          className="sr-only peer" 
-                        />
-                        <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-300">Auto-respond to comments</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={settingsData.facebook.autoRespondComments}
-                          onChange={(e) => updateSettings('facebook', 'autoRespondComments', e.target.checked)}
-                          className="sr-only peer" 
-                        />
-                        <div className="w-11 h-6 bg-gray-600 peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Add similar channel-specific configuration for other channels */}
-
-              <button 
-                onClick={() => handleSaveSettings(channelKey)}
-                disabled={saving}
-                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
-              >
-                {saving ? 'Saving...' : `Save ${channelKey.charAt(0).toUpperCase() + channelKey.slice(1)} Settings`}
-              </button>
-              
-              {saveMessage && activeAITab === channelKey && (
-                <div className={`mt-2 p-3 rounded-lg text-center ${
-                  saveMessage.includes('successfully') 
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                }`}>
-                  {saveMessage}
-                </div>
-              )}
-            </div>
-          )
-        ))}
-      </div>
-    </div>
-  );
-};
+// Helper function to ensure the ai_channel_settings table exists
+async function ensureChannelSettingsTableExists(client) {
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_channel_settings (
+        id SERIAL PRIMARY KEY,
+        customer_id INTEGER NOT NULL,
+        channel VARCHAR(50) NOT NULL,
+        business_name TEXT,
+        industry TEXT,
+        business_description TEXT,
+        response_tone VARCHAR(50),
+        response_length VARCHAR(50),
+        knowledge_base TEXT,
+        custom_instructions TEXT,
+        
+        -- Facebook specific
+        auto_respond_messages BOOLEAN DEFAULT false,
+        auto_respond_comments BOOLEAN DEFAULT false,
+        
+        -- Instagram specific
+        auto_respond_dms BOOLEAN DEFAULT false,
+        
+        -- Text/SMS specific
+        enable_auto_responses BOOLEAN DEFAULT false,
+        hot_lead_detection BOOLEAN DEFAULT false,
+        response_delay VARCHAR(50),
+        
+        -- Chatbot specific
+        proactive_engagement BOOLEAN DEFAULT false,
+        collect_contact_info BOOLEAN DEFAULT false,
+        
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        
+        UNIQUE(customer_id, channel)
+      )
+    `);
+    
+    console.log('✅ Ensured ai_channel_settings table exists');
+  } catch (error) {
+    if (!error.message.includes('already exists')) {
+      console.error('Error creating table:', error);
+      throw error;
+    }
+  }
+}
