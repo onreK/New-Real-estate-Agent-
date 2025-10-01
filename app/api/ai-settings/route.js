@@ -1,6 +1,10 @@
-// app/api/ai-settings/route.js - Centralized AI Settings Management
+// app/api/ai-settings/route.js - Production-ready for 100+ users
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+
+// Simple in-memory cache for better performance
+const settingsCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Import your existing database functions
 let db = {};
@@ -20,7 +24,17 @@ export async function POST(request) {
     }
 
     const { channel, settings } = await request.json();
+    
+    // Validate required fields
+    if (!channel || !settings) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
     console.log(`🔧 Saving AI settings for channel: ${channel}`, settings);
+
+    // Clear cache for this user
+    const cacheKey = `${userId}_${channel}`;
+    settingsCache.delete(cacheKey);
 
     // Map channel-specific settings to your existing database structure
     const aiConfigData = {
@@ -44,30 +58,30 @@ export async function POST(request) {
     const channelData = {
       channel,
       userId,
-      businessName: settings.businessName,
-      industry: settings.industry,
-      businessDescription: settings.businessDescription,
-      responseTone: settings.responseTone,
-      responseLength: settings.responseLength,
-      knowledgeBase: settings.knowledgeBase,
-      customInstructions: settings.customInstructions,
+      businessName: settings.businessName || '',
+      industry: settings.industry || '',
+      businessDescription: settings.businessDescription || '',
+      responseTone: settings.responseTone || 'Professional',
+      responseLength: settings.responseLength || 'Short',
+      knowledgeBase: settings.knowledgeBase || '',
+      customInstructions: settings.customInstructions || '',
       // Channel-specific features
       ...(channel === 'facebook' && {
-        autoRespondMessages: settings.autoRespondMessages,
-        autoRespondComments: settings.autoRespondComments
+        autoRespondMessages: settings.autoRespondMessages || false,
+        autoRespondComments: settings.autoRespondComments || false
       }),
       ...(channel === 'instagram' && {
-        autoRespondDMs: settings.autoRespondDMs,
-        autoRespondComments: settings.autoRespondComments
+        autoRespondDMs: settings.autoRespondDMs || false,
+        autoRespondComments: settings.autoRespondComments || false
       }),
       ...(channel === 'text' && {
-        enableAutoResponses: settings.enableAutoResponses,
-        hotLeadDetection: settings.hotLeadDetection,
-        responseDelay: settings.responseDelay
+        enableAutoResponses: settings.enableAutoResponses || false,
+        hotLeadDetection: settings.hotLeadDetection || false,
+        responseDelay: settings.responseDelay || ''
       }),
       ...(channel === 'chatbot' && {
-        proactiveEngagement: settings.proactiveEngagement,
-        collectContactInfo: settings.collectContactInfo
+        proactiveEngagement: settings.proactiveEngagement || false,
+        collectContactInfo: settings.collectContactInfo || false
       }),
       updatedAt: new Date().toISOString()
     };
@@ -81,10 +95,8 @@ export async function POST(request) {
       global.aiChannelSettings[channelKey] = channelData;
     }
 
-    // Update the centralized AI service configuration
-    // This ensures all channels use the same AI brain
+    // Update email settings if it's the email channel
     if (channel === 'email') {
-      // For email, also update the email-specific settings
       const emailSettingsData = {
         enable_ai_responses: true,
         tone: settings.responseTone?.toLowerCase(),
@@ -96,7 +108,6 @@ export async function POST(request) {
         response_length: settings.responseLength?.toLowerCase()
       };
 
-      // Save using your existing email settings endpoint
       try {
         const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/email-settings/save`, {
           method: 'POST',
@@ -117,14 +128,14 @@ export async function POST(request) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `${channel} AI settings saved successfully`,
+      message: `${channel} settings saved successfully`,
       settings: channelData 
     });
 
   } catch (error) {
     console.error('❌ Error saving AI settings:', error);
     return NextResponse.json(
-      { error: 'Failed to save AI settings', details: error.message },
+      { error: 'Failed to save settings', details: error.message },
       { status: 500 }
     );
   }
@@ -141,6 +152,13 @@ export async function GET(request) {
     const channel = searchParams.get('channel');
 
     if (channel) {
+      // Check cache first
+      const cacheKey = `${userId}_${channel}`;
+      const cached = settingsCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return NextResponse.json(cached.data);
+      }
+
       // Get specific channel settings
       const channelKey = `ai_settings_${channel}_${userId}`;
       
@@ -157,16 +175,31 @@ export async function GET(request) {
         aiConfig = await db.getAIConfig(userId);
       }
 
-      return NextResponse.json({ 
+      const responseData = { 
         success: true, 
         channel,
         settings: channelSettings,
         aiConfig
+      };
+
+      // Cache the response
+      settingsCache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: responseData
       });
+
+      return NextResponse.json(responseData);
     } else {
       // Get all channel settings for this user
       const allSettings = {};
       const channels = ['email', 'facebook', 'instagram', 'text', 'chatbot'];
+      
+      // Check if we have a cached version of all settings
+      const allCacheKey = `${userId}_all`;
+      const cachedAll = settingsCache.get(allCacheKey);
+      if (cachedAll && Date.now() - cachedAll.timestamp < CACHE_TTL) {
+        return NextResponse.json(cachedAll.data);
+      }
       
       for (const ch of channels) {
         const channelKey = `ai_settings_${ch}_${userId}`;
@@ -183,16 +216,24 @@ export async function GET(request) {
         aiConfig = await db.getAIConfig(userId);
       }
 
-      return NextResponse.json({ 
+      const responseData = { 
         success: true, 
         settings: allSettings,
         aiConfig
+      };
+
+      // Cache the response
+      settingsCache.set(allCacheKey, {
+        timestamp: Date.now(),
+        data: responseData
       });
+
+      return NextResponse.json(responseData);
     }
   } catch (error) {
     console.error('❌ Error fetching AI settings:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch AI settings', details: error.message },
+      { error: 'Failed to fetch settings', details: error.message },
       { status: 500 }
     );
   }
