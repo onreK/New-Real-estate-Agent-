@@ -1407,7 +1407,7 @@ export default function MainDashboard() {
             </div>
           </div>
           
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs - UPDATED WITH SETTINGS REDIRECT */}
           <div className="mt-6">
             <nav className="flex space-x-1 flex-wrap gap-1">
               {tabs.map((tab) => (
@@ -1418,6 +1418,8 @@ export default function MainDashboard() {
                       router.push('/analytics');
                     } else if (tab.id === 'leads') {
                       router.push('/leads');
+                    } else if (tab.id === 'settings') {
+                      router.push('/settings');
                     } else {
                       setActiveTab(tab.id);
                     }
@@ -1781,8 +1783,8 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* Rest of the tabs... (Analytics, Web Chat, SMS, Email, etc.) */}
-        {/* These remain unchanged from the original */}
+        {/* Rest of the tabs remain unchanged - webchat, sms, email, facebook, instagram tabs */}
+        {/* These would continue here but are cut for brevity since they don't change */}
       </div>
     </div>
   );
