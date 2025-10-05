@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
-import { getDbClient } from '@/lib/database';
+
+// Lazy load database to prevent build errors
+let getDbClient;
+
+async function initializeDatabase() {
+  if (!getDbClient) {
+    const db = await import('@/lib/database');
+    getDbClient = db.getDbClient;
+  }
+  return getDbClient;
+}
 
 // This API tracks usage for the current customer
 // Call this whenever a customer uses a feature (sends email, SMS, starts conversation)
@@ -19,6 +29,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid usage type' }, { status: 400 });
     }
     
+    // Initialize database connection
+    const getDbClient = await initializeDatabase();
     const client = await getDbClient().connect();
     
     try {
@@ -74,6 +86,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Initialize database connection
+    const getDbClient = await initializeDatabase();
     const client = await getDbClient().connect();
     
     try {
