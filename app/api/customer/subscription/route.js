@@ -1,302 +1,491 @@
-// app/api/customer/subscription/route.js
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs';
-import { query } from '@/lib/database';
 
-// Force dynamic rendering since we use authentication
-export const dynamic = 'force-dynamic';
+// Lazy load database and Stripe to prevent build errors
+let getDbClient;
+let Stripe;
+let stripe;
+
+// Initialize connections only when needed
+async function initializeConnections() {
+  if (!getDbClient) {
+    const db = await import('@/lib/database');
+    getDbClient = db.getDbClient;
+  }
+  
+  if (!stripe) {
+    Stripe = (await import('stripe')).default;
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  
+  return { getDbClient, stripe };
+}
+
+// Your actual Stripe price IDs
+const STRIPE_PRICE_IDS = {
+  starter: 'price_1ResOf02X1Dd2GE6KvOoZQIm',
+  professional: 'price_1ResRt02X1Dd2GE6V0ZNpRv5',
+  enterprise: 'price_1ResT402X1Dd2GE6Y0KIFfqD'
+};
+
+const PLAN_DETAILS = {
+  starter: {
+    name: 'Starter',
+    price: 99,
+    features: {
+      conversations: 500,
+      emailResponses: 1000,
+      smsMessages: 200,
+      aiAgents: 1,
+      teamMembers: 2,
+      integrations: 3
+    }
+  },
+  professional: {
+    name: 'Professional',
+    price: 299,
+    features: {
+      conversations: 2000,
+      emailResponses: 5000,
+      smsMessages: 1000,
+      aiAgents: 3,
+      teamMembers: 10,
+      integrations: 'All'
+    }
+  },
+  enterprise: {
+    name: 'Enterprise',
+    price: 799,
+    features: {
+      conversations: 'Unlimited',
+      emailResponses: 'Unlimited',
+      smsMessages: 5000,
+      aiAgents: 'Unlimited',
+      teamMembers: 'Unlimited',
+      integrations: 'Custom'
+    }
+  }
+};
 
 export async function GET() {
   try {
     const user = await currentUser();
     
     if (!user) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Unauthorized' 
-      }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('📊 Getting subscription for user:', user.id);
-
-    // Get customer from database
-    const customerQuery = `
-      SELECT 
-        id,
-        clerk_user_id,
-        business_name,
-        plan,
-        stripe_customer_id,
-        stripe_subscription_id,
-        created_at,
-        updated_at
-      FROM customers 
-      WHERE clerk_user_id = $1
-      LIMIT 1
-    `;
+    // Initialize connections
+    const { getDbClient, stripe } = await initializeConnections();
     
-    const customerResult = await query(customerQuery, [user.id]);
-    
-    if (customerResult.rows.length === 0) {
-      // Return default subscription if customer doesn't exist
-      return NextResponse.json({
-        success: true,
-        subscription: getDefaultSubscription()
+    // Try to get database connection
+    let client;
+    try {
+      client = await getDbClient().connect();
+    } catch (dbError) {
+      console.log('Database not available, returning default subscription');
+      // Return default subscription if database is not available
+      return NextResponse.json({ 
+        subscription: {
+          plan: 'starter',
+          status: 'trialing',
+          trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          planDetails: PLAN_DETAILS.starter,
+          usage: {
+            conversations: 0,
+            emailResponses: 0,
+            smsMessages: 0,
+            maxConversations: 500,
+            maxEmailResponses: 1000,
+            maxSmsMessages: 200
+          }
+        },
+        plans: PLAN_DETAILS
       });
     }
-
-    const customer = customerResult.rows[0];
-
-    // Get usage statistics for the current month
-    const usageStats = await getUsageStatistics(customer.id);
-
-    // Get plan details based on the customer's plan
-    const planDetails = getPlanDetails(customer.plan || 'starter');
-
-    // Calculate next billing date (mock for now)
-    const nextBillingDate = new Date();
-    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
-
-    // Build subscription object
-    const subscription = {
-      plan: customer.plan || 'starter',
-      status: customer.stripe_subscription_id ? 'active' : 'trial',
-      currentPeriodEnd: nextBillingDate.toISOString(),
-      seats: 1,
-      usage: {
-        conversations: usageStats.conversations,
-        maxConversations: planDetails.maxConversations,
-        aiResponses: usageStats.aiResponses,
-        maxAiResponses: planDetails.maxAiResponses,
-        emailsSent: usageStats.emailsSent,
-        maxEmails: planDetails.maxEmails
-      },
-      billing: {
-        amount: planDetails.price,
-        currency: 'USD',
-        interval: 'month',
-        nextBillingDate: nextBillingDate.toISOString()
-      },
-      stripeCustomerId: customer.stripe_customer_id,
-      stripeSubscriptionId: customer.stripe_subscription_id
-    };
-
-    return NextResponse.json({
-      success: true,
-      subscription
-    });
-
-  } catch (error) {
-    console.error('❌ Error getting subscription:', error);
     
+    try {
+      // Get customer from database
+      const customerQuery = 'SELECT * FROM customers WHERE clerk_user_id = $1';
+      const customerResult = await client.query(customerQuery, [user.id]);
+      
+      if (customerResult.rows.length === 0) {
+        // Return trial status if no customer yet
+        return NextResponse.json({ 
+          subscription: {
+            plan: 'starter',
+            status: 'trialing',
+            trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            planDetails: PLAN_DETAILS.starter,
+            usage: {
+              conversations: 0,
+              emailResponses: 0,
+              smsMessages: 0,
+              maxConversations: 500,
+              maxEmailResponses: 1000,
+              maxSmsMessages: 200
+            }
+          },
+          plans: PLAN_DETAILS
+        });
+      }
+      
+      const customer = customerResult.rows[0];
+      
+      // If customer has Stripe subscription, get real data from Stripe
+      if (customer.stripe_subscription_id && stripe) {
+        try {
+          // Get subscription from Stripe
+          const stripeSubscription = await stripe.subscriptions.retrieve(
+            customer.stripe_subscription_id
+          );
+          
+          // Get usage from database - with safe fallback
+          let usage = { conversations: 0, email_responses: 0, sms_messages: 0 };
+          try {
+            const usageQuery = `
+              SELECT 
+                COUNT(DISTINCT CASE WHEN type = 'conversation' AND created_at >= date_trunc('month', CURRENT_DATE) THEN id END) as conversations,
+                COUNT(DISTINCT CASE WHEN type = 'email' AND created_at >= date_trunc('month', CURRENT_DATE) THEN id END) as email_responses,
+                COUNT(DISTINCT CASE WHEN type = 'sms' AND created_at >= date_trunc('month', CURRENT_DATE) THEN id END) as sms_messages
+              FROM customer_usage 
+              WHERE customer_id = $1
+            `;
+            const usageResult = await client.query(usageQuery, [customer.id]);
+            if (usageResult.rows[0]) {
+              usage = usageResult.rows[0];
+            }
+          } catch (usageError) {
+            console.log('Usage table not available yet');
+          }
+          
+          // Determine plan from price ID
+          let planName = 'starter';
+          const priceId = stripeSubscription.items.data[0]?.price.id;
+          
+          if (priceId === STRIPE_PRICE_IDS.professional) {
+            planName = 'professional';
+          } else if (priceId === STRIPE_PRICE_IDS.enterprise) {
+            planName = 'enterprise';
+          }
+          
+          // Check if subscription has a discount
+          let discountInfo = null;
+          if (stripeSubscription.discount) {
+            discountInfo = {
+              coupon: stripeSubscription.discount.coupon.name || stripeSubscription.discount.coupon.id,
+              percentOff: stripeSubscription.discount.coupon.percent_off,
+              amountOff: stripeSubscription.discount.coupon.amount_off,
+              valid: stripeSubscription.discount.end ? new Date(stripeSubscription.discount.end * 1000) > new Date() : true
+            };
+          }
+          
+          return NextResponse.json({ 
+            success: true,
+            subscription: {
+              id: stripeSubscription.id,
+              plan: planName,
+              status: stripeSubscription.status,
+              current_period_start: new Date(stripeSubscription.current_period_start * 1000),
+              current_period_end: new Date(stripeSubscription.current_period_end * 1000),
+              cancel_at_period_end: stripeSubscription.cancel_at_period_end,
+              trial_end: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
+              planDetails: PLAN_DETAILS[planName],
+              discount: discountInfo,
+              usage: {
+                conversations: parseInt(usage.conversations) || 0,
+                emailResponses: parseInt(usage.email_responses) || 0,
+                smsMessages: parseInt(usage.sms_messages) || 0,
+                maxConversations: PLAN_DETAILS[planName].features.conversations,
+                maxEmailResponses: PLAN_DETAILS[planName].features.emailResponses,
+                maxSmsMessages: PLAN_DETAILS[planName].features.smsMessages
+              }
+            },
+            plans: PLAN_DETAILS
+          });
+          
+        } catch (stripeError) {
+          console.error('Stripe error:', stripeError);
+          // Fall back to database data if Stripe fails
+        }
+      }
+      
+      // Return default subscription data
+      return NextResponse.json({ 
+        success: true,
+        subscription: {
+          plan: customer.plan || 'starter',
+          status: 'trialing',
+          planDetails: PLAN_DETAILS[customer.plan || 'starter'],
+          usage: {
+            conversations: 0,
+            emailResponses: 0,
+            smsMessages: 0,
+            maxConversations: PLAN_DETAILS[customer.plan || 'starter'].features.conversations,
+            maxEmailResponses: PLAN_DETAILS[customer.plan || 'starter'].features.emailResponses,
+            maxSmsMessages: PLAN_DETAILS[customer.plan || 'starter'].features.smsMessages
+          }
+        },
+        plans: PLAN_DETAILS
+      });
+      
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  } catch (error) {
+    console.error('Error getting subscription:', error);
+    // Return default data on any error
     return NextResponse.json({ 
-      success: false,
-      error: 'Failed to get subscription',
-      subscription: getDefaultSubscription()
-    }, { status: 500 });
+      subscription: {
+        plan: 'starter',
+        status: 'trialing',
+        trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        planDetails: PLAN_DETAILS.starter,
+        usage: {
+          conversations: 0,
+          emailResponses: 0,
+          smsMessages: 0,
+          maxConversations: 500,
+          maxEmailResponses: 1000,
+          maxSmsMessages: 200
+        }
+      },
+      plans: PLAN_DETAILS
+    });
   }
 }
 
-// Helper function to get usage statistics
-async function getUsageStatistics(customerId) {
-  try {
-    // Get conversation count for the current month
-    const conversationQuery = `
-      SELECT COUNT(*) as count
-      FROM conversations
-      WHERE customer_id = $1
-      AND created_at >= DATE_TRUNC('month', CURRENT_DATE)
-    `;
-    
-    const conversationResult = await query(conversationQuery, [customerId]);
-    const conversationCount = parseInt(conversationResult.rows[0]?.count || 0);
-
-    // Get AI response count (from metadata or a dedicated table)
-    const aiResponseQuery = `
-      SELECT 
-        COUNT(*) as response_count,
-        COUNT(DISTINCT conversation_id) as unique_conversations
-      FROM messages
-      WHERE customer_id = $1
-      AND is_ai_response = true
-      AND created_at >= DATE_TRUNC('month', CURRENT_DATE)
-    `;
-    
-    let aiResponseCount = 0;
-    try {
-      const aiResult = await query(aiResponseQuery, [customerId]);
-      aiResponseCount = parseInt(aiResult.rows[0]?.response_count || 0);
-    } catch (e) {
-      // Table might not exist, use mock data
-      aiResponseCount = Math.floor(conversationCount * 3.5);
-    }
-
-    // Get emails sent count
-    const emailQuery = `
-      SELECT COUNT(*) as count
-      FROM gmail_sent_emails
-      WHERE customer_id = $1
-      AND created_at >= DATE_TRUNC('month', CURRENT_DATE)
-    `;
-    
-    let emailCount = 0;
-    try {
-      const emailResult = await query(emailQuery, [customerId]);
-      emailCount = parseInt(emailResult.rows[0]?.count || 0);
-    } catch (e) {
-      // Table might not exist, use mock data
-      emailCount = Math.floor(conversationCount * 1.2);
-    }
-
-    return {
-      conversations: conversationCount,
-      aiResponses: aiResponseCount,
-      emailsSent: emailCount
-    };
-  } catch (error) {
-    console.error('Error getting usage stats:', error);
-    // Return mock data if queries fail
-    return {
-      conversations: 42,
-      aiResponses: 168,
-      emailsSent: 35
-    };
-  }
-}
-
-// Helper function to get plan details
-function getPlanDetails(plan) {
-  const plans = {
-    starter: {
-      price: 29,
-      maxConversations: 1000,
-      maxAiResponses: 5000,
-      maxEmails: 1000,
-      features: [
-        '1,000 Conversations/month',
-        '5,000 AI Responses/month',
-        '1,000 Emails/month',
-        'Basic Analytics',
-        'Email Support',
-        '1 User Seat'
-      ]
-    },
-    professional: {
-      price: 99,
-      maxConversations: 10000,
-      maxAiResponses: 50000,
-      maxEmails: 10000,
-      features: [
-        '10,000 Conversations/month',
-        '50,000 AI Responses/month',
-        '10,000 Emails/month',
-        'Advanced Analytics',
-        'Priority Support',
-        '5 User Seats',
-        'Custom AI Training',
-        'API Access'
-      ]
-    },
-    enterprise: {
-      price: 299,
-      maxConversations: -1, // Unlimited
-      maxAiResponses: -1, // Unlimited
-      maxEmails: -1, // Unlimited
-      features: [
-        'Unlimited Conversations',
-        'Unlimited AI Responses',
-        'Unlimited Emails',
-        'Custom Analytics',
-        'Dedicated Support',
-        'Unlimited User Seats',
-        'Custom Integrations',
-        'SLA Guarantee',
-        'White-label Options'
-      ]
-    }
-  };
-
-  return plans[plan] || plans.starter;
-}
-
-// Helper function to get default subscription
-function getDefaultSubscription() {
-  const nextBillingDate = new Date();
-  nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
-
-  return {
-    plan: 'starter',
-    status: 'trial',
-    currentPeriodEnd: nextBillingDate.toISOString(),
-    seats: 1,
-    usage: {
-      conversations: 0,
-      maxConversations: 1000,
-      aiResponses: 0,
-      maxAiResponses: 5000,
-      emailsSent: 0,
-      maxEmails: 1000
-    },
-    billing: {
-      amount: 29,
-      currency: 'USD',
-      interval: 'month',
-      nextBillingDate: nextBillingDate.toISOString()
-    }
-  };
-}
-
-// POST method to update subscription (upgrade/downgrade)
+// Handle subscription changes (upgrade, downgrade, apply discount)
 export async function POST(request) {
   try {
     const user = await currentUser();
     
     if (!user) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Unauthorized' 
-      }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { action, plan } = body;
-
-    if (action === 'upgrade' || action === 'downgrade') {
-      // Update the plan in the database
-      const updateQuery = `
-        UPDATE customers 
-        SET 
-          plan = $1,
-          updated_at = NOW()
-        WHERE clerk_user_id = $2
-        RETURNING *
-      `;
-      
-      await query(updateQuery, [plan, user.id]);
-
-      // Here you would typically:
-      // 1. Create or update Stripe subscription
-      // 2. Handle payment processing
-      // 3. Send confirmation email
-
-      return NextResponse.json({
-        success: true,
-        message: `Successfully ${action}d to ${plan} plan`,
-        plan: plan
-      });
-    }
-
-    return NextResponse.json({
-      success: false,
-      error: 'Invalid action'
-    }, { status: 400 });
-
-  } catch (error) {
-    console.error('❌ Error updating subscription:', error);
+    const { action, plan, discountCode } = await request.json();
     
+    // Initialize connections
+    const { getDbClient, stripe } = await initializeConnections();
+    
+    // Get database client
+    let client;
+    try {
+      client = await getDbClient().connect();
+    } catch (dbError) {
+      return NextResponse.json({ 
+        error: 'Database temporarily unavailable. Please try again.' 
+      }, { status: 503 });
+    }
+    
+    try {
+      // Get customer
+      const customerQuery = 'SELECT * FROM customers WHERE clerk_user_id = $1';
+      const customerResult = await client.query(customerQuery, [user.id]);
+      
+      if (customerResult.rows.length === 0) {
+        return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      }
+      
+      const customer = customerResult.rows[0];
+      
+      // Handle discount code application
+      if (action === 'apply_discount') {
+        if (!discountCode) {
+          return NextResponse.json({ error: 'Discount code required' }, { status: 400 });
+        }
+        
+        try {
+          // Validate the discount code with Stripe
+          const promotionCodes = await stripe.promotionCodes.list({
+            code: discountCode,
+            active: true,
+            limit: 1
+          });
+          
+          if (promotionCodes.data.length === 0) {
+            return NextResponse.json({ 
+              error: 'Invalid or expired discount code' 
+            }, { status: 400 });
+          }
+          
+          const promoCode = promotionCodes.data[0];
+          
+          // If customer has active subscription, apply discount
+          if (customer.stripe_subscription_id) {
+            const subscription = await stripe.subscriptions.update(
+              customer.stripe_subscription_id,
+              {
+                promotion_code: promoCode.id
+              }
+            );
+            
+            return NextResponse.json({ 
+              success: true,
+              message: `Discount "${promoCode.coupon.name || discountCode}" applied successfully!`,
+              discount: {
+                percentOff: promoCode.coupon.percent_off,
+                amountOff: promoCode.coupon.amount_off
+              }
+            });
+          } else {
+            // Store for checkout session
+            await client.query(
+              'UPDATE customers SET pending_promo_code = $1 WHERE id = $2',
+              [promoCode.id, customer.id]
+            );
+            
+            return NextResponse.json({ 
+              success: true,
+              message: 'Discount code validated! It will be applied when you subscribe.',
+              discount: {
+                percentOff: promoCode.coupon.percent_off,
+                amountOff: promoCode.coupon.amount_off
+              }
+            });
+          }
+        } catch (stripeError) {
+          console.error('Stripe discount error:', stripeError);
+          return NextResponse.json({ 
+            error: 'Invalid or expired discount code' 
+          }, { status: 400 });
+        }
+      }
+      
+      // Handle plan changes
+      if (action === 'upgrade' || action === 'downgrade') {
+        const priceId = STRIPE_PRICE_IDS[plan];
+        
+        if (!priceId) {
+          return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+        }
+        
+        // Create or get Stripe customer
+        let stripeCustomerId = customer.stripe_customer_id;
+        
+        if (!stripeCustomerId) {
+          const stripeCustomer = await stripe.customers.create({
+            email: customer.email,
+            metadata: {
+              clerkUserId: user.id,
+              customerId: customer.id.toString()
+            }
+          });
+          
+          stripeCustomerId = stripeCustomer.id;
+          
+          // Update database with Stripe customer ID
+          await client.query(
+            'UPDATE customers SET stripe_customer_id = $1 WHERE id = $2',
+            [stripeCustomerId, customer.id]
+          );
+        }
+        
+        // Check if customer has active subscription
+        if (customer.stripe_subscription_id) {
+          // Update existing subscription
+          try {
+            const subscription = await stripe.subscriptions.retrieve(customer.stripe_subscription_id);
+            
+            // Update the subscription with new price
+            await stripe.subscriptions.update(customer.stripe_subscription_id, {
+              items: [{
+                id: subscription.items.data[0].id,
+                price: priceId
+              }],
+              proration_behavior: 'always_invoice'
+            });
+            
+            // Update local database
+            await client.query(
+              'UPDATE customers SET plan = $1, updated_at = NOW() WHERE id = $2',
+              [plan, customer.id]
+            );
+            
+            return NextResponse.json({ 
+              success: true,
+              message: `Successfully ${action}d to ${plan} plan!`
+            });
+            
+          } catch (stripeError) {
+            console.error('Stripe subscription update error:', stripeError);
+            return NextResponse.json({ 
+              error: 'Failed to update subscription' 
+            }, { status: 500 });
+          }
+        }
+        
+        // If no subscription, create checkout session
+        const checkoutSession = await stripe.checkout.sessions.create({
+          customer: stripeCustomerId,
+          payment_method_types: ['card'],
+          line_items: [{
+            price: priceId,
+            quantity: 1
+          }],
+          mode: 'subscription',
+          success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/settings?success=true&plan=${plan}`,
+          cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/settings?canceled=true`,
+          metadata: {
+            clerkUserId: user.id,
+            customerId: customer.id.toString(),
+            plan: plan
+          },
+          // Apply pending promo code if exists
+          ...(customer.pending_promo_code && { 
+            discounts: [{
+              promotion_code: customer.pending_promo_code
+            }]
+          }),
+          subscription_data: {
+            trial_period_days: 14,
+            metadata: {
+              clerkUserId: user.id,
+              customerId: customer.id.toString()
+            }
+          }
+        });
+        
+        return NextResponse.json({ 
+          success: true,
+          redirectUrl: checkoutSession.url 
+        });
+      }
+      
+      // Handle subscription cancellation
+      if (action === 'cancel') {
+        if (!customer.stripe_subscription_id) {
+          return NextResponse.json({ error: 'No active subscription' }, { status: 400 });
+        }
+        
+        // Cancel at period end
+        await stripe.subscriptions.update(customer.stripe_subscription_id, {
+          cancel_at_period_end: true
+        });
+        
+        return NextResponse.json({ 
+          success: true,
+          message: 'Subscription will be canceled at the end of the billing period'
+        });
+      }
+      
+      return NextResponse.json({ 
+        error: 'Invalid action' 
+      }, { status: 400 });
+      
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  } catch (error) {
+    console.error('Error updating subscription:', error);
     return NextResponse.json({ 
-      success: false,
-      error: 'Failed to update subscription'
+      error: 'Failed to update subscription', 
+      details: error.message 
     }, { status: 500 });
   }
 }
