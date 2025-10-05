@@ -41,7 +41,9 @@ import {
   Edit3,
   X,
   Mail,
-  Key
+  Key,
+  Tag,
+  Gift
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -53,6 +55,20 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // Discount Code State
+  const [discountCode, setDiscountCode] = useState('');
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const [activeDiscount, setActiveDiscount] = useState(null);
+  
+  // Password Change Modal State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
   
   // Account Information State
   const [accountInfo, setAccountInfo] = useState({
@@ -101,7 +117,8 @@ export default function SettingsPage() {
       maxEmailResponses: 5000, // Professional tier
       smsMessages: 0,
       maxSmsMessages: 1000 // Professional tier
-    }
+    },
+    discount: null // For active discount display
   });
   
   // Notification Preferences
@@ -219,8 +236,14 @@ export default function SettingsPage() {
               maxEmailResponses: maxEmailResponses,
               smsMessages: data.subscription.usage?.smsMessages || 0,
               maxSmsMessages: maxSmsMessages
-            }
+            },
+            discount: data.subscription.discount || null
           }));
+          
+          // Set active discount if exists
+          if (data.subscription.discount) {
+            setActiveDiscount(data.subscription.discount);
+          }
         }
       }
     } catch (error) {
@@ -341,6 +364,80 @@ export default function SettingsPage() {
     }
   };
 
+  // Apply Discount Code Function
+  const handleApplyDiscount = async () => {
+    if (!discountCode.trim()) {
+      setMessage({ type: 'error', text: 'Please enter a discount code' });
+      return;
+    }
+    
+    setApplyingDiscount(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/customer/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'apply_discount',
+          discountCode: discountCode.trim()
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: data.message });
+        setActiveDiscount(data.discount);
+        setDiscountCode('');
+        // Reload subscription to get updated discount info
+        loadSubscription();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to apply discount code' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to apply discount code' });
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
+
+  // Password Change Function
+  const handlePasswordChange = async () => {
+    setPasswordError('');
+    
+    // Validate passwords
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError('All fields are required');
+      return;
+    }
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+    
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return;
+    }
+    
+    setSaving(true);
+    
+    try {
+      // Note: Clerk handles password changes through their API
+      // You would typically use clerk.user.updatePassword() here
+      // For now, we'll show a message that this needs to be done through Clerk
+      setMessage({ type: 'info', text: 'Please use the Clerk dashboard to change your password' });
+      setShowPasswordModal(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      setPasswordError('Failed to change password');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const tabs = [
     { id: 'account', label: 'Account', icon: User },
     { id: 'business', label: 'Business Profile', icon: Building },
@@ -454,18 +551,22 @@ export default function SettingsPage() {
           <div className={`mb-6 p-4 rounded-lg flex items-center space-x-3 ${
             message.type === 'success' 
               ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+              : message.type === 'error'
+              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
           }`}>
             {message.type === 'success' ? (
               <CheckCircle className="w-5 h-5" />
-            ) : (
+            ) : message.type === 'error' ? (
               <AlertCircle className="w-5 h-5" />
+            ) : (
+              <Info className="w-5 h-5" />
             )}
             <span>{message.text}</span>
           </div>
         )}
 
-        {/* Account Tab */}
+        {/* Account Tab - Unchanged */}
         {activeTab === 'account' && (
           <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
@@ -569,7 +670,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Business Profile Tab */}
+        {/* Business Profile Tab - Unchanged */}
         {activeTab === 'business' && (
           <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
@@ -778,7 +879,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Subscription Tab */}
+        {/* Subscription Tab - UPDATED with Discount Code */}
         {activeTab === 'subscription' && (
           <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
@@ -798,12 +899,59 @@ export default function SettingsPage() {
                   <div className="text-3xl font-bold text-white">
                     ${subscription.billing.amount}<span className="text-lg font-normal text-white/80">/{subscription.billing.interval}</span>
                   </div>
+                  
+                  {/* Display Active Discount */}
+                  {activeDiscount && (
+                    <div className="mt-4 p-3 bg-white/20 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <Tag className="w-4 h-4 text-white" />
+                        <span className="text-white font-medium">Active Discount</span>
+                      </div>
+                      <p className="text-white/80 text-sm mt-1">
+                        {activeDiscount.percentOff ? `${activeDiscount.percentOff}% off` : `$${activeDiscount.amountOff} off`}
+                        {activeDiscount.coupon && ` - ${activeDiscount.coupon}`}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="px-3 py-1 bg-white/20 rounded-full">
                   <span className="text-white font-medium capitalize">
                     {subscription.status === 'trialing' ? 'Trial' : subscription.status}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Discount Code Section - NEW */}
+            <div className="p-6 bg-white/5 rounded-xl border border-white/10 mb-6">
+              <div className="flex items-start space-x-3 mb-4">
+                <Gift className="w-5 h-5 text-purple-400 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-white font-medium mb-1">Have a Discount Code?</h4>
+                  <p className="text-gray-400 text-sm">Enter your promotional code to apply a discount to your subscription</p>
+                </div>
+              </div>
+              
+              <div className="flex space-x-3">
+                <input
+                  type="text"
+                  value={discountCode}
+                  onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                  placeholder="Enter discount code"
+                  className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 uppercase"
+                />
+                <button
+                  onClick={handleApplyDiscount}
+                  disabled={applyingDiscount || !discountCode.trim()}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {applyingDiscount ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  <span>{applyingDiscount ? 'Applying...' : 'Apply'}</span>
+                </button>
               </div>
             </div>
 
@@ -914,7 +1062,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Notifications Tab */}
+        {/* Notifications Tab - Unchanged */}
         {activeTab === 'notifications' && (
           <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
@@ -1044,7 +1192,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Integrations Tab */}
+        {/* Integrations Tab - Unchanged */}
         {activeTab === 'integrations' && (
           <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
@@ -1098,7 +1246,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Security Tab */}
+        {/* Security Tab - UPDATED with Password Modal */}
         {activeTab === 'security' && (
           <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
@@ -1130,11 +1278,14 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              {/* Password */}
+              {/* Password - UPDATED */}
               <div className="p-4 bg-white/5 rounded-lg border border-white/10">
                 <h4 className="text-white font-medium mb-2">Password</h4>
                 <p className="text-sm text-gray-400 mb-4">Last changed 30 days ago</p>
-                <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium">
+                <button 
+                  onClick={() => setShowPasswordModal(true)}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium"
+                >
                   Change Password
                 </button>
               </div>
@@ -1191,6 +1342,101 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Password Change Modal - NEW */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 rounded-2xl p-6 max-w-md w-full border border-white/20">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white">Change Password</h3>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                  setPasswordError('');
+                }}
+                className="p-1 hover:bg-white/10 rounded-lg"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {passwordError && (
+              <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-lg text-sm">
+                {passwordError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                />
+                <p className="text-xs text-gray-400 mt-1">Must be at least 8 characters</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                    setPasswordError('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePasswordChange}
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>{saving ? 'Changing...' : 'Change Password'}</span>
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 text-center mt-4">
+              Note: Password changes are managed through Clerk authentication
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
