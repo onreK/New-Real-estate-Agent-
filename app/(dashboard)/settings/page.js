@@ -6,570 +6,697 @@ import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft,
   User,
-  Building,
-  Bell,
+  CreditCard,
   Shield,
-  DollarSign,
-  Cpu,
-  Settings,
-  Camera,
-  Crown,
-  Key,
-  Lock,
-  Mail,
-  Phone,
+  Bell,
+  Building,
+  Globe,
   Save,
-  CheckCircle,
+  Check,
   AlertCircle,
   Loader2,
-  RefreshCw,
+  Camera,
+  Crown,
+  Sparkles,
   ChevronRight,
-  Sliders,
-  Bot,
-  MessageCircle,
-  Users,
-  Star
+  Settings,
+  LogOut,
+  Trash2,
+  Download,
+  Upload,
+  RefreshCw,
+  Zap,
+  Star,
+  Lock,
+  Unlock,
+  Phone,
+  MapPin,
+  Calendar,
+  DollarSign,
+  TrendingUp,
+  Award,
+  CheckCircle,
+  XCircle,
+  Info,
+  Edit3,
+  X,
+  Mail,
+  Key
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
-  const [settingsCategory, setSettingsCategory] = useState('ai');
-  const [activeAITab, setActiveAITab] = useState('email');
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  
+  const [activeTab, setActiveTab] = useState('account');
   const [loading, setLoading] = useState(false);
-
-  // Account Settings State
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // Account Information State
   const [accountInfo, setAccountInfo] = useState({
+    email: '',
     firstName: '',
     lastName: '',
-    email: '',
     username: '',
-    imageUrl: ''
+    avatarUrl: '',
+    emailVerified: false,
+    twoFactorEnabled: false,
+    createdAt: '',
+    lastSignIn: '',
+    phone: ''
   });
-
-  // Business Profile State  
+  
+  // Business Profile State
   const [businessProfile, setBusinessProfile] = useState({
-    businessName: '',
+    companyName: '',
     industry: '',
+    companySize: '',
     website: '',
-    phone: '',
-    address: '',
+    addressLine1: '',
+    addressLine2: '',
     city: '',
     state: '',
-    zipCode: '',
+    postalCode: '',
     country: 'United States',
-    employeeCount: '',
+    businessPhone: '',
+    businessEmail: '',
     description: ''
   });
-
+  
   // Subscription State
   const [subscription, setSubscription] = useState({
-    plan: 'starter',
+    plan: 'professional',
     status: 'active',
-    usage: {
-      conversations: 42,
-      maxConversations: 1000,
-      aiResponses: 168,
-      maxAiResponses: 5000,
-      emailsSent: 35,
-      maxEmails: 1000
-    },
     billing: {
-      amount: 29,
-      currency: 'USD',
+      amount: 299,
       interval: 'month',
-      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      nextBilling: '2025-01-15'
+    },
+    usage: {
+      conversations: 856,
+      maxConversations: 2000,
+      emailResponses: 2341,
+      maxEmailResponses: 5000,
+      smsMessages: 432,
+      maxSmsMessages: 1000
     }
   });
-
-  // AI Settings State
-  const [aiSettings, setAiSettings] = useState({
-    email: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Professional',
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: ''
-    },
-    facebook: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Professional',
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: '',
-      autoRespondMessages: false,
-      autoRespondComments: false
-    },
-    instagram: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Professional',
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: '',
-      autoRespondDMs: false,
-      autoRespondComments: false
-    },
-    text: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Professional',
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: '',
-      enableAutoResponses: false,
-      hotLeadDetection: false,
-      responseDelay: ''
-    },
-    chatbot: {
-      businessName: '',
-      industry: '',
-      businessDescription: '',
-      responseTone: 'Professional',
-      responseLength: 'Short',
-      knowledgeBase: '',
-      customInstructions: '',
-      proactiveEngagement: false,
-      collectContactInfo: false
-    }
+  
+  // Notification Preferences
+  const [notifications, setNotifications] = useState({
+    emailNotifications: true,
+    smsAlerts: false,
+    pushNotifications: true,
+    weeklyReports: true,
+    hotLeadAlerts: true,
+    marketingEmails: false
   });
+  
+  // Integrations State
+  const [integrations, setIntegrations] = useState([
+    { id: 'gmail', name: 'Gmail', connected: true, icon: Mail, lastSync: '2 hours ago' },
+    { id: 'facebook', name: 'Facebook', connected: false, icon: Globe, lastSync: null },
+    { id: 'instagram', name: 'Instagram', connected: false, icon: Camera, lastSync: null },
+    { id: 'twilio', name: 'Twilio SMS', connected: true, icon: Phone, lastSync: '1 hour ago' }
+  ]);
 
   useEffect(() => {
     if (user) {
-      setAccountInfo({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.emailAddresses?.[0]?.emailAddress || '',
-        username: user.username || '',
-        imageUrl: user.imageUrl || ''
-      });
-      loadSettings();
+      loadUserData();
+      loadBusinessProfile();
+      loadSubscription();
+      loadNotifications();
     }
   }, [user]);
 
-  const loadSettings = async () => {
+  const loadUserData = () => {
+    if (!user) return;
+    
+    setAccountInfo({
+      email: user.emailAddresses[0]?.emailAddress || '',
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      username: user.username || '',
+      avatarUrl: user.imageUrl || '',
+      emailVerified: user.emailAddresses[0]?.verification?.status === 'verified',
+      twoFactorEnabled: user.twoFactorEnabled || false,
+      createdAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '',
+      lastSignIn: user.lastSignInAt ? new Date(user.lastSignInAt).toLocaleDateString() : '',
+      phone: user.phoneNumbers?.[0]?.phoneNumber || ''
+    });
+  };
+
+  const loadBusinessProfile = async () => {
     try {
-      setLoading(true);
-      // Load AI settings
-      const aiResponse = await fetch('/api/ai-settings');
-      if (aiResponse.ok) {
-        const data = await aiResponse.json();
-        if (data.settings) {
-          setAiSettings(prev => ({ ...prev, ...data.settings }));
+      const response = await fetch('/api/customer/update-profile');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.profile) {
+          setBusinessProfile({
+            companyName: data.profile.company_name || '',
+            industry: data.profile.industry || '',
+            companySize: data.profile.company_size || '',
+            website: data.profile.website || '',
+            addressLine1: data.profile.address_line1 || '',
+            addressLine2: data.profile.address_line2 || '',
+            city: data.profile.city || '',
+            state: data.profile.state || '',
+            postalCode: data.profile.postal_code || '',
+            country: data.profile.country || 'United States',
+            businessPhone: data.profile.business_phone || '',
+            businessEmail: data.profile.business_email || '',
+            description: data.profile.description || ''
+          });
         }
       }
-      
-      // Load business profile
-      const profileResponse = await fetch('/api/customer/profile');
-      if (profileResponse.ok) {
-        const data = await profileResponse.json();
-        if (data.customer) {
-          setBusinessProfile(prev => ({
+    } catch (error) {
+      console.error('Error loading business profile:', error);
+    }
+  };
+
+  const loadSubscription = async () => {
+    try {
+      const response = await fetch('/api/customer/subscription');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.subscription) {
+          setSubscription(prev => ({
             ...prev,
-            businessName: data.customer.business_name || '',
+            plan: data.subscription.plan || 'professional',
+            status: data.subscription.status || 'active',
+            usage: data.subscription.usage || prev.usage
           }));
         }
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error loading subscription:', error);
     }
   };
 
-  const handleSaveAISettings = async (channel) => {
+  const loadNotifications = async () => {
+    try {
+      const response = await fetch('/api/customer/notifications');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.preferences) {
+          setNotifications(data.preferences);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    }
+  };
+
+  const handleSaveAccount = async () => {
     setSaving(true);
-    setSaveMessage('');
+    setMessage({ type: '', text: '' });
     
     try {
-      const response = await fetch('/api/ai-settings', {
+      const response = await fetch('/api/customer/update-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channel: channel,
-          settings: aiSettings[channel]
+          email: accountInfo.email,
+          firstName: accountInfo.firstName,
+          lastName: accountInfo.lastName,
+          phone: accountInfo.phone,
+          businessName: businessProfile.companyName
         })
       });
 
       if (response.ok) {
-        setSaveMessage(`${channel.charAt(0).toUpperCase() + channel.slice(1)} settings saved successfully!`);
-        setTimeout(() => setSaveMessage(''), 3000);
+        setMessage({ type: 'success', text: 'Account information updated successfully!' });
       } else {
-        setSaveMessage('Failed to save settings. Please try again.');
+        setMessage({ type: 'error', text: 'Failed to update account information' });
       }
     } catch (error) {
-      setSaveMessage('Error saving settings.');
+      setMessage({ type: 'error', text: 'An error occurred while saving' });
     } finally {
       setSaving(false);
     }
   };
 
-  const updateAISettings = (channel, field, value) => {
-    setAiSettings(prev => ({
-      ...prev,
-      [channel]: {
-        ...prev[channel],
-        [field]: value
+  const handleSaveBusinessProfile = async () => {
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/customer/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(businessProfile)
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Business profile updated successfully!' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to update business profile' });
       }
-    }));
+    } catch (error) {
+      setMessage({ type: 'error', text: 'An error occurred while saving' });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (!isLoaded || loading) {
+  const handleSaveNotifications = async () => {
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/customer/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notifications)
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Notification preferences saved!' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to save preferences' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'An error occurred while saving' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpgradePlan = async (plan) => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/customer/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, action: 'upgrade' })
+      });
+
+      const data = await response.json();
+      
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        setMessage({ type: 'success', text: data.message });
+        loadSubscription();
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to process upgrade' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const tabs = [
+    { id: 'account', label: 'Account', icon: User },
+    { id: 'business', label: 'Business Profile', icon: Building },
+    { id: 'subscription', label: 'Subscription', icon: CreditCard },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'integrations', label: 'Integrations', icon: Globe },
+    { id: 'security', label: 'Security', icon: Shield }
+  ];
+
+  const availablePlans = [
+    {
+      name: 'Starter',
+      price: 99,
+      features: ['500 Conversations', '1,000 Email Responses', '200 SMS Messages', '1 AI Agent', '2 Team Members'],
+      current: subscription.plan === 'starter'
+    },
+    {
+      name: 'Professional',
+      price: 299,
+      features: ['2,000 Conversations', '5,000 Email Responses', '1,000 SMS Messages', '3 AI Agents', '10 Team Members'],
+      current: subscription.plan === 'professional'
+    },
+    {
+      name: 'Enterprise',
+      price: 799,
+      features: ['Unlimited Conversations', 'Unlimited Emails', '5,000 SMS Messages', 'Unlimited AI Agents', 'Unlimited Team Members'],
+      current: subscription.plan === 'enterprise'
+    }
+  ];
+
+  if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
-          <p className="text-white text-lg">Loading Settings...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+        <Loader2 className="w-12 h-12 animate-spin text-white" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      {/* Header */}
-      <div className="border-b border-white/10 backdrop-blur-xl bg-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center space-x-2 text-white/80 hover:text-white mb-4"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Dashboard</span>
+          </button>
+          
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Back</span>
-              </button>
-              <div className="flex items-center space-x-3">
-                <Settings className="w-8 h-8 text-purple-400" />
-                <h1 className="text-2xl font-bold text-white">Settings</h1>
-              </div>
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
+              <p className="text-gray-300">Manage your account and preferences</p>
             </div>
             
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all"
-            >
-              Dashboard
-            </button>
+            <div className="flex items-center space-x-3">
+              <div className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Crown className="w-5 h-5 text-white" />
+                  <span className="text-white font-medium capitalize">{subscription.plan} Plan</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Settings Category Buttons */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          <button
-            onClick={() => setSettingsCategory('ai')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              settingsCategory === 'ai'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/10'
-            }`}
-          >
-            <Cpu className="w-5 h-5" />
-            <span>AI Configuration</span>
-          </button>
-          
-          <button
-            onClick={() => setSettingsCategory('account')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              settingsCategory === 'account'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/10'
-            }`}
-          >
-            <User className="w-5 h-5" />
-            <span>Account</span>
-          </button>
-          
-          <button
-            onClick={() => setSettingsCategory('business')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              settingsCategory === 'business'
-                ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg'
-                : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/10'
-            }`}
-          >
-            <Building className="w-5 h-5" />
-            <span>Business Profile</span>
-          </button>
-          
-          <button
-            onClick={() => setSettingsCategory('billing')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              settingsCategory === 'billing'
-                ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
-                : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/10'
-            }`}
-          >
-            <DollarSign className="w-5 h-5" />
-            <span>Billing</span>
-          </button>
+        {/* Tabs */}
+        <div className="flex space-x-1 mb-6 bg-white/10 p-1 rounded-lg overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-white text-gray-900'
+                  : 'text-white hover:bg-white/10'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* AI Configuration Content */}
-        {settingsCategory === 'ai' && (
-          <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">AI Configuration</h2>
-              <p className="text-gray-400">Configure AI behavior across all channels</p>
-            </div>
-
-            {/* AI Channel Tabs */}
-            <div className="flex space-x-2 mb-6 border-b border-white/10 pb-2">
-              {[
-                { id: 'email', label: 'Email', icon: Mail },
-                { id: 'facebook', label: 'Facebook', icon: Users },
-                { id: 'instagram', label: 'Instagram', icon: Star },
-                { id: 'text', label: 'Text/SMS', icon: Phone },
-                { id: 'chatbot', label: 'Chatbot', icon: MessageCircle }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveAITab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    activeAITab === tab.id
-                      ? 'bg-purple-500/30 text-purple-400 border border-purple-500/50'
-                      : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* AI Settings Content for Each Channel */}
-            <div className="space-y-4">
-              <div className="bg-white/5 rounded-xl p-4">
-                <h4 className="text-white font-medium mb-3">Business Profile</h4>
-                <div className="space-y-3">
-                  <input 
-                    placeholder="Business Name"
-                    value={aiSettings[activeAITab].businessName || ''}
-                    onChange={(e) => updateAISettings(activeAITab, 'businessName', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                  />
-                  <input 
-                    placeholder="Industry"
-                    value={aiSettings[activeAITab].industry || ''}
-                    onChange={(e) => updateAISettings(activeAITab, 'industry', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                  />
-                  <textarea 
-                    placeholder="Business description..."
-                    value={aiSettings[activeAITab].businessDescription || ''}
-                    onChange={(e) => updateAISettings(activeAITab, 'businessDescription', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-4">
-                <h4 className="text-white font-medium mb-3">Communication Settings</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-300">Response tone</span>
-                    <select 
-                      value={aiSettings[activeAITab].responseTone || 'Professional'}
-                      onChange={(e) => updateAISettings(activeAITab, 'responseTone', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800"
-                    >
-                      <option>Professional</option>
-                      <option>Casual</option>
-                      <option>Formal</option>
-                      <option>Friendly</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-300">Response length</span>
-                    <select 
-                      value={aiSettings[activeAITab].responseLength || 'Short'}
-                      onChange={(e) => updateAISettings(activeAITab, 'responseLength', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800"
-                    >
-                      <option>Short</option>
-                      <option>Medium</option>
-                      <option>Long</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-4">
-                <h4 className="text-white font-medium mb-3">Knowledge Base</h4>
-                <textarea 
-                  placeholder="Enter business-specific information, FAQs, policies, etc..."
-                  value={aiSettings[activeAITab].knowledgeBase || ''}
-                  onChange={(e) => updateAISettings(activeAITab, 'knowledgeBase', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
-                />
-              </div>
-
-              <button 
-                onClick={() => handleSaveAISettings(activeAITab)}
-                disabled={saving}
-                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
-              >
-                {saving ? 'Saving...' : `Save ${activeAITab.charAt(0).toUpperCase() + activeAITab.slice(1)} Settings`}
-              </button>
-              
-              {saveMessage && (
-                <div className={`mt-2 p-3 rounded-lg text-center ${
-                  saveMessage.includes('successfully') 
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                }`}>
-                  {saveMessage}
-                </div>
-              )}
-            </div>
+        {/* Message Display */}
+        {message.text && (
+          <div className={`mb-6 p-4 rounded-lg flex items-center space-x-3 ${
+            message.type === 'success' 
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+          }`}>
+            {message.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
+            <span>{message.text}</span>
           </div>
         )}
 
-        {/* Account Settings Content */}
-        {settingsCategory === 'account' && (
-          <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6">
+        {/* Account Tab */}
+        {activeTab === 'account' && (
+          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">Account Settings</h2>
-              <p className="text-gray-400">Manage your personal account information</p>
+              <h2 className="text-2xl font-bold text-white mb-2">Account Information</h2>
+              <p className="text-gray-400">Update your personal information</p>
             </div>
 
-            {/* Profile Picture */}
-            <div className="flex items-center space-x-6 mb-8 p-4 bg-white/5 rounded-xl">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 p-1">
-                  <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
-                    {accountInfo.imageUrl ? (
-                      <img src={accountInfo.imageUrl} className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      <User className="w-12 h-12 text-gray-400" />
+            <div className="space-y-6">
+              {/* Profile Picture Section */}
+              <div className="flex items-center space-x-6">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 p-1">
+                    <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
+                      <User className="w-12 h-12 text-white" />
+                    </div>
+                  </div>
+                  <button className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full hover:bg-blue-700">
+                    <Camera className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-white">
+                    {accountInfo.firstName} {accountInfo.lastName}
+                  </h3>
+                  <p className="text-gray-400">{accountInfo.email}</p>
+                  <p className="text-sm text-gray-500">Member since {accountInfo.createdAt}</p>
+                </div>
+              </div>
+
+              {/* Form Fields */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={accountInfo.firstName}
+                    onChange={(e) => setAccountInfo({...accountInfo, firstName: e.target.value})}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={accountInfo.lastName}
+                    onChange={(e) => setAccountInfo({...accountInfo, lastName: e.target.value})}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={accountInfo.email}
+                      onChange={(e) => setAccountInfo({...accountInfo, email: e.target.value})}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    />
+                    {accountInfo.emailVerified && (
+                      <CheckCircle className="absolute right-3 top-3 w-5 h-5 text-green-400" />
                     )}
                   </div>
                 </div>
-                <button className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full hover:bg-blue-700">
-                  <Camera className="w-4 h-4 text-white" />
-                </button>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={accountInfo.phone}
+                    onChange={(e) => setAccountInfo({...accountInfo, phone: e.target.value})}
+                    placeholder="+1 (555) 000-0000"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">
-                  {accountInfo.firstName} {accountInfo.lastName}
-                </h3>
-                <p className="text-gray-400">@{accountInfo.username || 'username'}</p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
-                <input
-                  type="text"
-                  value={accountInfo.firstName}
-                  onChange={(e) => setAccountInfo({...accountInfo, firstName: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
-                <input
-                  type="text"
-                  value={accountInfo.lastName}
-                  onChange={(e) => setAccountInfo({...accountInfo, lastName: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                <input
-                  type="email"
-                  value={accountInfo.email}
-                  onChange={(e) => setAccountInfo({...accountInfo, email: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
-                <input
-                  type="text"
-                  value={accountInfo.username}
-                  onChange={(e) => setAccountInfo({...accountInfo, username: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                />
-              </div>
+              {/* Save Button */}
+              <button
+                onClick={handleSaveAccount}
+                disabled={saving}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+              </button>
             </div>
-
-            <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all">
-              Save Account Settings
-            </button>
           </div>
         )}
 
-        {/* Business Profile Content */}
-        {settingsCategory === 'business' && (
-          <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6">
+        {/* Business Profile Tab */}
+        {activeTab === 'business' && (
+          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Business Profile</h2>
-              <p className="text-gray-400">Configure your business information</p>
+              <p className="text-gray-400">Manage your company information</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Business Name</label>
-                <input
-                  type="text"
-                  value={businessProfile.businessName}
-                  onChange={(e) => setBusinessProfile({...businessProfile, businessName: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                  placeholder="Acme Corporation"
-                />
+            <div className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={businessProfile.companyName}
+                    onChange={(e) => setBusinessProfile({...businessProfile, companyName: e.target.value})}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Industry
+                  </label>
+                  <select
+                    value={businessProfile.industry}
+                    onChange={(e) => setBusinessProfile({...businessProfile, industry: e.target.value})}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  >
+                    <option value="">Select Industry</option>
+                    <option value="technology">Technology</option>
+                    <option value="finance">Finance</option>
+                    <option value="healthcare">Healthcare</option>
+                    <option value="retail">Retail</option>
+                    <option value="manufacturing">Manufacturing</option>
+                    <option value="services">Services</option>
+                    <option value="education">Education</option>
+                    <option value="realestate">Real Estate</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Company Size
+                  </label>
+                  <select
+                    value={businessProfile.companySize}
+                    onChange={(e) => setBusinessProfile({...businessProfile, companySize: e.target.value})}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  >
+                    <option value="">Select Size</option>
+                    <option value="1-10">1-10 employees</option>
+                    <option value="11-50">11-50 employees</option>
+                    <option value="51-200">51-200 employees</option>
+                    <option value="201-500">201-500 employees</option>
+                    <option value="500+">500+ employees</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={businessProfile.website}
+                    onChange={(e) => setBusinessProfile({...businessProfile, website: e.target.value})}
+                    placeholder="https://example.com"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Business Email
+                  </label>
+                  <input
+                    type="email"
+                    value={businessProfile.businessEmail}
+                    onChange={(e) => setBusinessProfile({...businessProfile, businessEmail: e.target.value})}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Business Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={businessProfile.businessPhone}
+                    onChange={(e) => setBusinessProfile({...businessProfile, businessPhone: e.target.value})}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Industry</label>
-                <select
-                  value={businessProfile.industry}
-                  onChange={(e) => setBusinessProfile({...businessProfile, industry: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white [&>option]:bg-gray-800"
-                >
-                  <option value="">Select Industry</option>
-                  <option value="technology">Technology</option>
-                  <option value="healthcare">Healthcare</option>
-                  <option value="finance">Finance</option>
-                  <option value="retail">Retail</option>
-                  <option value="education">Education</option>
-                  <option value="other">Other</option>
-                </select>
+
+              {/* Address Fields */}
+              <div className="border-t border-white/10 pt-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Business Address</h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Address Line 1
+                    </label>
+                    <input
+                      type="text"
+                      value={businessProfile.addressLine1}
+                      onChange={(e) => setBusinessProfile({...businessProfile, addressLine1: e.target.value})}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Address Line 2 (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={businessProfile.addressLine2}
+                      onChange={(e) => setBusinessProfile({...businessProfile, addressLine2: e.target.value})}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={businessProfile.city}
+                      onChange={(e) => setBusinessProfile({...businessProfile, city: e.target.value})}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      State/Province
+                    </label>
+                    <input
+                      type="text"
+                      value={businessProfile.state}
+                      onChange={(e) => setBusinessProfile({...businessProfile, state: e.target.value})}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      ZIP/Postal Code
+                    </label>
+                    <input
+                      type="text"
+                      value={businessProfile.postalCode}
+                      onChange={(e) => setBusinessProfile({...businessProfile, postalCode: e.target.value})}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      value={businessProfile.country}
+                      onChange={(e) => setBusinessProfile({...businessProfile, country: e.target.value})}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Website</label>
-                <input
-                  type="url"
-                  value={businessProfile.website}
-                  onChange={(e) => setBusinessProfile({...businessProfile, website: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                  placeholder="https://example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Phone</label>
-                <input
-                  type="tel"
-                  value={businessProfile.phone}
-                  onChange={(e) => setBusinessProfile({...businessProfile, phone: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
-                  placeholder="+1 (555) 123-4567"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Business Description
+                </label>
                 <textarea
                   value={businessProfile.description}
                   onChange={(e) => setBusinessProfile({...businessProfile, description: e.target.value})}
@@ -578,17 +705,27 @@ export default function SettingsPage() {
                   placeholder="Tell us about your business..."
                 />
               </div>
-            </div>
 
-            <button className="px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-teal-700 transition-all">
-              Save Business Profile
-            </button>
+              {/* Save Button */}
+              <button
+                onClick={handleSaveBusinessProfile}
+                disabled={saving}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                <span>{saving ? 'Saving...' : 'Save Business Profile'}</span>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Billing Content */}
-        {settingsCategory === 'billing' && (
-          <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6">
+        {/* Subscription Tab */}
+        {activeTab === 'subscription' && (
+          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Billing & Subscription</h2>
               <p className="text-gray-400">Manage your plan and usage</p>
@@ -633,46 +770,365 @@ export default function SettingsPage() {
                 
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-300">AI Responses</span>
-                    <span className="text-white">{subscription.usage.aiResponses} / {subscription.usage.maxAiResponses}</span>
+                    <span className="text-gray-300">Email Responses</span>
+                    <span className="text-white">{subscription.usage.emailResponses} / {subscription.usage.maxEmailResponses}</span>
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full"
-                      style={{ width: `${(subscription.usage.aiResponses / subscription.usage.maxAiResponses) * 100}%` }}
+                      className="bg-gradient-to-r from-green-500 to-teal-500 h-2 rounded-full"
+                      style={{ width: `${(subscription.usage.emailResponses / subscription.usage.maxEmailResponses) * 100}%` }}
                     />
                   </div>
                 </div>
                 
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-300">Emails Sent</span>
-                    <span className="text-white">{subscription.usage.emailsSent} / {subscription.usage.maxEmails}</span>
+                    <span className="text-gray-300">SMS Messages</span>
+                    <span className="text-white">{subscription.usage.smsMessages} / {subscription.usage.maxSmsMessages}</span>
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full"
-                      style={{ width: `${(subscription.usage.emailsSent / subscription.usage.maxEmails) * 100}%` }}
+                      className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full"
+                      style={{ width: `${(subscription.usage.smsMessages / subscription.usage.maxSmsMessages) * 100}%` }}
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-3">
-              <button className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-teal-700">
-                Upgrade Plan
-              </button>
-              <button className="px-4 py-2 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20">
-                Manage Billing
-              </button>
-              <button className="px-4 py-2 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20">
-                Download Invoice
+            {/* Available Plans */}
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-white">Available Plans</h4>
+              <div className="grid md:grid-cols-3 gap-4">
+                {availablePlans.map((plan) => (
+                  <div
+                    key={plan.name}
+                    className={`p-4 rounded-lg border ${
+                      plan.current
+                        ? 'bg-white/20 border-white/40'
+                        : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    <h5 className="text-lg font-semibold text-white mb-2">{plan.name}</h5>
+                    <div className="text-2xl font-bold text-white mb-3">
+                      ${plan.price}<span className="text-sm font-normal text-gray-400">/month</span>
+                    </div>
+                    <ul className="space-y-1 mb-4">
+                      {plan.features.map((feature, i) => (
+                        <li key={i} className="text-sm text-gray-300 flex items-center">
+                          <Check className="w-3 h-3 mr-2 text-green-400" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    {plan.current ? (
+                      <div className="px-3 py-2 bg-white/10 rounded text-center text-white text-sm">
+                        Current Plan
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleUpgradePlan(plan.name.toLowerCase())}
+                        disabled={loading}
+                        className="w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded text-sm font-medium"
+                      >
+                        {loading ? 'Processing...' : 'Upgrade'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notifications Tab */}
+        {activeTab === 'notifications' && (
+          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white mb-2">Notification Preferences</h2>
+              <p className="text-gray-400">Choose how you want to be notified</p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Email Notifications</h4>
+                    <p className="text-sm text-gray-400">Receive updates via email</p>
+                  </div>
+                  <button
+                    onClick={() => setNotifications({...notifications, emailNotifications: !notifications.emailNotifications})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full ${
+                      notifications.emailNotifications ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      notifications.emailNotifications ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">SMS Alerts</h4>
+                    <p className="text-sm text-gray-400">Get text messages for urgent updates</p>
+                  </div>
+                  <button
+                    onClick={() => setNotifications({...notifications, smsAlerts: !notifications.smsAlerts})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full ${
+                      notifications.smsAlerts ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      notifications.smsAlerts ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Push Notifications</h4>
+                    <p className="text-sm text-gray-400">Browser and mobile app notifications</p>
+                  </div>
+                  <button
+                    onClick={() => setNotifications({...notifications, pushNotifications: !notifications.pushNotifications})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full ${
+                      notifications.pushNotifications ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      notifications.pushNotifications ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Weekly Reports</h4>
+                    <p className="text-sm text-gray-400">Receive weekly performance summaries</p>
+                  </div>
+                  <button
+                    onClick={() => setNotifications({...notifications, weeklyReports: !notifications.weeklyReports})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full ${
+                      notifications.weeklyReports ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      notifications.weeklyReports ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Hot Lead Alerts</h4>
+                    <p className="text-sm text-gray-400">Instant alerts for high-priority leads</p>
+                  </div>
+                  <button
+                    onClick={() => setNotifications({...notifications, hotLeadAlerts: !notifications.hotLeadAlerts})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full ${
+                      notifications.hotLeadAlerts ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      notifications.hotLeadAlerts ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Marketing Emails</h4>
+                    <p className="text-sm text-gray-400">Product updates and special offers</p>
+                  </div>
+                  <button
+                    onClick={() => setNotifications({...notifications, marketingEmails: !notifications.marketingEmails})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full ${
+                      notifications.marketingEmails ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      notifications.marketingEmails ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={handleSaveNotifications}
+                disabled={saving}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                <span>{saving ? 'Saving...' : 'Save Preferences'}</span>
               </button>
             </div>
           </div>
         )}
+
+        {/* Integrations Tab */}
+        {activeTab === 'integrations' && (
+          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white mb-2">Integrations</h2>
+              <p className="text-gray-400">Connect your favorite tools and services</p>
+            </div>
+
+            <div className="space-y-4">
+              {integrations.map((integration) => (
+                <div key={integration.id} className="p-4 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="p-3 bg-white/10 rounded-lg">
+                        <integration.icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-medium">{integration.name}</h4>
+                        {integration.connected ? (
+                          <p className="text-sm text-green-400">Connected • Last sync: {integration.lastSync}</p>
+                        ) : (
+                          <p className="text-sm text-gray-400">Not connected</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <button
+                      className={`px-4 py-2 rounded-lg font-medium ${
+                        integration.connected
+                          ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {integration.connected ? 'Disconnect' : 'Connect'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <Info className="w-5 h-5 text-blue-400 mt-0.5" />
+                <div>
+                  <h4 className="text-blue-400 font-medium mb-1">Need more integrations?</h4>
+                  <p className="text-sm text-gray-300">
+                    Contact support to request additional integration options for your business needs.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Security Tab */}
+        {activeTab === 'security' && (
+          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white mb-2">Security Settings</h2>
+              <p className="text-gray-400">Keep your account secure</p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Two-Factor Authentication */}
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="text-white font-medium flex items-center space-x-2">
+                      <Shield className="w-5 h-5 text-green-400" />
+                      <span>Two-Factor Authentication</span>
+                    </h4>
+                    <p className="text-sm text-gray-400 mt-1">Add an extra layer of security to your account</p>
+                  </div>
+                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    accountInfo.twoFactorEnabled
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {accountInfo.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                  </div>
+                </div>
+                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+                  {accountInfo.twoFactorEnabled ? 'Manage 2FA' : 'Enable 2FA'}
+                </button>
+              </div>
+
+              {/* Password */}
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <h4 className="text-white font-medium mb-2">Password</h4>
+                <p className="text-sm text-gray-400 mb-4">Last changed 30 days ago</p>
+                <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium">
+                  Change Password
+                </button>
+              </div>
+
+              {/* Active Sessions */}
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <h4 className="text-white font-medium mb-4">Active Sessions</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-white/5 rounded">
+                    <div>
+                      <p className="text-white text-sm">Current Session</p>
+                      <p className="text-xs text-gray-400">Chrome on Windows • New York, US</p>
+                    </div>
+                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Active</span>
+                  </div>
+                </div>
+                <button className="mt-3 text-sm text-blue-400 hover:text-blue-300">
+                  View all sessions →
+                </button>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="pt-6 border-t border-white/10">
+                <h3 className="text-lg font-semibold text-white mb-4">Danger Zone</h3>
+                <div className="space-y-3">
+                  <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-orange-400 font-semibold">Export Your Data</h4>
+                        <p className="text-sm text-gray-400">Download all your data in JSON format</p>
+                      </div>
+                      <button className="px-4 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-medium hover:bg-orange-500/30">
+                        Export Data
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-red-400 font-semibold">Delete Account</h4>
+                        <p className="text-sm text-gray-400">Permanently delete your account and all data</p>
+                      </div>
+                      <button className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30">
+                        Delete Account
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions Footer */}
+        <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
+          <div className="flex items-center justify-between">
+            <p className="text-gray-400 text-sm">Need help? Contact support at support@bizzybotai.com</p>
+            <button
+              onClick={() => signOut()}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
