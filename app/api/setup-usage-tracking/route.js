@@ -47,21 +47,37 @@ export async function GET() {
       `);
       console.log('✅ customers table updated for discount codes');
       
-      // 4. Update subscriptions table
+      // 4. Create subscriptions table if it doesn't exist
       await client.query(`
-        ALTER TABLE subscriptions 
-        ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255) UNIQUE,
-        ADD COLUMN IF NOT EXISTS cancel_at_period_end BOOLEAN DEFAULT false;
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          id SERIAL PRIMARY KEY,
+          customer_id INTEGER REFERENCES customers(id),
+          stripe_subscription_id VARCHAR(255) UNIQUE,
+          plan VARCHAR(50) DEFAULT 'starter',
+          status VARCHAR(50) DEFAULT 'trialing',
+          current_period_start TIMESTAMP,
+          current_period_end TIMESTAMP,
+          cancel_at_period_end BOOLEAN DEFAULT false,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
       `);
-      console.log('✅ subscriptions table updated');
+      console.log('✅ subscriptions table created/verified');
+      
+      // 5. Add index for subscriptions
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_customer_id ON subscriptions(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_id ON subscriptions(stripe_subscription_id);
+      `);
+      console.log('✅ subscriptions indexes created');
       
       return NextResponse.json({
         success: true,
-        message: 'Usage tracking tables created successfully',
+        message: 'Usage tracking and subscription tables created successfully',
         tables: [
-          'customer_usage',
-          'Updated: customers (added pending_promo_code)',
-          'Updated: subscriptions (added stripe fields)'
+          'customer_usage - created/verified',
+          'subscriptions - created/verified',
+          'customers - updated with pending_promo_code'
         ]
       });
       
