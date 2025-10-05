@@ -85,22 +85,22 @@ export default function SettingsPage() {
     description: ''
   });
   
-  // Subscription State
+  // Subscription State - UPDATED with correct pricing
   const [subscription, setSubscription] = useState({
-    plan: 'professional',
-    status: 'active',
+    plan: 'professional', // Changed from 'starter' since $299 = Professional
+    status: 'trialing',
     billing: {
-      amount: 299,
+      amount: 299, // Professional plan price
       interval: 'month',
       nextBilling: '2025-01-15'
     },
     usage: {
-      conversations: 856,
-      maxConversations: 2000,
-      emailResponses: 2341,
-      maxEmailResponses: 5000,
-      smsMessages: 432,
-      maxSmsMessages: 1000
+      conversations: 0,
+      maxConversations: 2000, // Professional tier
+      emailResponses: 0,
+      maxEmailResponses: 5000, // Professional tier
+      smsMessages: 0,
+      maxSmsMessages: 1000 // Professional tier
     }
   });
   
@@ -182,11 +182,44 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.subscription) {
+          // Map the plan correctly based on price
+          let planName = 'starter';
+          let planPrice = 99;
+          let maxConversations = 500;
+          let maxEmailResponses = 1000;
+          let maxSmsMessages = 200;
+          
+          if (data.subscription.plan === 'professional' || data.subscription.planDetails?.price === 299) {
+            planName = 'professional';
+            planPrice = 299;
+            maxConversations = 2000;
+            maxEmailResponses = 5000;
+            maxSmsMessages = 1000;
+          } else if (data.subscription.plan === 'enterprise' || data.subscription.planDetails?.price === 799) {
+            planName = 'enterprise';
+            planPrice = 799;
+            maxConversations = 'Unlimited';
+            maxEmailResponses = 'Unlimited';
+            maxSmsMessages = 5000;
+          }
+          
           setSubscription(prev => ({
             ...prev,
-            plan: data.subscription.plan || 'professional',
-            status: data.subscription.status || 'active',
-            usage: data.subscription.usage || prev.usage
+            plan: planName,
+            status: data.subscription.status || 'trialing',
+            billing: {
+              amount: planPrice,
+              interval: 'month',
+              nextBilling: data.subscription.current_period_end || prev.billing.nextBilling
+            },
+            usage: {
+              conversations: data.subscription.usage?.conversations || 0,
+              maxConversations: maxConversations,
+              emailResponses: data.subscription.usage?.emailResponses || 0,
+              maxEmailResponses: maxEmailResponses,
+              smsMessages: data.subscription.usage?.smsMessages || 0,
+              maxSmsMessages: maxSmsMessages
+            }
           }));
         }
       }
@@ -317,23 +350,45 @@ export default function SettingsPage() {
     { id: 'security', label: 'Security', icon: Shield }
   ];
 
+  // UPDATED PRICING - Based on your actual pricing structure
   const availablePlans = [
     {
       name: 'Starter',
       price: 99,
-      features: ['500 Conversations', '1,000 Email Responses', '200 SMS Messages', '1 AI Agent', '2 Team Members'],
+      features: [
+        '500 Conversations',
+        '1,000 Email Responses', 
+        '200 SMS Messages',
+        '1 AI Agent',
+        '2 Team Members',
+        '3 Integrations'
+      ],
       current: subscription.plan === 'starter'
     },
     {
       name: 'Professional',
       price: 299,
-      features: ['2,000 Conversations', '5,000 Email Responses', '1,000 SMS Messages', '3 AI Agents', '10 Team Members'],
+      features: [
+        '2,000 Conversations',
+        '5,000 Email Responses',
+        '1,000 SMS Messages',
+        '3 AI Agents',
+        '10 Team Members',
+        'All Integrations'
+      ],
       current: subscription.plan === 'professional'
     },
     {
       name: 'Enterprise',
       price: 799,
-      features: ['Unlimited Conversations', 'Unlimited Emails', '5,000 SMS Messages', 'Unlimited AI Agents', 'Unlimited Team Members'],
+      features: [
+        'Unlimited Conversations',
+        'Unlimited Emails',
+        '5,000 SMS Messages',
+        'Unlimited AI Agents',
+        'Unlimited Team Members',
+        'Custom Integrations'
+      ],
       current: subscription.plan === 'enterprise'
     }
   ];
@@ -731,7 +786,7 @@ export default function SettingsPage() {
               <p className="text-gray-400">Manage your plan and usage</p>
             </div>
 
-            {/* Current Plan */}
+            {/* Current Plan - FIXED to show correct plan */}
             <div className="p-6 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 mb-6">
               <div className="flex items-start justify-between">
                 <div>
@@ -745,12 +800,14 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="px-3 py-1 bg-white/20 rounded-full">
-                  <span className="text-white font-medium capitalize">{subscription.status}</span>
+                  <span className="text-white font-medium capitalize">
+                    {subscription.status === 'trialing' ? 'Trial' : subscription.status}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Usage Stats */}
+            {/* Usage Stats - FIXED to show actual values */}
             <div className="space-y-4 mb-6">
               <h4 className="text-lg font-semibold text-white">Usage This Month</h4>
               
@@ -758,12 +815,18 @@ export default function SettingsPage() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-300">Conversations</span>
-                    <span className="text-white">{subscription.usage.conversations} / {subscription.usage.maxConversations}</span>
+                    <span className="text-white">
+                      {subscription.usage.conversations} / {subscription.usage.maxConversations}
+                    </span>
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
-                      style={{ width: `${(subscription.usage.conversations / subscription.usage.maxConversations) * 100}%` }}
+                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all"
+                      style={{ 
+                        width: subscription.usage.maxConversations === 'Unlimited' 
+                          ? '0%' 
+                          : `${Math.min((subscription.usage.conversations / subscription.usage.maxConversations) * 100, 100)}%` 
+                      }}
                     />
                   </div>
                 </div>
@@ -771,12 +834,18 @@ export default function SettingsPage() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-300">Email Responses</span>
-                    <span className="text-white">{subscription.usage.emailResponses} / {subscription.usage.maxEmailResponses}</span>
+                    <span className="text-white">
+                      {subscription.usage.emailResponses} / {subscription.usage.maxEmailResponses}
+                    </span>
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-green-500 to-teal-500 h-2 rounded-full"
-                      style={{ width: `${(subscription.usage.emailResponses / subscription.usage.maxEmailResponses) * 100}%` }}
+                      className="bg-gradient-to-r from-green-500 to-teal-500 h-2 rounded-full transition-all"
+                      style={{ 
+                        width: subscription.usage.maxEmailResponses === 'Unlimited'
+                          ? '0%'
+                          : `${Math.min((subscription.usage.emailResponses / subscription.usage.maxEmailResponses) * 100, 100)}%` 
+                      }}
                     />
                   </div>
                 </div>
@@ -784,12 +853,16 @@ export default function SettingsPage() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-300">SMS Messages</span>
-                    <span className="text-white">{subscription.usage.smsMessages} / {subscription.usage.maxSmsMessages}</span>
+                    <span className="text-white">
+                      {subscription.usage.smsMessages} / {subscription.usage.maxSmsMessages}
+                    </span>
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full"
-                      style={{ width: `${(subscription.usage.smsMessages / subscription.usage.maxSmsMessages) * 100}%` }}
+                      className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full transition-all"
+                      style={{ 
+                        width: `${Math.min((subscription.usage.smsMessages / subscription.usage.maxSmsMessages) * 100, 100)}%` 
+                      }}
                     />
                   </div>
                 </div>
@@ -1083,22 +1156,10 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              {/* Danger Zone */}
+              {/* Account Management */}
               <div className="pt-6 border-t border-white/10">
-                <h3 className="text-lg font-semibold text-white mb-4">Danger Zone</h3>
+                <h3 className="text-lg font-semibold text-white mb-4">Account Management</h3>
                 <div className="space-y-3">
-                  <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-orange-400 font-semibold">Export Your Data</h4>
-                        <p className="text-sm text-gray-400">Download all your data in JSON format</p>
-                      </div>
-                      <button className="px-4 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-medium hover:bg-orange-500/30">
-                        Export Data
-                      </button>
-                    </div>
-                  </div>
-                  
                   <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
