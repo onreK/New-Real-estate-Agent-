@@ -420,8 +420,22 @@ export async function POST(request) {
         
         console.log('✅ Plan price ID:', priceId);
         
-        // Create or get Stripe customer
+        // Create or get Stripe customer - FIX FOR TEST/LIVE MODE SWITCHING
         let stripeCustomerId = customer.stripe_customer_id;
+        
+        // Check if the customer ID exists in Stripe (validates it's in the right mode)
+        if (stripeCustomerId) {
+          try {
+            console.log('🔍 Verifying existing Stripe customer:', stripeCustomerId);
+            await stripe.customers.retrieve(stripeCustomerId);
+            console.log('✅ Stripe customer verified');
+          } catch (retrieveError) {
+            // Customer doesn't exist in this mode (test vs live)
+            console.log('⚠️ Stripe customer not found (likely switching from test to live mode)');
+            console.log('🔄 Will create new customer for LIVE mode');
+            stripeCustomerId = null; // Force creation of new customer
+          }
+        }
         
         if (!stripeCustomerId) {
           console.log('📝 Creating new Stripe customer');
@@ -438,12 +452,12 @@ export async function POST(request) {
             stripeCustomerId = stripeCustomer.id;
             console.log('✅ Stripe customer created:', stripeCustomerId);
             
-            // Update database with Stripe customer ID
+            // Update database with new Stripe customer ID
             await client.query(
               'UPDATE customers SET stripe_customer_id = $1 WHERE id = $2',
               [stripeCustomerId, customer.id]
             );
-            console.log('✅ Database updated with Stripe customer ID');
+            console.log('✅ Database updated with new Stripe customer ID');
           } catch (createError) {
             console.error('❌ Error creating Stripe customer:', createError);
             return NextResponse.json({ 
@@ -457,8 +471,8 @@ export async function POST(request) {
         
         // Check if customer has active subscription
         if (customer.stripe_subscription_id) {
-          // Update existing subscription
-          console.log('🔄 Updating existing subscription:', customer.stripe_subscription_id);
+          // Try to update existing subscription
+          console.log('🔄 Attempting to update existing subscription:', customer.stripe_subscription_id);
           
           try {
             const subscription = await stripe.subscriptions.retrieve(customer.stripe_subscription_id);
@@ -484,15 +498,18 @@ export async function POST(request) {
             });
             
           } catch (stripeError) {
-            console.error('❌ Stripe subscription update error:', stripeError);
-            return NextResponse.json({ 
-              error: 'Failed to update subscription',
-              details: stripeError.message
-            }, { status: 500 });
+            // Subscription doesn't exist in this mode - create new checkout instead
+            console.log('⚠️ Could not update subscription (likely test mode subscription). Creating new checkout...');
+            // Clear the invalid subscription ID
+            await client.query(
+              'UPDATE customers SET stripe_subscription_id = NULL WHERE id = $1',
+              [customer.id]
+            );
+            // Continue to create new checkout session below
           }
         }
         
-        // If no subscription, create checkout session
+        // Create checkout session for new subscription
         console.log('🛒 Creating checkout session for new subscription');
         
         try {
