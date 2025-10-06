@@ -278,12 +278,24 @@ export async function POST(request) {
     try {
       client = await getDbClient().connect();
     } catch (dbError) {
+      console.error('Database connection error:', dbError);
       return NextResponse.json({ 
         error: 'Database temporarily unavailable. Please try again.' 
       }, { status: 503 });
     }
     
     try {
+      // Ensure pending_promo_code column exists
+      try {
+        await client.query(`
+          ALTER TABLE customers 
+          ADD COLUMN IF NOT EXISTS pending_promo_code VARCHAR(255)
+        `);
+        console.log('✅ Ensured pending_promo_code column exists');
+      } catch (alterError) {
+        console.log('⚠️ Could not add pending_promo_code column (might already exist):', alterError.message);
+      }
+      
       // Get customer
       const customerQuery = 'SELECT * FROM customers WHERE clerk_user_id = $1';
       const customerResult = await client.query(customerQuery, [user.id]);
@@ -294,7 +306,7 @@ export async function POST(request) {
       
       const customer = customerResult.rows[0];
       
-      // 🎯 FIXED: Handle discount code application with case-insensitive search
+      // Handle discount code application
       if (action === 'apply_discount') {
         if (!discountCode) {
           return NextResponse.json({ error: 'Discount code required' }, { status: 400 });
@@ -316,7 +328,6 @@ export async function POST(request) {
           if (promotionCodes.data.length === 0) {
             console.log('🔄 Trying case-insensitive search...');
             
-            // Get all active promotion codes
             const allPromoCodes = await stripe.promotionCodes.list({
               active: true,
               limit: 100
@@ -324,7 +335,6 @@ export async function POST(request) {
             
             console.log('📊 Total active promo codes in Stripe:', allPromoCodes.data.length);
             
-            // Find matching code (case-insensitive)
             const matchedCode = allPromoCodes.data.find(
               pc => pc.code.toUpperCase() === discountCode.toUpperCase()
             );
@@ -333,55 +343,40 @@ export async function POST(request) {
               promotionCodes = { data: [matchedCode] };
               console.log('✅ Found code with case-insensitive match:', matchedCode.code);
             } else {
-              console.log('❌ No matching code found. Available codes:', 
-                allPromoCodes.data.map(pc => pc.code).join(', '));
+              console.log('❌ No matching code found');
               
               return NextResponse.json({ 
                 error: 'Invalid or expired discount code',
-                details: `Code "${discountCode}" not found. Please check spelling and try again.`,
-                availableCodes: allPromoCodes.data.length > 0 ? 
-                  `${allPromoCodes.data.length} active codes available` : 
-                  'No active codes available'
+                details: `Code "${discountCode}" not found.`
               }, { status: 400 });
             }
           }
           
           const promoCode = promotionCodes.data[0];
-          console.log('✅ Valid promo code found:', {
-            id: promoCode.id,
-            code: promoCode.code,
-            couponId: promoCode.coupon.id,
-            percentOff: promoCode.coupon.percent_off,
-            amountOff: promoCode.coupon.amount_off
-          });
+          console.log('✅ Valid promo code found:', promoCode.id);
           
           // If customer has active subscription, apply discount immediately
           if (customer.stripe_subscription_id) {
-            console.log('📝 Applying discount to existing subscription:', customer.stripe_subscription_id);
+            console.log('📝 Applying discount to existing subscription');
             
-            try {
-              const subscription = await stripe.subscriptions.update(
-                customer.stripe_subscription_id,
-                {
-                  promotion_code: promoCode.id
-                }
-              );
-              
-              console.log('✅ Discount applied successfully to subscription');
-              
-              return NextResponse.json({ 
-                success: true,
-                message: `Discount "${promoCode.coupon.name || promoCode.code}" applied successfully!`,
-                discount: {
-                  code: promoCode.code,
-                  percentOff: promoCode.coupon.percent_off,
-                  amountOff: promoCode.coupon.amount_off
-                }
-              });
-            } catch (updateError) {
-              console.error('❌ Error applying discount to subscription:', updateError);
-              throw updateError;
-            }
+            const subscription = await stripe.subscriptions.update(
+              customer.stripe_subscription_id,
+              {
+                promotion_code: promoCode.id
+              }
+            );
+            
+            console.log('✅ Discount applied successfully');
+            
+            return NextResponse.json({ 
+              success: true,
+              message: `Discount "${promoCode.coupon.name || promoCode.code}" applied successfully!`,
+              discount: {
+                code: promoCode.code,
+                percentOff: promoCode.coupon.percent_off,
+                amountOff: promoCode.coupon.amount_off
+              }
+            });
           } else {
             // No active subscription - store for future checkout
             console.log('💾 Storing promo code for future subscription');
@@ -405,9 +400,6 @@ export async function POST(request) {
           }
         } catch (stripeError) {
           console.error('❌ Stripe discount error:', stripeError);
-          console.error('Error message:', stripeError.message);
-          console.error('Error type:', stripeError.type);
-          
           return NextResponse.json({ 
             error: 'Invalid or expired discount code',
             details: stripeError.message
@@ -417,40 +409,60 @@ export async function POST(request) {
       
       // Handle plan changes
       if (action === 'upgrade' || action === 'downgrade') {
+        console.log('🔄 Processing plan change:', action, 'to plan:', plan);
+        
         const priceId = STRIPE_PRICE_IDS[plan];
         
         if (!priceId) {
+          console.error('❌ Invalid plan:', plan);
           return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
         }
+        
+        console.log('✅ Plan price ID:', priceId);
         
         // Create or get Stripe customer
         let stripeCustomerId = customer.stripe_customer_id;
         
         if (!stripeCustomerId) {
-          const stripeCustomer = await stripe.customers.create({
-            email: customer.email,
-            metadata: {
-              clerkUserId: user.id,
-              customerId: customer.id.toString()
-            }
-          });
+          console.log('📝 Creating new Stripe customer');
           
-          stripeCustomerId = stripeCustomer.id;
-          
-          // Update database with Stripe customer ID
-          await client.query(
-            'UPDATE customers SET stripe_customer_id = $1 WHERE id = $2',
-            [stripeCustomerId, customer.id]
-          );
+          try {
+            const stripeCustomer = await stripe.customers.create({
+              email: customer.email,
+              metadata: {
+                clerkUserId: user.id,
+                customerId: customer.id.toString()
+              }
+            });
+            
+            stripeCustomerId = stripeCustomer.id;
+            console.log('✅ Stripe customer created:', stripeCustomerId);
+            
+            // Update database with Stripe customer ID
+            await client.query(
+              'UPDATE customers SET stripe_customer_id = $1 WHERE id = $2',
+              [stripeCustomerId, customer.id]
+            );
+            console.log('✅ Database updated with Stripe customer ID');
+          } catch (createError) {
+            console.error('❌ Error creating Stripe customer:', createError);
+            return NextResponse.json({ 
+              error: 'Failed to create customer in Stripe',
+              details: createError.message
+            }, { status: 500 });
+          }
         }
+        
+        console.log('✅ Using Stripe customer ID:', stripeCustomerId);
         
         // Check if customer has active subscription
         if (customer.stripe_subscription_id) {
           // Update existing subscription
+          console.log('🔄 Updating existing subscription:', customer.stripe_subscription_id);
+          
           try {
             const subscription = await stripe.subscriptions.retrieve(customer.stripe_subscription_id);
             
-            // Update the subscription with new price
             await stripe.subscriptions.update(customer.stripe_subscription_id, {
               items: [{
                 id: subscription.items.data[0].id,
@@ -459,11 +471,12 @@ export async function POST(request) {
               proration_behavior: 'always_invoice'
             });
             
-            // Update local database
             await client.query(
               'UPDATE customers SET plan = $1, updated_at = NOW() WHERE id = $2',
               [plan, customer.id]
             );
+            
+            console.log('✅ Subscription updated successfully');
             
             return NextResponse.json({ 
               success: true,
@@ -471,48 +484,70 @@ export async function POST(request) {
             });
             
           } catch (stripeError) {
-            console.error('Stripe subscription update error:', stripeError);
+            console.error('❌ Stripe subscription update error:', stripeError);
             return NextResponse.json({ 
-              error: 'Failed to update subscription' 
+              error: 'Failed to update subscription',
+              details: stripeError.message
             }, { status: 500 });
           }
         }
         
         // If no subscription, create checkout session
-        const checkoutSession = await stripe.checkout.sessions.create({
-          customer: stripeCustomerId,
-          payment_method_types: ['card'],
-          line_items: [{
-            price: priceId,
-            quantity: 1
-          }],
-          mode: 'subscription',
-          success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/settings?success=true&plan=${plan}`,
-          cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/settings?canceled=true`,
-          metadata: {
-            clerkUserId: user.id,
-            customerId: customer.id.toString(),
-            plan: plan
-          },
-          // Apply pending promo code if exists
-          ...(customer.pending_promo_code && { 
-            discounts: [{
-              promotion_code: customer.pending_promo_code
-            }]
-          }),
-          subscription_data: {
-            trial_period_days: 14,
+        console.log('🛒 Creating checkout session for new subscription');
+        
+        try {
+          // Build checkout session config
+          const sessionConfig = {
+            customer: stripeCustomerId,
+            payment_method_types: ['card'],
+            line_items: [{
+              price: priceId,
+              quantity: 1
+            }],
+            mode: 'subscription',
+            success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/settings?success=true&plan=${plan}`,
+            cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/settings?canceled=true`,
             metadata: {
               clerkUserId: user.id,
-              customerId: customer.id.toString()
+              customerId: customer.id.toString(),
+              plan: plan
+            },
+            subscription_data: {
+              trial_period_days: 14,
+              metadata: {
+                clerkUserId: user.id,
+                customerId: customer.id.toString()
+              }
             }
+          };
+          
+          // Only add discount if pending promo code exists
+          if (customer.pending_promo_code) {
+            console.log('🎁 Adding pending promo code to checkout:', customer.pending_promo_code);
+            sessionConfig.discounts = [{
+              promotion_code: customer.pending_promo_code
+            }];
           }
-        });
-        
-        return NextResponse.json({ 
-          success: true,
-          redirectUrl: checkoutSession.url 
-        });
+          
+          const checkoutSession = await stripe.checkout.sessions.create(sessionConfig);
+          
+          console.log('✅ Checkout session created:', checkoutSession.id);
+          console.log('🔗 Redirect URL:', checkoutSession.url);
+          
+          return NextResponse.json({ 
+            success: true,
+            redirectUrl: checkoutSession.url 
+          });
+        } catch (checkoutError) {
+          console.error('❌ Error creating checkout session:', checkoutError);
+          console.error('Error details:', checkoutError.message);
+          console.error('Error type:', checkoutError.type);
+          
+          return NextResponse.json({ 
+            error: 'Failed to create checkout session',
+            details: checkoutError.message
+          }, { status: 500 });
+        }
       }
       
       // Handle subscription cancellation
@@ -521,7 +556,6 @@ export async function POST(request) {
           return NextResponse.json({ error: 'No active subscription' }, { status: 400 });
         }
         
-        // Cancel at period end
         await stripe.subscriptions.update(customer.stripe_subscription_id, {
           cancel_at_period_end: true
         });
@@ -542,7 +576,8 @@ export async function POST(request) {
       }
     }
   } catch (error) {
-    console.error('❌ Error updating subscription:', error);
+    console.error('❌ Fatal error in subscription route:', error);
+    console.error('Error stack:', error.stack);
     return NextResponse.json({ 
       error: 'Failed to update subscription', 
       details: error.message 
