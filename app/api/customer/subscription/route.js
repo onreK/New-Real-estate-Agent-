@@ -268,6 +268,8 @@ export async function POST(request) {
 
     const { action, plan, discountCode } = await request.json();
     
+    console.log('🔵 Subscription POST action:', action, 'Plan:', plan, 'Discount Code:', discountCode);
+    
     // Initialize connections
     const { getDbClient, stripe } = await initializeConnections();
     
@@ -292,65 +294,123 @@ export async function POST(request) {
       
       const customer = customerResult.rows[0];
       
-      // Handle discount code application
+      // 🎯 FIXED: Handle discount code application with case-insensitive search
       if (action === 'apply_discount') {
         if (!discountCode) {
           return NextResponse.json({ error: 'Discount code required' }, { status: 400 });
         }
         
+        console.log('🔍 Searching for promotion code:', discountCode);
+        
         try {
-          // Validate the discount code with Stripe
-          const promotionCodes = await stripe.promotionCodes.list({
+          // Try exact match first
+          let promotionCodes = await stripe.promotionCodes.list({
             code: discountCode,
             active: true,
             limit: 1
           });
           
+          console.log('📋 Exact match result:', promotionCodes.data.length, 'codes found');
+          
+          // If no exact match, try case-insensitive search
           if (promotionCodes.data.length === 0) {
-            return NextResponse.json({ 
-              error: 'Invalid or expired discount code' 
-            }, { status: 400 });
+            console.log('🔄 Trying case-insensitive search...');
+            
+            // Get all active promotion codes
+            const allPromoCodes = await stripe.promotionCodes.list({
+              active: true,
+              limit: 100
+            });
+            
+            console.log('📊 Total active promo codes in Stripe:', allPromoCodes.data.length);
+            
+            // Find matching code (case-insensitive)
+            const matchedCode = allPromoCodes.data.find(
+              pc => pc.code.toUpperCase() === discountCode.toUpperCase()
+            );
+            
+            if (matchedCode) {
+              promotionCodes = { data: [matchedCode] };
+              console.log('✅ Found code with case-insensitive match:', matchedCode.code);
+            } else {
+              console.log('❌ No matching code found. Available codes:', 
+                allPromoCodes.data.map(pc => pc.code).join(', '));
+              
+              return NextResponse.json({ 
+                error: 'Invalid or expired discount code',
+                details: `Code "${discountCode}" not found. Please check spelling and try again.`,
+                availableCodes: allPromoCodes.data.length > 0 ? 
+                  `${allPromoCodes.data.length} active codes available` : 
+                  'No active codes available'
+              }, { status: 400 });
+            }
           }
           
           const promoCode = promotionCodes.data[0];
+          console.log('✅ Valid promo code found:', {
+            id: promoCode.id,
+            code: promoCode.code,
+            couponId: promoCode.coupon.id,
+            percentOff: promoCode.coupon.percent_off,
+            amountOff: promoCode.coupon.amount_off
+          });
           
-          // If customer has active subscription, apply discount
+          // If customer has active subscription, apply discount immediately
           if (customer.stripe_subscription_id) {
-            const subscription = await stripe.subscriptions.update(
-              customer.stripe_subscription_id,
-              {
-                promotion_code: promoCode.id
-              }
-            );
+            console.log('📝 Applying discount to existing subscription:', customer.stripe_subscription_id);
             
-            return NextResponse.json({ 
-              success: true,
-              message: `Discount "${promoCode.coupon.name || discountCode}" applied successfully!`,
-              discount: {
-                percentOff: promoCode.coupon.percent_off,
-                amountOff: promoCode.coupon.amount_off
-              }
-            });
+            try {
+              const subscription = await stripe.subscriptions.update(
+                customer.stripe_subscription_id,
+                {
+                  promotion_code: promoCode.id
+                }
+              );
+              
+              console.log('✅ Discount applied successfully to subscription');
+              
+              return NextResponse.json({ 
+                success: true,
+                message: `Discount "${promoCode.coupon.name || promoCode.code}" applied successfully!`,
+                discount: {
+                  code: promoCode.code,
+                  percentOff: promoCode.coupon.percent_off,
+                  amountOff: promoCode.coupon.amount_off
+                }
+              });
+            } catch (updateError) {
+              console.error('❌ Error applying discount to subscription:', updateError);
+              throw updateError;
+            }
           } else {
-            // Store for checkout session
+            // No active subscription - store for future checkout
+            console.log('💾 Storing promo code for future subscription');
+            
             await client.query(
               'UPDATE customers SET pending_promo_code = $1 WHERE id = $2',
               [promoCode.id, customer.id]
             );
             
+            console.log('✅ Promo code stored successfully');
+            
             return NextResponse.json({ 
               success: true,
               message: 'Discount code validated! It will be applied when you subscribe.',
               discount: {
+                code: promoCode.code,
                 percentOff: promoCode.coupon.percent_off,
                 amountOff: promoCode.coupon.amount_off
               }
             });
           }
         } catch (stripeError) {
-          console.error('Stripe discount error:', stripeError);
+          console.error('❌ Stripe discount error:', stripeError);
+          console.error('Error message:', stripeError.message);
+          console.error('Error type:', stripeError.type);
+          
           return NextResponse.json({ 
-            error: 'Invalid or expired discount code' 
+            error: 'Invalid or expired discount code',
+            details: stripeError.message
           }, { status: 400 });
         }
       }
@@ -482,7 +542,7 @@ export async function POST(request) {
       }
     }
   } catch (error) {
-    console.error('Error updating subscription:', error);
+    console.error('❌ Error updating subscription:', error);
     return NextResponse.json({ 
       error: 'Failed to update subscription', 
       details: error.message 
