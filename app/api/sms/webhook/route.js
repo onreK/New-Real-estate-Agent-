@@ -1,17 +1,43 @@
 // app/api/sms/webhook/route.js - UPDATED TO USE CENTRALIZED AI SERVICE
 import { NextResponse } from 'next/server';
 import twilio from 'twilio';
-// 🎯 IMPORT THE CENTRALIZED AI SERVICE - FIXED IMPORT PATH
 import { generateSMSResponse } from '../../../../lib/ai-service.js';
+import { query } from '../../../../lib/database.js';
 
 // Initialize Twilio
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
+const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
 // In-memory storage for conversations and customer configs
 const conversations = new Map();
 const customerConfigs = new Map();
+
+// Look up which customer owns this Twilio 'To' number
+async function resolveCustomerFromTwilioNumber(toNumber) {
+  try {
+    // Match by phone column (business owner's Twilio number stored during SMS setup)
+    const result = await query(
+      'SELECT clerk_user_id FROM customers WHERE phone = $1 AND clerk_user_id IS NOT NULL LIMIT 1',
+      [toNumber]
+    );
+    if (result.rows.length > 0) return result.rows[0].clerk_user_id;
+
+    // Fallback: return the most recently active customer who has AI config set up
+    const fallback = await query(
+      `SELECT c.clerk_user_id FROM customers c
+       INNER JOIN ai_configs a ON a.user_id = c.clerk_user_id
+       WHERE c.clerk_user_id IS NOT NULL
+       ORDER BY a.updated_at DESC LIMIT 1`
+    );
+    if (fallback.rows.length > 0) return fallback.rows[0].clerk_user_id;
+
+    return null;
+  } catch (err) {
+    console.error('⚠️ [SMS-WEBHOOK] Could not resolve customer from Twilio number:', err.message);
+    return null;
+  }
+}
 
 // Send hot lead alert to business owner (unchanged)
 async function sendHotLeadAlert(customerConfig, leadInfo, messageContent) {
@@ -70,7 +96,11 @@ export async function POST(request) {
       message: messageBody
     });
 
-    // Get customer configuration for this phone number
+    // Resolve which customer owns this Twilio number so we can use their AI settings
+    const resolvedClerkUserId = await resolveCustomerFromTwilioNumber(toNumber);
+    console.log('🔍 [SMS-WEBHOOK] Resolved customer:', resolvedClerkUserId || 'none (will use defaults)');
+
+    // Keep in-memory config for hot lead alert settings (phone-level overrides)
     let customerConfig = customerConfigs.get(toNumber) || {
       phoneNumber: toNumber,
       businessName: 'Professional Service',
@@ -119,20 +149,19 @@ export async function POST(request) {
     
     // Check if this is the first message and we have a welcome message
     if (conversation.messages.length === 1 && customerConfig.welcomeMessage) {
-      // For welcome messages, we still use centralized service for consistency and hot lead detection
       aiResult = await generateSMSResponse(
-        fromNumber, // phone number
-        messageBody, // user message
-        conversationHistory // conversation history
+        fromNumber,
+        messageBody,
+        conversationHistory,
+        resolvedClerkUserId
       );
-      // But override the response with welcome message if it's the first interaction
       aiResult.response = customerConfig.welcomeMessage;
     } else {
-      // Use centralized AI service for regular responses
       aiResult = await generateSMSResponse(
-        fromNumber, // phone number  
-        messageBody, // user message
-        conversationHistory // conversation history
+        fromNumber,
+        messageBody,
+        conversationHistory,
+        resolvedClerkUserId
       );
     }
 

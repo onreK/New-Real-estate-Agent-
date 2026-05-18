@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { Webhook } from 'svix';
-// import { createCustomer } from '../../../../lib/database.js'; // TEMPORARILY DISABLED
+import { createCustomer } from '../../../../lib/database.js';
 
 // Force dynamic rendering for webhook processing
 export const dynamic = 'force-dynamic';
@@ -71,25 +71,19 @@ export async function POST(req) {
         businessName
       });
 
-      // TEMPORARILY SKIP DATABASE OPERATIONS TO PREVENT CRASHES
-      console.log('⚠️ Database operations temporarily disabled for Gmail OAuth testing');
-      
-      /*
-      // COMMENTED OUT TO PREVENT DUPLICATE KEY ERRORS
       const customerData = {
         clerk_user_id: userData.id,
         email: email,
         business_name: businessName,
-        plan: 'basic'
+        plan: 'starter'
       };
 
       const customer = await createCustomer(customerData);
-      console.log('✅ Customer created successfully:', customer);
-      */
+      console.log('✅ Customer created successfully:', customer.id);
 
       return NextResponse.json({
         success: true,
-        message: 'Webhook received - database operations temporarily disabled',
+        message: 'Customer record created',
         user: {
           id: userData.id,
           email: email,
