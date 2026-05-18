@@ -1,7 +1,7 @@
 // app/(dashboard)/onboarding/page.js
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function OnboardingPage() {
@@ -15,6 +15,11 @@ export default function OnboardingPage() {
     businessDescription: '',
     targetAudience: ''
   });
+
+  // Ensure a customer record exists the moment the user lands here
+  useEffect(() => {
+    fetch('/api/create-customer', { method: 'POST' }).catch(() => {});
+  }, []);
 
   const industries = [
     'Real Estate', 'Healthcare', 'Legal Services', 'Financial Services',
