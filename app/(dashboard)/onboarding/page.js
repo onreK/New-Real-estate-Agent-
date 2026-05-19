@@ -73,24 +73,27 @@ export default function OnboardingPage() {
 
   const completeOnboarding = async () => {
     try {
-      // Save business data
-      const response = await fetch('/api/businesses', {
+      const response = await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          businessType: 'ai-only',
-          onboardingCompleted: true
+          businessName: formData.businessName,
+          businessDescription: formData.businessDescription,
+          targetAudience: formData.targetAudience,
+          industry: formData.industry,
         }),
       });
 
       if (response.ok) {
         router.push('/dashboard');
       } else {
-        console.error('Failed to save business data');
+        console.error('Failed to save onboarding data');
+        // Still send them to the dashboard — they can configure settings later
+        router.push('/dashboard');
       }
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      router.push('/dashboard');
     }
   };
 
