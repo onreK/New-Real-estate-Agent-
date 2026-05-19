@@ -21,9 +21,10 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Check admin access (you can also check by email)
-    const isAdmin = ADMIN_USER_IDS.includes(user.id) || 
-                   user.emailAddresses?.[0]?.emailAddress?.includes('@bizzybotai.com');
+    const email = user.emailAddresses?.[0]?.emailAddress || '';
+    const isAdmin = ADMIN_USER_IDS.includes(user.id) ||
+                   email === process.env.ADMIN_EMAIL ||
+                   email.includes('@bizzybotai.com');
     
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });

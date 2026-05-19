@@ -10,8 +10,10 @@ const ADMIN_USER_IDS = [
 ].filter(Boolean);
 
 function isAdmin(user) {
+  const email = user.emailAddresses?.[0]?.emailAddress || '';
   return ADMIN_USER_IDS.includes(user.id) ||
-    user.emailAddresses?.[0]?.emailAddress?.includes('@bizzybotai.com');
+    email === process.env.ADMIN_EMAIL ||
+    email.includes('@bizzybotai.com');
 }
 
 export async function GET() {
