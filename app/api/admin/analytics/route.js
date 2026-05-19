@@ -37,23 +37,33 @@ export async function GET(request) {
     const period = searchParams.get('period') || 'month';
     const dateRange = getDateRange(period);
     
-    // 🏢 Get business metrics
+    // 🏢 Get business metrics (no dependency on customer_analytics_summary)
     const businessMetrics = await query(`
-      SELECT 
+      SELECT
         COUNT(DISTINCT c.id) as total_customers,
         COUNT(DISTINCT CASE WHEN c.created_at >= $1 THEN c.id END) as new_customers,
-        COUNT(DISTINCT CASE WHEN e.ai_responses_sent > 0 THEN c.id END) as active_customers,
-        SUM(CASE 
+        SUM(CASE
           WHEN c.plan = 'starter' THEN 97
           WHEN c.plan = 'professional' THEN 197
           WHEN c.plan = 'enterprise' THEN 497
-          ELSE 0 
+          ELSE 0
         END) as monthly_recurring_revenue
       FROM customers c
-      LEFT JOIN customer_analytics_summary e ON e.customer_id = c.id 
-        AND e.month = DATE_TRUNC('month', CURRENT_DATE)
       WHERE c.created_at <= $2
     `, [dateRange.start, dateRange.end]);
+
+    // Active customers = those who have any AI event this period
+    let activeCustomersCount = 0;
+    try {
+      const activeRes = await query(`
+        SELECT COUNT(DISTINCT customer_id) as active_customers
+        FROM ai_analytics_events
+        WHERE created_at >= $1 AND created_at <= $2
+      `, [dateRange.start, dateRange.end]);
+      activeCustomersCount = parseInt(activeRes.rows[0]?.active_customers || 0);
+    } catch (_) {
+      // ai_analytics_events may not be populated yet
+    }
     
     // 📈 Get growth metrics
     const growthMetrics = await query(`
@@ -69,29 +79,35 @@ export async function GET(request) {
     `, [dateRange.start, dateRange.end]);
     
     // 🤖 Get AI usage statistics
-    const aiUsageStats = await query(`
-      SELECT 
-        COUNT(*) as total_ai_interactions,
-        COUNT(DISTINCT customer_id) as customers_using_ai,
-        COUNT(DISTINCT DATE(created_at)) as days_active,
-        AVG(confidence_score) as avg_confidence,
-        COUNT(DISTINCT channel) as channels_used
-      FROM ai_analytics_events
-      WHERE created_at >= $1 AND created_at <= $2
-    `, [dateRange.start, dateRange.end]);
-    
+    let aiUsageStats = { rows: [{}] };
+    try {
+      aiUsageStats = await query(`
+        SELECT
+          COUNT(*) as total_ai_interactions,
+          COUNT(DISTINCT customer_id) as customers_using_ai,
+          COUNT(DISTINCT DATE(created_at)) as days_active,
+          AVG(confidence_score) as avg_confidence,
+          COUNT(DISTINCT channel) as channels_used
+        FROM ai_analytics_events
+        WHERE created_at >= $1 AND created_at <= $2
+      `, [dateRange.start, dateRange.end]);
+    } catch (_) {}
+
     // 🎯 Get behavior adoption rates (real usage data)
-    const behaviorAdoption = await query(`
-      SELECT 
-        event_type,
-        COUNT(DISTINCT customer_id) as customers_using,
-        COUNT(*) as total_occurrences,
-        AVG(confidence_score) as avg_confidence
-      FROM ai_analytics_events
-      WHERE created_at >= $1 AND created_at <= $2
-      GROUP BY event_type
-      ORDER BY customers_using DESC
-    `, [dateRange.start, dateRange.end]);
+    let behaviorAdoption = { rows: [] };
+    try {
+      behaviorAdoption = await query(`
+        SELECT
+          event_type,
+          COUNT(DISTINCT customer_id) as customers_using,
+          COUNT(*) as total_occurrences,
+          AVG(confidence_score) as avg_confidence
+        FROM ai_analytics_events
+        WHERE created_at >= $1 AND created_at <= $2
+        GROUP BY event_type
+        ORDER BY customers_using DESC
+      `, [dateRange.start, dateRange.end]);
+    } catch (_) {}
     
     // 💰 Revenue analysis
     const revenueAnalysis = await query(`
@@ -110,61 +126,71 @@ export async function GET(request) {
     `, [dateRange.end]);
     
     // 🔥 Hot lead performance
-    const hotLeadPerformance = await query(`
-      SELECT 
-        DATE_TRUNC('week', created_at) as week,
-        COUNT(*) as hot_leads_detected,
-        AVG(confidence_score) as avg_score,
-        COUNT(DISTINCT customer_id) as unique_customers
-      FROM ai_analytics_events
-      WHERE event_type = 'hot_lead_detected'
-        AND created_at >= $1 AND created_at <= $2
-      GROUP BY DATE_TRUNC('week', created_at)
-      ORDER BY week DESC
-      LIMIT 8
-    `, [dateRange.start, dateRange.end]);
+    let hotLeadPerformance = { rows: [] };
+    try {
+      hotLeadPerformance = await query(`
+        SELECT
+          DATE_TRUNC('week', created_at) as week,
+          COUNT(*) as hot_leads_detected,
+          AVG(confidence_score) as avg_score,
+          COUNT(DISTINCT customer_id) as unique_customers
+        FROM ai_analytics_events
+        WHERE event_type = 'hot_lead_detected'
+          AND created_at >= $1 AND created_at <= $2
+        GROUP BY DATE_TRUNC('week', created_at)
+        ORDER BY week DESC
+        LIMIT 8
+      `, [dateRange.start, dateRange.end]);
+    } catch (_) {}
     
-    // 📊 Customer retention and engagement
-    const retentionMetrics = await query(`
-      SELECT 
-        DATE_TRUNC('month', c.created_at) as cohort_month,
-        COUNT(DISTINCT c.id) as cohort_size,
-        COUNT(DISTINCT CASE 
-          WHEN e.ai_responses_sent > 0 THEN c.id 
-        END) as active_in_period,
-        ROUND(
-          100.0 * COUNT(DISTINCT CASE WHEN e.ai_responses_sent > 0 THEN c.id END) / 
-          NULLIF(COUNT(DISTINCT c.id), 0), 
-          2
-        ) as retention_rate
-      FROM customers c
-      LEFT JOIN customer_analytics_summary e ON e.customer_id = c.id
-        AND e.month = DATE_TRUNC('month', CURRENT_DATE)
-      WHERE c.created_at >= $1 AND c.created_at <= $2
-      GROUP BY DATE_TRUNC('month', c.created_at)
-      ORDER BY cohort_month DESC
-    `, [dateRange.start, dateRange.end]);
+    // 📊 Customer retention — based on whether they have any AI events
+    let retentionMetrics = { rows: [] };
+    try {
+      retentionMetrics = await query(`
+        SELECT
+          DATE_TRUNC('month', c.created_at) as cohort_month,
+          COUNT(DISTINCT c.id) as cohort_size,
+          COUNT(DISTINCT ae.customer_id) as active_in_period,
+          ROUND(
+            100.0 * COUNT(DISTINCT ae.customer_id) /
+            NULLIF(COUNT(DISTINCT c.id), 0),
+            2
+          ) as retention_rate
+        FROM customers c
+        LEFT JOIN ai_analytics_events ae ON ae.customer_id = c.id
+          AND ae.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+        WHERE c.created_at >= $1 AND c.created_at <= $2
+        GROUP BY DATE_TRUNC('month', c.created_at)
+        ORDER BY cohort_month DESC
+      `, [dateRange.start, dateRange.end]);
+    } catch (_) {
+      // ai_analytics_events may not be populated
+    }
     
-    // 🏆 Top performing customers
-    const topCustomers = await query(`
-      SELECT 
-        c.business_name,
-        c.plan,
-        e.ai_responses_sent,
-        e.hot_leads_detected_count,
-        e.phone_requests_count,
-        e.business_value_generated
-      FROM customers c
-      JOIN customer_analytics_summary e ON e.customer_id = c.id
-      WHERE e.month = DATE_TRUNC('month', CURRENT_DATE)
-        AND e.ai_responses_sent > 0
-      ORDER BY e.ai_responses_sent DESC
-      LIMIT 10
-    `);
-    
+    // 🏆 Top performing customers (based on event count, not summary table)
+    let topCustomers = { rows: [] };
+    try {
+      topCustomers = await query(`
+        SELECT
+          c.business_name,
+          c.plan,
+          COUNT(ae.id) as ai_responses_sent,
+          COUNT(CASE WHEN ae.event_type = 'hot_lead_detected' THEN 1 END) as hot_leads_detected_count,
+          COUNT(CASE WHEN ae.event_type = 'phone_requested' THEN 1 END) as phone_requests_count,
+          0 as business_value_generated
+        FROM customers c
+        JOIN ai_analytics_events ae ON ae.customer_id = c.id
+        GROUP BY c.id, c.business_name, c.plan
+        ORDER BY ai_responses_sent DESC
+        LIMIT 10
+      `);
+    } catch (_) {
+      // ai_analytics_events may be empty
+    }
+
     // Calculate key business metrics
     const totalCustomers = parseInt(businessMetrics.rows[0]?.total_customers || 0);
-    const activeCustomers = parseInt(businessMetrics.rows[0]?.active_customers || 0);
+    const activeCustomers = activeCustomersCount;
     const mrr = parseFloat(businessMetrics.rows[0]?.monthly_recurring_revenue || 0);
     const totalAIInteractions = parseInt(aiUsageStats.rows[0]?.total_ai_interactions || 0);
     
