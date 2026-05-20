@@ -1,7 +1,7 @@
 // app/api/admin/analytics/route.js
 // Admin analytics API - Business intelligence for company sale
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/database.js';
 
 export const dynamic = 'force-dynamic';
@@ -13,24 +13,30 @@ const ADMIN_USER_IDS = [
   // Add your admin Clerk user IDs here
 ].filter(Boolean);
 
+async function checkIsAdmin(userId) {
+  if (ADMIN_USER_IDS.includes(userId)) return true;
+  try {
+    const res = await query('SELECT email FROM customers WHERE clerk_user_id = $1 LIMIT 1', [userId]);
+    const email = res.rows[0]?.email || '';
+    return email === process.env.ADMIN_EMAIL || email.includes('@bizzybotai.com');
+  } catch (_) {
+    return false;
+  }
+}
+
 export async function GET(request) {
   try {
-    const user = await currentUser();
-    
-    if (!user) {
+    const { userId } = auth();
+
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const email = user.emailAddresses?.[0]?.emailAddress || '';
-    const isAdmin = ADMIN_USER_IDS.includes(user.id) ||
-                   email === process.env.ADMIN_EMAIL ||
-                   email.includes('@bizzybotai.com');
-    
-    if (!isAdmin) {
+
+    if (!(await checkIsAdmin(userId))) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    
-    console.log('📊 Fetching admin analytics for:', user.emailAddresses?.[0]?.emailAddress);
+
+    console.log('📊 Fetching admin analytics for userId:', userId);
     
     // Get time period from query params
     const { searchParams } = new URL(request.url);

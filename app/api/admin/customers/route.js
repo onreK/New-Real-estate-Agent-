@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/database.js';
 
 export const dynamic = 'force-dynamic';
@@ -9,18 +9,22 @@ const ADMIN_USER_IDS = [
   process.env.ADMIN_CLERK_ID_2,
 ].filter(Boolean);
 
-function isAdmin(user) {
-  const email = user.emailAddresses?.[0]?.emailAddress || '';
-  return ADMIN_USER_IDS.includes(user.id) ||
-    email === process.env.ADMIN_EMAIL ||
-    email.includes('@bizzybotai.com');
+async function isAdmin(userId) {
+  if (ADMIN_USER_IDS.includes(userId)) return true;
+  try {
+    const res = await query('SELECT email FROM customers WHERE clerk_user_id = $1 LIMIT 1', [userId]);
+    const email = res.rows[0]?.email || '';
+    return email === process.env.ADMIN_EMAIL || email.includes('@bizzybotai.com');
+  } catch (_) {
+    return false;
+  }
 }
 
 export async function GET() {
   try {
-    const user = await currentUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (!isAdmin(user)) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    const { userId } = auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!(await isAdmin(userId))) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
     // Simple, safe query — no joins on tables that may not exist
     const result = await query(`

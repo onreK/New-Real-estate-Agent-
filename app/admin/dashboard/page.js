@@ -38,6 +38,7 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -61,9 +62,14 @@ export default function AdminDashboard() {
       const customersData = await customersRes.json();
       const analyticsData = await analyticsRes.json();
 
-      if (customersData.success) setCustomers(customersData.customers);
+      if (customersData.success) {
+        setCustomers(customersData.customers);
+      } else {
+        setApiError(`Customers API error: ${customersData.error || 'unknown'} — ${customersData.details || ''}`);
+      }
       if (analyticsData.success) setAnalytics(analyticsData.analytics);
     } catch (err) {
+      setApiError(`Network error: ${err.message}`);
       console.error('Failed to load admin data:', err);
     } finally {
       setLoading(false);
@@ -116,6 +122,13 @@ export default function AdminDashboard() {
       </div>
 
       <div className="px-8 py-8 max-w-7xl mx-auto">
+
+        {/* API Error Banner — only visible when something fails */}
+        {apiError && (
+          <div className="mb-6 bg-red-900/30 border border-red-500/40 rounded-xl px-5 py-4 text-red-300 text-sm font-mono">
+            {apiError}
+          </div>
+        )}
 
         {/* Top Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
