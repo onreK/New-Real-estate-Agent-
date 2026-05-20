@@ -17,6 +17,7 @@ export default function MainDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState('');
   const [activeAITab, setActiveAITab] = useState('email');
   
@@ -124,6 +125,7 @@ export default function MainDashboard() {
     try {
       setLoading(true);
       setError('');
+      // Note: we do NOT set initialLoad here — that only clears once in the finally block
       
       // Load Web Chat data
       let webChatData = { conversations: [], totalConversations: 0, totalMessages: 0, leadsGenerated: 0 };
@@ -384,6 +386,7 @@ export default function MainDashboard() {
       setError('Failed to load dashboard data. Please refresh the page.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   };
 
@@ -1361,7 +1364,7 @@ export default function MainDashboard() {
     );
   };
 
-  if (!isLoaded || loading) {
+  if (!isLoaded || initialLoad) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
         <div className="text-center">
