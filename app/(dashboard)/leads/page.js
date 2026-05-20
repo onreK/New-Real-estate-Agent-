@@ -38,6 +38,7 @@ export default function LeadsPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [channelStats, setChannelStats] = useState({});
   const [stageUpdates, setStageUpdates] = useState({});
+  const [stageFilter, setStageFilter] = useState('all');
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,12 +59,12 @@ export default function LeadsPage() {
 
   useEffect(() => {
     filterAndSortLeads();
-  }, [leads, searchTerm, temperatureFilter, sortBy, stageUpdates]);
+  }, [leads, searchTerm, temperatureFilter, stageFilter, sortBy, stageUpdates]);
 
   useEffect(() => {
     // Reset to first page when filters change
     setCurrentPage(1);
-  }, [searchTerm, temperatureFilter, sortBy]);
+  }, [searchTerm, temperatureFilter, stageFilter, sortBy]);
 
   const fetchLeads = async () => {
     try {
@@ -158,6 +159,14 @@ export default function LeadsPage() {
     // Apply temperature filter
     if (temperatureFilter !== 'all') {
       filtered = filtered.filter(lead => lead.temperature === temperatureFilter);
+    }
+
+    // Apply stage filter
+    if (stageFilter !== 'all') {
+      filtered = filtered.filter(lead => {
+        const leadStage = stageUpdates[lead.id] ?? lead.status ?? 'new';
+        return leadStage === stageFilter;
+      });
     }
 
     // Apply sorting
@@ -499,6 +508,21 @@ export default function LeadsPage() {
                 Cold
               </button>
             </div>
+
+            {/* Stage Filter */}
+            <select
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+              className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:border-purple-500 [&>option]:bg-gray-800 [&>option]:text-white"
+              style={{ colorScheme: 'dark' }}
+            >
+              <option value="all" className="bg-gray-800 text-white">All Stages</option>
+              <option value="new" className="bg-gray-800 text-white">New</option>
+              <option value="contacted" className="bg-gray-800 text-white">Contacted</option>
+              <option value="qualified" className="bg-gray-800 text-white">Qualified</option>
+              <option value="converted" className="bg-gray-800 text-white">Converted</option>
+              <option value="lost" className="bg-gray-800 text-white">Lost</option>
+            </select>
 
             {/* Sort Options */}
             <select
