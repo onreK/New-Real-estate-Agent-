@@ -58,7 +58,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     filterAndSortLeads();
-  }, [leads, searchTerm, temperatureFilter, sortBy]);
+  }, [leads, searchTerm, temperatureFilter, sortBy, stageUpdates]);
 
   useEffect(() => {
     // Reset to first page when filters change
@@ -171,6 +171,15 @@ export default function LeadsPage() {
       case 'value':
         filtered.sort((a, b) => b.potential_value - a.potential_value);
         break;
+      case 'stage': {
+        const stageOrder = { new: 0, contacted: 1, qualified: 2, converted: 3, lost: 4 };
+        filtered.sort((a, b) => {
+          const aStage = stageUpdates[a.id] ?? a.status ?? 'new';
+          const bStage = stageUpdates[b.id] ?? b.status ?? 'new';
+          return (stageOrder[aStage] ?? 0) - (stageOrder[bStage] ?? 0);
+        });
+        break;
+      }
       default:
         break;
     }
@@ -501,6 +510,7 @@ export default function LeadsPage() {
               <option value="recent" className="bg-gray-800 text-white">Sort by Recent</option>
               <option value="score" className="bg-gray-800 text-white">Sort by Score</option>
               <option value="value" className="bg-gray-800 text-white">Sort by Value</option>
+              <option value="stage" className="bg-gray-800 text-white">Sort by Stage</option>
             </select>
 
             {/* Export Button */}
