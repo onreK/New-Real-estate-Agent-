@@ -275,30 +275,52 @@ export default function AnalyticsPage() {
 
             {/* Business Value & Top Behaviors */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Business Value Card */}
+              {/* Conversion Funnel */}
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-5">
                   <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                    <DollarSign className="w-6 h-6 text-green-400" />
-                    Estimated Business Value
+                    <TrendingUp className="w-6 h-6 text-blue-400" />
+                    Conversion Funnel
                   </h3>
                 </div>
-                <div className="text-4xl font-bold text-green-400 mb-4">
-                  ${formatNumber(analytics.businessValue?.total || 0)}
-                </div>
-                {analytics.businessValue?.breakdown && Object.keys(analytics.businessValue.breakdown).length > 0 && (
-                  <div className="space-y-2 pt-4 border-t border-white/10">
-                    {Object.entries(analytics.businessValue.breakdown)
-                      .sort(([,a], [,b]) => b - a)
-                      .slice(0, 5)
-                      .map(([key, value]) => (
-                      <div key={key} className="flex justify-between text-sm">
-                        <span className="text-gray-400 capitalize">{key.replace(/_/g, ' ')}</span>
-                        <span className="text-white">${formatNumber(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {(() => {
+                  const steps = [
+                    { label: 'Total Interactions', value: analytics.overview?.total_interactions_month || 0, color: 'bg-blue-500' },
+                    { label: 'Leads Captured', value: analytics.overview?.total_leads_captured || 0, color: 'bg-purple-500' },
+                    { label: 'Hot Leads', value: analytics.overview?.hot_leads_month || 0, color: 'bg-orange-500' },
+                    { label: 'Appointments', value: analytics.overview?.appointments_month || 0, color: 'bg-green-500' },
+                  ];
+                  const maxVal = steps[0].value || 1;
+                  return (
+                    <div className="space-y-4">
+                      {steps.map((step, i) => {
+                        const widthPct = Math.max(4, Math.round((step.value / maxVal) * 100));
+                        const convRate = i > 0 && steps[i - 1].value > 0
+                          ? Math.round((step.value / steps[i - 1].value) * 100)
+                          : null;
+                        return (
+                          <div key={step.label}>
+                            <div className="flex items-center justify-between text-sm mb-1.5">
+                              <span className="text-gray-300">{step.label}</span>
+                              <div className="flex items-center gap-3">
+                                {convRate !== null && (
+                                  <span className="text-xs text-gray-500">{convRate}% conv.</span>
+                                )}
+                                <span className="text-white font-bold">{formatNumber(step.value)}</span>
+                              </div>
+                            </div>
+                            <div className="w-full bg-black/30 rounded-full h-2.5">
+                              <div
+                                className={`${step.color} h-2.5 rounded-full transition-all duration-500`}
+                                style={{ width: `${widthPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Top Behaviors Card */}

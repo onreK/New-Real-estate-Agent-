@@ -36,6 +36,8 @@ export default function LeadsPage() {
   const [sortBy, setSortBy] = useState('recent');  // Changed default to 'recent'
   const [deletingLeadId, setDeletingLeadId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [channelStats, setChannelStats] = useState({});
+  const [stageUpdates, setStageUpdates] = useState({});
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -71,7 +73,8 @@ export default function LeadsPage() {
       if (response.ok) {
         const data = await response.json();
         setLeads(data.leads || []);
-        
+        setChannelStats(data.summary?.channels || {});
+
         // Calculate stats with proper value handling
         const leadStats = {
           total: data.leads?.length || 0,
@@ -118,6 +121,24 @@ export default function LeadsPage() {
       console.error('Error deleting lead:', error);
     } finally {
       setDeletingLeadId(null);
+    }
+  };
+
+  const updateStage = async (leadId, newStage) => {
+    setStageUpdates(prev => ({ ...prev, [leadId]: newStage }));
+    try {
+      await fetch(`/api/customer/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: newStage })
+      });
+    } catch (error) {
+      console.error('Error updating stage:', error);
+      setStageUpdates(prev => {
+        const updated = { ...prev };
+        delete updated[leadId];
+        return updated;
+      });
     }
   };
 
@@ -375,6 +396,37 @@ export default function LeadsPage() {
           </div>
         </div>
 
+        {/* Source Breakdown */}
+        {Object.keys(channelStats).length > 0 && (
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-5 mb-6">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Lead Source Breakdown</h3>
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(channelStats)
+                .sort(([, a], [, b]) => b - a)
+                .map(([channel, count]) => {
+                  const total = Object.values(channelStats).reduce((s, v) => s + v, 0);
+                  const pct = Math.round((count / total) * 100);
+                  const colors = {
+                    email: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                    sms: 'bg-green-500/20 text-green-300 border-green-500/30',
+                    chat: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+                    facebook: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+                    instagram: 'bg-pink-500/20 text-pink-300 border-pink-500/30',
+                    unknown: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+                  };
+                  const colorClass = colors[channel] || colors.unknown;
+                  return (
+                    <div key={channel} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm ${colorClass}`}>
+                      <span className="capitalize font-medium">{channel}</span>
+                      <span className="font-bold">{count}</span>
+                      <span className="opacity-60">({pct}%)</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
         {/* Filters and Search */}
         <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -472,6 +524,7 @@ export default function LeadsPage() {
                   <th className="p-4 text-gray-400 font-medium">Contact</th>
                   <th className="p-4 text-gray-400 font-medium">Score</th>
                   <th className="p-4 text-gray-400 font-medium">Temperature</th>
+                  <th className="p-4 text-gray-400 font-medium">Stage</th>
                   <th className="p-4 text-gray-400 font-medium">Last Activity</th>
                   <th className="p-4 text-gray-400 font-medium">Channel</th>
                   <th className="p-4 text-gray-400 font-medium">Value</th>
@@ -481,7 +534,7 @@ export default function LeadsPage() {
               <tbody>
                 {currentLeads.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="p-8 text-center text-gray-400">
+                    <td colSpan="9" className="p-8 text-center text-gray-400">
                       {searchTerm || temperatureFilter !== 'all' 
                         ? 'No leads found matching your filters'
                         : 'No leads yet. They will appear here as your AI interacts with customers.'}
@@ -527,6 +580,33 @@ export default function LeadsPage() {
                           {getTemperatureIcon(lead.temperature)}
                           <span className="capitalize">{lead.temperature}</span>
                         </div>
+                      </td>
+                      <td className="p-4">
+                        {(() => {
+                          const currentStage = stageUpdates[lead.id] ?? lead.status ?? 'new';
+                          const stageColors = {
+                            new: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
+                            contacted: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                            qualified: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+                            converted: 'bg-green-500/20 text-green-300 border-green-500/30',
+                            lost: 'bg-red-500/20 text-red-300 border-red-500/30',
+                          };
+                          return (
+                            <select
+                              value={currentStage}
+                              onChange={(e) => updateStage(lead.id, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer bg-transparent ${stageColors[currentStage] || stageColors.new}`}
+                              style={{ colorScheme: 'dark' }}
+                            >
+                              <option value="new" className="bg-gray-800 text-white">New</option>
+                              <option value="contacted" className="bg-gray-800 text-white">Contacted</option>
+                              <option value="qualified" className="bg-gray-800 text-white">Qualified</option>
+                              <option value="converted" className="bg-gray-800 text-white">Converted</option>
+                              <option value="lost" className="bg-gray-800 text-white">Lost</option>
+                            </select>
+                          );
+                        })()}
                       </td>
                       <td className="p-4">
                         <div>

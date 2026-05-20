@@ -49,13 +49,23 @@ export async function GET() {
       console.log('📄 Database config keys:', Object.keys(dbConfig));
       
       // Map database columns to frontend format using CORRECT column names
+      // Soft-read intake_form_url — adds column if missing
+      let intakeFormUrl = '';
+      try {
+        const urlRes = await query('SELECT intake_form_url FROM ai_configs WHERE user_id = $1', [userId]);
+        intakeFormUrl = urlRes.rows[0]?.intake_form_url || '';
+      } catch (_) {
+        try { await query('ALTER TABLE ai_configs ADD COLUMN IF NOT EXISTS intake_form_url TEXT'); } catch (_) {}
+      }
+
       config = {
         personality: dbConfig.personality || 'professional',
         knowledgeBase: dbConfig.knowledge_base || '',  // ✅ CORRECT: knowledge_base
         model: dbConfig.model || 'gpt-4o-mini',
         creativity: parseFloat(dbConfig.creativity) || 0.7,  // ✅ CORRECT: creativity
         maxTokens: parseInt(dbConfig.response_length) || 500,  // ✅ CORRECT: response_length
-        systemPrompt: dbConfig.business_info || ''  // ✅ CORRECT: business_info
+        systemPrompt: dbConfig.business_info || '',  // ✅ CORRECT: business_info
+        intakeFormUrl
       };
       console.log('✅ Config loaded from database');
     } else {
@@ -65,7 +75,8 @@ export async function GET() {
         model: 'gpt-4o-mini',
         creativity: 0.7,
         maxTokens: 500,
-        systemPrompt: ''
+        systemPrompt: '',
+        intakeFormUrl: ''
       };
       console.log('📖 Using default config (no saved config found)');
     }
@@ -146,10 +157,9 @@ export async function POST(request) {
 
       if (existingResult.rows.length > 0) {
         console.log('🔄 Updating existing config...');
-        // ✅ CORRECT column names: personality, knowledge_base, model, creativity, response_length, business_info
         await query(
-          `UPDATE ai_configs 
-           SET personality = $1, knowledge_base = $2, model = $3, creativity = $4, 
+          `UPDATE ai_configs
+           SET personality = $1, knowledge_base = $2, model = $3, creativity = $4,
                response_length = $5, business_info = $6, updated_at = CURRENT_TIMESTAMP
            WHERE user_id = $7`,
           [body.personality, body.knowledgeBase || '', body.model, creativity, maxTokens, businessInfo, userId]
@@ -157,24 +167,41 @@ export async function POST(request) {
         console.log('✅ Update completed');
       } else {
         console.log('➕ Creating new config...');
-        // ✅ FIXED: Include required business_name field
         await query(
           `INSERT INTO ai_configs (
-             user_id, business_name, personality, business_info, model, 
+             user_id, business_name, personality, business_info, model,
              creativity, response_length, knowledge_base
            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
-            userId,                           // user_id
-            'My Business',                   // business_name - REQUIRED field
-            body.personality,                // personality
-            businessInfo,                    // business_info
-            body.model,                      // model
-            creativity,                      // creativity
-            maxTokens,                       // response_length
-            body.knowledgeBase || ''         // knowledge_base
+            userId,
+            'My Business',
+            body.personality,
+            businessInfo,
+            body.model,
+            creativity,
+            maxTokens,
+            body.knowledgeBase || ''
           ]
         );
         console.log('✅ Insert completed');
+      }
+
+      // Save intake_form_url — self-healing: adds column if it doesn't exist yet
+      if (body.intakeFormUrl !== undefined) {
+        try {
+          await query(
+            'UPDATE ai_configs SET intake_form_url = $1 WHERE user_id = $2',
+            [body.intakeFormUrl || '', userId]
+          );
+        } catch (colErr) {
+          if (colErr.code === '42703') {
+            await query('ALTER TABLE ai_configs ADD COLUMN IF NOT EXISTS intake_form_url TEXT');
+            await query(
+              'UPDATE ai_configs SET intake_form_url = $1 WHERE user_id = $2',
+              [body.intakeFormUrl || '', userId]
+            );
+          }
+        }
       }
 
       const savedConfig = {
@@ -183,7 +210,8 @@ export async function POST(request) {
         model: body.model,
         creativity,
         maxTokens,
-        systemPrompt: businessInfo
+        systemPrompt: businessInfo,
+        intakeFormUrl: body.intakeFormUrl || ''
       };
       
       console.log('🎉 Save successful');

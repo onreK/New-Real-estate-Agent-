@@ -215,6 +215,40 @@ export async function GET(request, { params }) {
   }
 }
 
+// PATCH endpoint to update lead stage
+export async function PATCH(request, { params }) {
+  try {
+    const { userId } = auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const leadId = params.id;
+    const { stage } = await request.json();
+
+    const validStages = ['new', 'contacted', 'qualified', 'converted', 'lost'];
+    if (!validStages.includes(stage)) {
+      return NextResponse.json({ error: 'Invalid stage value' }, { status: 400 });
+    }
+
+    const customerResult = await query(
+      'SELECT id FROM customers WHERE clerk_user_id = $1', [userId]
+    );
+    if (!customerResult.rows.length) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+    const customerId = customerResult.rows[0].id;
+
+    await query(
+      'UPDATE contacts SET lead_status = $1, updated_at = NOW() WHERE id = $2 AND customer_id = $3',
+      [stage, leadId, customerId]
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error updating lead stage:', error);
+    return NextResponse.json({ error: 'Failed to update stage' }, { status: 500 });
+  }
+}
+
 // DELETE endpoint to delete a lead
 export async function DELETE(request, { params }) {
   try {

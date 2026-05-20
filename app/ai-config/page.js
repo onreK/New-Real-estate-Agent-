@@ -9,7 +9,8 @@ export default function AIConfigPage() {
     model: 'gpt-4o-mini',
     creativity: 0.7,
     maxTokens: 500,
-    systemPrompt: ''
+    systemPrompt: '',
+    intakeFormUrl: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -174,6 +175,29 @@ export default function AIConfigPage() {
               <p className="text-sm text-gray-500 mt-2">
                 Characters: {config.knowledgeBase.length} • Recommended: 200-1000 characters
               </p>
+            </div>
+
+            {/* Intake Form / Documents */}
+            <div className="border-b pb-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                📋 Intake Form Link
+              </h2>
+              <p className="text-gray-600 mb-4">
+                Paste the URL to your intake form or onboarding document (e.g. a Google Form, Typeform, or Calendly link).
+                Your AI will share this link with hot leads when they show strong interest.
+              </p>
+              <input
+                type="url"
+                value={config.intakeFormUrl}
+                onChange={(e) => setConfig({ ...config, intakeFormUrl: e.target.value })}
+                placeholder="https://forms.google.com/... or https://calendly.com/..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {config.intakeFormUrl && (
+                <p className="text-xs text-green-600 mt-2">
+                  ✅ Form link saved — AI will share this with qualified leads.
+                </p>
+              )}
             </div>
 
             {/* Technical Settings */}
