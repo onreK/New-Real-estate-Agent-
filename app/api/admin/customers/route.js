@@ -33,7 +33,6 @@ export async function GET() {
         business_name,
         email,
         plan,
-        status,
         created_at,
         stripe_customer_id,
         clerk_user_id
