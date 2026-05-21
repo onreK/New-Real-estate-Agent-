@@ -1328,7 +1328,6 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-      </div>
 
       {/* Password Change Modal - NEW */}
       {showPasswordModal && (
