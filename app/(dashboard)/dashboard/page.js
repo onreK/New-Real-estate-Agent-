@@ -7,7 +7,7 @@ import {
   Users, MessageCircle, Phone, Mail,
   Target, ArrowUpRight, Activity, RefreshCw,
   AlertCircle, ChevronRight, UserCheck,
-  Facebook, Instagram, CheckCircle, Zap, ExternalLink
+  Facebook, Instagram, Zap, ExternalLink, Flame, Bot
 } from 'lucide-react';
 
 export default function MainDashboard() {
@@ -16,6 +16,8 @@ export default function MainDashboard() {
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState('');
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [dailyTrend, setDailyTrend] = useState([]);
 
   const [dashboardData, setDashboardData] = useState({
     webChat: { conversations: [], totalConversations: 0, totalMessages: 0, leadsGenerated: 0, aiStatus: 'checking' },
@@ -55,6 +57,7 @@ export default function MainDashboard() {
       emailLeads = emailConversations.filter(c => c.status === 'lead').length;
 
       let analyticsData = { phoneRequestsToday: 0, hotLeadsMonth: 0, hotLeadsToday: 0, appointmentsScheduled: 0, totalInteractions: 0, aiEngagementRate: 0, avgResponseTime: 0, leadsCapture: 0, effectiveness: 0 };
+      let trendData = [];
       try {
         const r = await fetch('/api/customer/analytics?period=month');
         if (r.ok) {
@@ -71,6 +74,11 @@ export default function MainDashboard() {
               leadsCapture: d.analytics.overview?.total_leads_captured || 0,
               effectiveness: d.analytics.overview?.effectiveness_score || 0
             };
+            if (Array.isArray(d.analytics.dailyTrend)) {
+              trendData = [...d.analytics.dailyTrend]
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .slice(-7);
+            }
           }
         }
       } catch {}
@@ -87,6 +95,15 @@ export default function MainDashboard() {
       const combined = { totalLeads: analyticsData.leadsCapture || (webChat.leadsGenerated + sms.leadsGenerated + email.leadsGenerated + facebookData.leadsGenerated + instagramData.leadsGenerated), totalConversations: analyticsData.totalInteractions || (webChat.totalConversations + sms.totalConversations + email.totalConversations + facebookData.totalConversations + instagramData.totalConversations), totalMessages: analyticsData.totalInteractions || (webChat.totalMessages + sms.totalMessages + email.totalMessages + facebookData.totalMessages + instagramData.totalMessages), hotLeadsToday: analyticsData.hotLeadsToday || (sms.hotLeadStats.alertsLast24h + email.hotLeadsToday) };
 
       setDashboardData({ webChat, sms, email, facebook: facebookData, instagram: instagramData, combined, analytics: analyticsData });
+      setDailyTrend(trendData);
+
+      try {
+        const r = await fetch('/api/notifications');
+        if (r.ok) {
+          const d = await r.json();
+          setRecentActivity((d.notifications || []).slice(0, 8));
+        }
+      } catch {}
     } catch (err) {
       console.error('Error loading dashboard data:', err);
       setError('Failed to load dashboard data. Please refresh the page.');
@@ -119,6 +136,77 @@ export default function MainDashboard() {
       </div>
     );
   };
+
+  const TrendChart = ({ data }) => {
+    const W = 400, H = 120, pad = { t: 12, r: 12, b: 28, l: 32 };
+    const innerW = W - pad.l - pad.r;
+    const innerH = H - pad.t - pad.b;
+
+    if (!data || data.length < 2) {
+      return (
+        <div className="flex items-center justify-center h-full text-center">
+          <div>
+            <Activity className="w-6 h-6 text-gray-700 mx-auto mb-2" />
+            <p className="text-gray-600 text-xs">No trend data yet</p>
+            <p className="text-gray-700 text-[10px] mt-0.5">Data appears once AI conversations begin</p>
+          </div>
+        </div>
+      );
+    }
+
+    const vals = data.map(d => (d.metrics?.hotLeads ?? d.metrics?.total ?? 0));
+    const maxVal = Math.max(...vals, 1);
+    const xPos = (i) => pad.l + (i / (data.length - 1)) * innerW;
+    const yPos = (v) => pad.t + innerH - (v / maxVal) * innerH;
+    const pts = data.map((d, i) => [xPos(i), yPos(vals[i])]);
+
+    const linePath = pts.reduce((acc, [x, y], i) => {
+      if (i === 0) return `M ${x} ${y}`;
+      const [px, py] = pts[i - 1];
+      const cpx = (px + x) / 2;
+      return `${acc} C ${cpx} ${py}, ${cpx} ${y}, ${x} ${y}`;
+    }, '');
+    const areaPath = `${linePath} L ${pts[pts.length-1][0]} ${H - pad.b} L ${pts[0][0]} ${H - pad.b} Z`;
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75, 1].map(f => (
+          <line key={f} x1={pad.l} x2={W - pad.r} y1={pad.t + innerH * (1 - f)} y2={pad.t + innerH * (1 - f)} stroke="#1f2937" strokeWidth="1" />
+        ))}
+        <path d={areaPath} fill="url(#trendGrad)" />
+        <path d={linePath} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="3" fill="#8b5cf6" stroke="#161B22" strokeWidth="1.5" />
+        ))}
+        {data.map((d, i) => (
+          <text key={i} x={xPos(i)} y={H - 6} textAnchor="middle" style={{ fontSize: '8px', fill: '#6b7280' }}>
+            {new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </text>
+        ))}
+        {[0, Math.round(maxVal / 2), maxVal].map((v, i) => (
+          <text key={i} x={pad.l - 4} y={yPos(v) + 3} textAnchor="end" style={{ fontSize: '8px', fill: '#6b7280' }}>
+            {v}
+          </text>
+        ))}
+      </svg>
+    );
+  };
+
+  const CHANNEL_ICONS = { sms: Phone, email: Mail, facebook: Facebook, instagram: Instagram, web: MessageCircle, chat: MessageCircle };
+  function timeAgo(dateStr) {
+    const m = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
 
   if (!isLoaded || initialLoad) {
     return (
@@ -201,11 +289,29 @@ export default function MainDashboard() {
       )}
 
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard icon={Users} title="Total Leads" value={dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads} subtitle="All channels" trend={23} color="blue" />
         <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalConversations} subtitle="All channels" trend={15} color="green" />
         <StatCard icon={Activity} title="Total Messages" value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalMessages} subtitle="AI responses" color="purple" />
         <StatCard icon={Target} title="Hot Leads (24h)" value={dashboardData.analytics?.hotLeadsToday || dashboardData.combined.hotLeadsToday} subtitle="High intent" color="orange" />
+        {/* AI Automation Rate */}
+        <div className="relative overflow-hidden rounded-xl border border-gray-800 p-5 bg-[#161B22]">
+          <div className="flex items-start justify-between">
+            <div className="p-2 rounded-lg bg-white/5">
+              <Bot className="w-5 h-5 text-violet-400" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl font-bold text-white">{(dashboardData.analytics?.aiEngagementRate || 0).toFixed(1)}%</p>
+            <p className="text-sm text-gray-400 mt-0.5">AI Automation Rate</p>
+            <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-violet-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(dashboardData.analytics?.aiEngagementRate || 0, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Channel Performance */}
@@ -356,6 +462,86 @@ export default function MainDashboard() {
               Hot Only
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Trend Chart + Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Hot Leads Trend */}
+        <div className="lg:col-span-2 bg-[#161B22] rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-violet-500/10">
+                <Zap className="w-5 h-5 text-violet-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">Hot Leads Trend</h3>
+                <p className="text-xs text-gray-500">Last 7 days across all channels</p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/analytics')}
+              className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
+            >
+              Full report <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="h-36">
+            <TrendChart data={dailyTrend} />
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2 rounded-lg bg-orange-500/10">
+              <Flame className="w-5 h-5 text-orange-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">Recent Activity</h3>
+              <p className="text-xs text-gray-500">Latest hot leads</p>
+            </div>
+          </div>
+          {recentActivity.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Flame className="w-7 h-7 text-gray-700 mb-2" />
+              <p className="text-gray-500 text-sm">No activity yet</p>
+              <p className="text-gray-600 text-xs mt-1">Hot leads will appear here</p>
+            </div>
+          ) : (
+            <div className="space-y-3 overflow-y-auto max-h-48">
+              {recentActivity.map(item => {
+                const CIcon = CHANNEL_ICONS[item.channel?.toLowerCase()] || MessageCircle;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => router.push(item.href || '/leads')}
+                    className="w-full flex items-start gap-3 p-2.5 rounded-lg hover:bg-white/[0.03] transition-colors text-left"
+                  >
+                    <div className="w-7 h-7 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Flame className="w-3.5 h-3.5 text-red-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-medium truncate">{item.description}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <CIcon className="w-3 h-3 text-gray-600" />
+                        <span className="text-gray-600 text-[10px] capitalize">{item.channel || 'web'}</span>
+                        <span className="text-gray-700 text-[10px]">·</span>
+                        <span className="text-gray-600 text-[10px]">{timeAgo(item.timestamp)}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <button
+            onClick={() => router.push('/leads')}
+            className="mt-4 w-full px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-lg text-xs font-medium transition-colors border border-orange-500/20"
+          >
+            View all leads →
+          </button>
         </div>
       </div>
 
