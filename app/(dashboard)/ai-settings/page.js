@@ -50,6 +50,53 @@ function Section({ icon: Icon, iconColor = 'text-violet-400', title, children })
   );
 }
 
+function SharedFields({ channel, ch, update, accentColor = 'text-violet-400' }) {
+  return (
+    <>
+      <Section icon={Mail} iconColor={accentColor} title="Business Profile">
+        <p className="text-xs text-gray-500 mb-3">Tell the AI about your business</p>
+        <div className="space-y-3">
+          <input placeholder="Business Name" value={ch.businessName} onChange={e => update(channel, 'businessName', e.target.value)} className={inputClass} />
+          <input placeholder="Industry (e.g. Real Estate, Healthcare, Retail)" value={ch.industry} onChange={e => update(channel, 'industry', e.target.value)} className={inputClass} />
+          <textarea placeholder="Business description..." value={ch.businessDescription} onChange={e => update(channel, 'businessDescription', e.target.value)} className={`${inputClass} h-24 resize-none`} />
+        </div>
+      </Section>
+
+      <Section icon={Sliders} iconColor={accentColor} title="Communication Settings">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Response tone</span>
+            <select value={ch.responseTone} onChange={e => update(channel, 'responseTone', e.target.value)} className={selectClass}>
+              <option>Professional</option>
+              <option>Casual</option>
+              <option>Formal</option>
+              <option>Friendly</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Response length</span>
+            <select value={ch.responseLength} onChange={e => update(channel, 'responseLength', e.target.value)} className={selectClass}>
+              <option>Short</option>
+              <option>Medium</option>
+              <option>Long</option>
+            </select>
+          </div>
+        </div>
+      </Section>
+
+      <Section icon={Shield} iconColor={accentColor} title="Business Knowledge Base">
+        <p className="text-xs text-gray-500 mb-3">Add FAQs, pricing, policies — the AI will use this to answer customers</p>
+        <textarea placeholder="Enter business-specific information, FAQs, policies, etc..." value={ch.knowledgeBase} onChange={e => update(channel, 'knowledgeBase', e.target.value)} className={`${inputClass} h-32 resize-none`} />
+      </Section>
+
+      <Section icon={Bot} iconColor={accentColor} title="Custom AI Instructions">
+        <p className="text-xs text-gray-500 mb-3">Tell the AI exactly how to behave and respond to customers</p>
+        <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-32 resize-none`} />
+      </Section>
+    </>
+  );
+}
+
 export default function AISettingsPage() {
   const [activeTab, setActiveTab] = useState('email');
   const [settings, setSettings] = useState({
@@ -117,51 +164,6 @@ export default function AISettingsPage() {
 
   const ch = settings[activeTab];
 
-  const SharedFields = ({ channel, accentColor = 'text-violet-400' }) => (
-    <>
-      <Section icon={Mail} iconColor={accentColor} title="Business Profile">
-        <p className="text-xs text-gray-500 mb-3">Tell the AI about your business</p>
-        <div className="space-y-3">
-          <input placeholder="Business Name" value={ch.businessName} onChange={e => update(channel, 'businessName', e.target.value)} className={inputClass} />
-          <input placeholder="Industry (e.g. Real Estate, Healthcare, Retail)" value={ch.industry} onChange={e => update(channel, 'industry', e.target.value)} className={inputClass} />
-          <textarea placeholder="Business description..." value={ch.businessDescription} onChange={e => update(channel, 'businessDescription', e.target.value)} className={`${inputClass} h-24 resize-none`} />
-        </div>
-      </Section>
-
-      <Section icon={Sliders} iconColor={accentColor} title="Communication Settings">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Response tone</span>
-            <select value={ch.responseTone} onChange={e => update(channel, 'responseTone', e.target.value)} className={selectClass}>
-              <option>Professional</option>
-              <option>Casual</option>
-              <option>Formal</option>
-              <option>Friendly</option>
-            </select>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Response length</span>
-            <select value={ch.responseLength} onChange={e => update(channel, 'responseLength', e.target.value)} className={selectClass}>
-              <option>Short</option>
-              <option>Medium</option>
-              <option>Long</option>
-            </select>
-          </div>
-        </div>
-      </Section>
-
-      <Section icon={Shield} iconColor={accentColor} title="Business Knowledge Base">
-        <p className="text-xs text-gray-500 mb-3">Add FAQs, pricing, policies — the AI will use this to answer customers</p>
-        <textarea placeholder="Enter business-specific information, FAQs, policies, etc..." value={ch.knowledgeBase} onChange={e => update(channel, 'knowledgeBase', e.target.value)} className={`${inputClass} h-32 resize-none`} />
-      </Section>
-
-      <Section icon={Bot} iconColor={accentColor} title="Custom AI Instructions">
-        <p className="text-xs text-gray-500 mb-3">Tell the AI exactly how to behave and respond to customers</p>
-        <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-32 resize-none`} />
-      </Section>
-    </>
-  );
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -212,13 +214,13 @@ export default function AISettingsPage() {
 
         {activeTab === 'email' && (
           <>
-            <SharedFields channel="email" accentColor="text-blue-400" />
+            <SharedFields channel="email" ch={ch} update={update} accentColor="text-blue-400" />
           </>
         )}
 
         {activeTab === 'facebook' && (
           <>
-            <SharedFields channel="facebook" accentColor="text-blue-400" />
+            <SharedFields channel="facebook" ch={ch} update={update} accentColor="text-blue-400" />
             <Section icon={Users} iconColor="text-blue-400" title="Facebook AI Configuration">
               <p className="text-xs text-gray-500 mb-4">Configure AI for Facebook Messenger and post responses</p>
               <div className="space-y-3">
@@ -237,7 +239,7 @@ export default function AISettingsPage() {
 
         {activeTab === 'instagram' && (
           <>
-            <SharedFields channel="instagram" accentColor="text-pink-400" />
+            <SharedFields channel="instagram" ch={ch} update={update} accentColor="text-pink-400" />
             <Section icon={Star} iconColor="text-pink-400" title="Instagram AI Configuration">
               <p className="text-xs text-gray-500 mb-4">Configure AI for Instagram DMs and post responses</p>
               <div className="space-y-3">
@@ -256,7 +258,7 @@ export default function AISettingsPage() {
 
         {activeTab === 'text' && (
           <>
-            <SharedFields channel="text" accentColor="text-green-400" />
+            <SharedFields channel="text" ch={ch} update={update} accentColor="text-green-400" />
             <Section icon={Phone} iconColor="text-green-400" title="SMS/Text AI Configuration">
               <p className="text-xs text-gray-500 mb-4">Configure AI for text message responses and lead qualification</p>
               <div className="space-y-3">
@@ -279,7 +281,7 @@ export default function AISettingsPage() {
 
         {activeTab === 'chatbot' && (
           <>
-            <SharedFields channel="chatbot" accentColor="text-violet-400" />
+            <SharedFields channel="chatbot" ch={ch} update={update} accentColor="text-violet-400" />
             <Section icon={MessageCircle} iconColor="text-violet-400" title="Web Chatbot Configuration">
               <p className="text-xs text-gray-500 mb-4">Configure AI for website chat widget responses</p>
               <div className="space-y-3">
