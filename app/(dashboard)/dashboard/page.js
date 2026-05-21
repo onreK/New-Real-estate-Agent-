@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SignOutButton, useUser } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { 
   Users, MessageCircle, TrendingUp, Zap, Phone, Mail, 
@@ -15,7 +15,6 @@ import {
 export default function MainDashboard() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState('');
@@ -94,18 +93,6 @@ export default function MainDashboard() {
       effectiveness: 0
     }
   });
-
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'analytics', label: 'AI Analytics', icon: Activity },
-    { id: 'leads', label: 'Leads', icon: UserCheck },
-    { id: 'webchat', label: 'Web Chat', icon: MessageCircle },
-    { id: 'sms', label: 'SMS', icon: Phone },
-    { id: 'email', label: 'Email AI', icon: Mail },
-    { id: 'facebook', label: 'Facebook', icon: Users },
-    { id: 'instagram', label: 'Instagram', icon: Star },
-    { id: 'settings', label: 'Settings', icon: Settings }
-  ];
 
   const aiSettingsTabs = [
     { id: 'email', label: 'Email', icon: Mail },
@@ -431,22 +418,22 @@ export default function MainDashboard() {
     const colorClasses = getColorClasses(color);
 
     return (
-      <div className={`relative overflow-hidden rounded-2xl border border-white/20 p-6 backdrop-blur-lg bg-gradient-to-br ${colorClasses.bg}`}>
+      <div className="relative overflow-hidden rounded-xl border border-gray-800 p-5 bg-[#161B22]">
         <div className="flex items-start justify-between">
-          <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClasses.iconBg}`}>
-            <Icon className={`w-6 h-6 ${colorClasses.iconColor}`} />
+          <div className="p-2 rounded-lg bg-white/5">
+            <Icon className={`w-5 h-5 ${colorClasses.iconColor}`} />
           </div>
           {trend && (
-            <div className="flex items-center space-x-1 text-sm">
-              <ArrowUpRight className="w-4 h-4 text-green-400" />
+            <div className="flex items-center space-x-1 text-xs">
+              <ArrowUpRight className="w-3 h-3 text-green-400" />
               <span className="text-green-400 font-medium">+{trend}%</span>
             </div>
           )}
         </div>
         <div className="mt-4">
           <p className="text-2xl font-bold text-white">{value?.toLocaleString() || 0}</p>
-          <p className="text-sm text-gray-300 font-medium">{title}</p>
-          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+          <p className="text-sm text-gray-400 mt-0.5">{title}</p>
+          {subtitle && <p className="text-xs text-gray-600 mt-1">{subtitle}</p>}
         </div>
       </div>
     );
@@ -593,7 +580,7 @@ export default function MainDashboard() {
 
     if (loadingSettings) {
       return (
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
           <div className="text-center">
             <RefreshCw className="w-8 h-8 text-purple-400 animate-spin mx-auto mb-2" />
             <p className="text-white">Loading AI Settings...</p>
@@ -603,9 +590,9 @@ export default function MainDashboard() {
     }
 
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center space-x-3 mb-6">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+          <div className="p-3 rounded-xl bg-violet-500/10">
             <Cpu className="w-8 h-8 text-purple-400" />
           </div>
           <div>
@@ -647,19 +634,19 @@ export default function MainDashboard() {
                     placeholder="Business Name"
                     value={settingsData.email.businessName || ''}
                     onChange={(e) => updateSettings('email', 'businessName', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <input 
                     placeholder="Industry"
                     value={settingsData.email.industry || ''}
                     onChange={(e) => updateSettings('email', 'industry', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <textarea 
                     placeholder="Business description..."
                     value={settingsData.email.businessDescription || ''}
                     onChange={(e) => updateSettings('email', 'businessDescription', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-24 resize-none"
                   />
                 </div>
               </div>
@@ -675,7 +662,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.email.responseTone || 'Professional'}
                       onChange={(e) => updateSettings('email', 'responseTone', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Professional</option>
                       <option>Casual</option>
@@ -688,7 +675,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.email.responseLength || 'Short'}
                       onChange={(e) => updateSettings('email', 'responseLength', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Short</option>
                       <option>Medium</option>
@@ -710,7 +697,7 @@ export default function MainDashboard() {
                   placeholder="Enter business-specific information, FAQs, policies, etc..."
                   value={settingsData.email.knowledgeBase || ''}
                   onChange={(e) => updateSettings('email', 'knowledgeBase', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -726,7 +713,7 @@ export default function MainDashboard() {
                   placeholder="Enter custom instructions for AI behavior..."
                   value={settingsData.email.customInstructions || ''}
                   onChange={(e) => updateSettings('email', 'customInstructions', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -762,19 +749,19 @@ export default function MainDashboard() {
                     placeholder="Business Name"
                     value={settingsData.facebook.businessName || ''}
                     onChange={(e) => updateSettings('facebook', 'businessName', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <input 
                     placeholder="Industry"
                     value={settingsData.facebook.industry || ''}
                     onChange={(e) => updateSettings('facebook', 'industry', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <textarea 
                     placeholder="Business description..."
                     value={settingsData.facebook.businessDescription || ''}
                     onChange={(e) => updateSettings('facebook', 'businessDescription', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-24 resize-none"
                   />
                 </div>
               </div>
@@ -790,7 +777,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.facebook.responseTone || 'Professional'}
                       onChange={(e) => updateSettings('facebook', 'responseTone', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Professional</option>
                       <option>Casual</option>
@@ -803,7 +790,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.facebook.responseLength || 'Short'}
                       onChange={(e) => updateSettings('facebook', 'responseLength', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Short</option>
                       <option>Medium</option>
@@ -825,7 +812,7 @@ export default function MainDashboard() {
                   placeholder="Enter business-specific information, FAQs, policies, etc..."
                   value={settingsData.facebook.knowledgeBase || ''}
                   onChange={(e) => updateSettings('facebook', 'knowledgeBase', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -841,7 +828,7 @@ export default function MainDashboard() {
                   placeholder="Enter custom instructions for AI behavior..."
                   value={settingsData.facebook.customInstructions || ''}
                   onChange={(e) => updateSettings('facebook', 'customInstructions', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -913,19 +900,19 @@ export default function MainDashboard() {
                     placeholder="Business Name"
                     value={settingsData.instagram.businessName || ''}
                     onChange={(e) => updateSettings('instagram', 'businessName', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <input 
                     placeholder="Industry"
                     value={settingsData.instagram.industry || ''}
                     onChange={(e) => updateSettings('instagram', 'industry', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <textarea 
                     placeholder="Business description..."
                     value={settingsData.instagram.businessDescription || ''}
                     onChange={(e) => updateSettings('instagram', 'businessDescription', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-24 resize-none"
                   />
                 </div>
               </div>
@@ -941,7 +928,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.instagram.responseTone || 'Professional'}
                       onChange={(e) => updateSettings('instagram', 'responseTone', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Professional</option>
                       <option>Casual</option>
@@ -954,7 +941,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.instagram.responseLength || 'Short'}
                       onChange={(e) => updateSettings('instagram', 'responseLength', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Short</option>
                       <option>Medium</option>
@@ -976,7 +963,7 @@ export default function MainDashboard() {
                   placeholder="Enter business-specific information, FAQs, policies, etc..."
                   value={settingsData.instagram.knowledgeBase || ''}
                   onChange={(e) => updateSettings('instagram', 'knowledgeBase', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -992,7 +979,7 @@ export default function MainDashboard() {
                   placeholder="Enter custom instructions for AI behavior..."
                   value={settingsData.instagram.customInstructions || ''}
                   onChange={(e) => updateSettings('instagram', 'customInstructions', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -1064,19 +1051,19 @@ export default function MainDashboard() {
                     placeholder="Business Name"
                     value={settingsData.text.businessName || ''}
                     onChange={(e) => updateSettings('text', 'businessName', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <input 
                     placeholder="Industry"
                     value={settingsData.text.industry || ''}
                     onChange={(e) => updateSettings('text', 'industry', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <textarea 
                     placeholder="Business description..."
                     value={settingsData.text.businessDescription || ''}
                     onChange={(e) => updateSettings('text', 'businessDescription', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-24 resize-none"
                   />
                 </div>
               </div>
@@ -1092,7 +1079,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.text.responseTone || 'Professional'}
                       onChange={(e) => updateSettings('text', 'responseTone', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Professional</option>
                       <option>Casual</option>
@@ -1105,7 +1092,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.text.responseLength || 'Short'}
                       onChange={(e) => updateSettings('text', 'responseLength', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Short</option>
                       <option>Medium</option>
@@ -1127,7 +1114,7 @@ export default function MainDashboard() {
                   placeholder="Enter business-specific information, FAQs, policies, etc..."
                   value={settingsData.text.knowledgeBase || ''}
                   onChange={(e) => updateSettings('text', 'knowledgeBase', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -1143,7 +1130,7 @@ export default function MainDashboard() {
                   placeholder="Enter custom instructions for AI behavior..."
                   value={settingsData.text.customInstructions || ''}
                   onChange={(e) => updateSettings('text', 'customInstructions', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -1185,7 +1172,7 @@ export default function MainDashboard() {
                     type="number"
                     value={settingsData.text.responseDelay || ''}
                     onChange={(e) => updateSettings('text', 'responseDelay', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                 </div>
               </div>
@@ -1222,19 +1209,19 @@ export default function MainDashboard() {
                     placeholder="Business Name"
                     value={settingsData.chatbot.businessName || ''}
                     onChange={(e) => updateSettings('chatbot', 'businessName', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <input 
                     placeholder="Industry"
                     value={settingsData.chatbot.industry || ''}
                     onChange={(e) => updateSettings('chatbot', 'industry', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                   <textarea 
                     placeholder="Business description..."
                     value={settingsData.chatbot.businessDescription || ''}
                     onChange={(e) => updateSettings('chatbot', 'businessDescription', e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-24 resize-none"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-24 resize-none"
                   />
                 </div>
               </div>
@@ -1250,7 +1237,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.chatbot.responseTone || 'Professional'}
                       onChange={(e) => updateSettings('chatbot', 'responseTone', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Professional</option>
                       <option>Casual</option>
@@ -1263,7 +1250,7 @@ export default function MainDashboard() {
                     <select 
                       value={settingsData.chatbot.responseLength || 'Short'}
                       onChange={(e) => updateSettings('chatbot', 'responseLength', e.target.value)}
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm [&>option]:bg-gray-800 [&>option]:text-white"
+                      className="px-3 py-1 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm [&>option]:bg-[#161B22] [&>option]:text-white"
                     >
                       <option>Short</option>
                       <option>Medium</option>
@@ -1285,7 +1272,7 @@ export default function MainDashboard() {
                   placeholder="Enter business-specific information, FAQs, policies, etc..."
                   value={settingsData.chatbot.knowledgeBase || ''}
                   onChange={(e) => updateSettings('chatbot', 'knowledgeBase', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -1301,7 +1288,7 @@ export default function MainDashboard() {
                   placeholder="Enter custom instructions for AI behavior..."
                   value={settingsData.chatbot.customInstructions || ''}
                   onChange={(e) => updateSettings('chatbot', 'customInstructions', e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 h-32 resize-none"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 h-32 resize-none"
                 />
               </div>
 
@@ -1366,594 +1353,380 @@ export default function MainDashboard() {
 
   if (!isLoaded || initialLoad) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
+      <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
-          <p className="text-white text-lg">Loading Dashboard...</p>
+          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      {/* Header */}
-      <div className="border-b border-white/10 backdrop-blur-xl bg-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
-                  <Bot className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Bizzy Bot AI</h1>
-                  <p className="text-sm text-gray-300">Welcome back, {user?.firstName || 'User'}</p>
-                </div>
-              </div>
+    <div className="p-8 space-y-8">
+
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Overview</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Welcome back, {user?.firstName || 'User'}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm">
+            <div className={`w-2 h-2 rounded-full ${
+              dashboardData.webChat.aiStatus === 'connected' ? 'bg-green-400' : 'bg-red-400'
+            }`} />
+            <span className="text-gray-400">
+              AI {dashboardData.webChat.aiStatus === 'connected' ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+          <button
+            onClick={loadDashboardData}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-gray-800"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <p className="text-red-400 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={Users}
+          title="Total Leads"
+          value={dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads}
+          subtitle="All channels"
+          trend={23}
+          color="blue"
+        />
+        <StatCard
+          icon={MessageCircle}
+          title="Conversations"
+          value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalConversations}
+          subtitle="All channels"
+          trend={15}
+          color="green"
+        />
+        <StatCard
+          icon={Activity}
+          title="Total Messages"
+          value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalMessages}
+          subtitle="AI responses"
+          color="purple"
+        />
+        <StatCard
+          icon={Target}
+          title="Hot Leads (24h)"
+          value={dashboardData.analytics?.hotLeadsToday || dashboardData.combined.hotLeadsToday}
+          subtitle="High intent"
+          color="orange"
+        />
+      </div>
+
+      {/* AI Performance + Lead Management */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* AI Performance */}
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2 rounded-lg bg-violet-500/10">
+              <Activity className="w-5 h-5 text-violet-400" />
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm">
-                <div className={`w-2 h-2 rounded-full ${
-                  dashboardData.webChat.aiStatus === 'connected' ? 'bg-green-400' : 'bg-red-400'
-                }`} />
-                <span className="text-gray-300">
-                  AI Status: {dashboardData.webChat.aiStatus === 'connected' ? 'Connected' : 'Disconnected'}
-                </span>
-              </div>
-              <SignOutButton>
-                <button className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg border border-red-500/30 transition-colors">
-                  Sign Out
-                </button>
-              </SignOutButton>
+            <div>
+              <h3 className="text-base font-semibold text-white">AI Performance</h3>
+              <p className="text-xs text-gray-500">Real AI behaviors across all channels</p>
             </div>
           </div>
-          
-          {/* Navigation Tabs - UPDATED WITH SETTINGS REDIRECT */}
-          <div className="mt-6">
-            <nav className="flex space-x-1 flex-wrap gap-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    if (tab.id === 'analytics') {
-                      router.push('/analytics');
-                    } else if (tab.id === 'leads') {
-                      router.push('/leads');
-                    } else if (tab.id === 'settings') {
-                      router.push('/settings');
-                    } else {
-                      setActiveTab(tab.id);
-                    }
-                  }}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-purple-500/30 border border-purple-500 text-purple-400'
-                      : 'border border-transparent text-gray-400 hover:text-gray-300'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </nav>
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-green-400">
+                {dashboardData.analytics?.phoneRequestsToday || 0}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Phone Requests Today</div>
+            </div>
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-orange-400">
+                {dashboardData.analytics?.hotLeadsMonth || 0}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Hot Leads This Month</div>
+            </div>
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-blue-400">
+                {dashboardData.analytics?.appointmentsScheduled || 0}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Appointments Scheduled</div>
+            </div>
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-violet-400">
+                {dashboardData.analytics?.aiEngagementRate?.toFixed(1) || 0}%
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">AI Engagement Rate</div>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/analytics')}
+            className="w-full px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-violet-500/20"
+          >
+            View Full Analytics
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Lead Management */}
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2 rounded-lg bg-cyan-500/10">
+              <UserCheck className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">Lead Management</h3>
+              <p className="text-xs text-gray-500">Track and manage your pipeline</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-white">
+                {dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads || 0}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Total Leads</div>
+            </div>
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-red-400">
+                {dashboardData.analytics?.hotLeadsMonth || dashboardData.combined.hotLeadsToday || 0}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Hot Leads</div>
+            </div>
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-yellow-400">0</div>
+              <div className="text-xs text-gray-500 mt-0.5">Warm Leads</div>
+            </div>
+            <div className="bg-[#0D1117] rounded-lg p-4">
+              <div className="text-2xl font-bold text-blue-400">0</div>
+              <div className="text-xs text-gray-500 mt-0.5">Cold Leads</div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/leads')}
+              className="flex-1 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-cyan-500/20"
+            >
+              View All Leads
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => router.push('/leads?filter=hot')}
+              className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-500/20"
+            >
+              Hot Only
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {error && (
-          <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5 text-red-400" />
-              <p className="text-red-300">{error}</p>
+      {/* Channel Status */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Channels</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+
+          {/* Web Chat */}
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-blue-400" />
+                <h3 className="text-sm font-semibold text-white">Web Chat</h3>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                dashboardData.webChat.aiStatus === 'connected'
+                  ? 'bg-green-500/10 text-green-400'
+                  : 'bg-red-500/10 text-red-400'
+              }`}>
+                {dashboardData.webChat.aiStatus === 'connected' ? 'Active' : 'Offline'}
+              </span>
             </div>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Conversations</span>
+                <span className="text-white font-medium">{dashboardData.webChat.totalConversations}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Messages</span>
+                <span className="text-white font-medium">{dashboardData.webChat.totalMessages}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Leads</span>
+                <span className="text-green-400 font-medium">{dashboardData.webChat.leadsGenerated}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/demo')}
+              className="w-full py-1.5 rounded-lg text-xs font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors border border-blue-500/20"
+            >
+              Manage
+            </button>
           </div>
-        )}
 
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="space-y-8">
-            {/* Combined Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                icon={Users}
-                title="Total Leads"
-                value={dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads}
-                subtitle="All channels + Social"
-                trend={23}
-                color="blue"
-              />
-              <StatCard
-                icon={MessageCircle}
-                title="Conversations"
-                value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalConversations}
-                subtitle="All channels"
-                trend={15}
-                color="green"
-              />
-              <StatCard
-                icon={Activity}
-                title="Total Messages"
-                value={dashboardData.analytics?.totalInteractions || dashboardData.combined.totalMessages}
-                subtitle="AI responses"
-                color="purple"
-              />
-              <StatCard
-                icon={Target}
-                title="Hot Leads (24h)"
-                value={dashboardData.analytics?.hotLeadsToday || dashboardData.combined.hotLeadsToday}
-                subtitle="High intent"
-                color="orange"
-              />
-            </div>
-
-            {/* AI ANALYTICS AND LEADS SECTIONS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* AI Performance Analytics */}
-              <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Activity className="w-8 h-8 text-purple-400" />
-                    <div>
-                      <h3 className="text-xl font-bold text-white">AI Performance Analytics</h3>
-                      <p className="text-sm text-gray-300">Track real AI behaviors across all channels</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-green-400">
-                      {dashboardData.analytics?.phoneRequestsToday || 0}
-                    </div>
-                    <div className="text-sm text-gray-300">Phone Requests Today</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-orange-400">
-                      {dashboardData.analytics?.hotLeadsMonth || 0}
-                    </div>
-                    <div className="text-sm text-gray-300">Hot Leads This Month</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-blue-400">
-                      {dashboardData.analytics?.appointmentsScheduled || 0}
-                    </div>
-                    <div className="text-sm text-gray-300">Appointments Scheduled</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-purple-400">
-                      ${dashboardData.analytics?.businessValue || 0}
-                    </div>
-                    <div className="text-sm text-gray-300">Est. Business Value</div>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => router.push('/analytics')}
-                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
-                >
-                  <span>View Full Analytics</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+          {/* SMS */}
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-green-400" />
+                <h3 className="text-sm font-semibold text-white">SMS</h3>
               </div>
-
-              {/* Lead Management Section */}
-              <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 backdrop-blur-lg rounded-2xl border border-cyan-500/30 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <UserCheck className="w-8 h-8 text-cyan-400" />
-                    <div>
-                      <h3 className="text-xl font-bold text-white">Lead Management</h3>
-                      <p className="text-sm text-gray-300">Track and manage all your potential customers</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-white">
-                      {dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads || 0}
-                    </div>
-                    <div className="text-sm text-gray-300">Total Leads</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-red-400">
-                      {dashboardData.analytics?.hotLeadsMonth || dashboardData.combined.hotLeadsToday || 0}
-                    </div>
-                    <div className="text-sm text-gray-300">🔥 Hot Leads</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-yellow-400">0</div>
-                    <div className="text-sm text-gray-300">🌡️ Warm Leads</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="text-2xl font-bold text-blue-400">0</div>
-                    <div className="text-sm text-gray-300">❄️ Cold Leads</div>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => router.push('/leads')}
-                    className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <span>View All Leads</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => router.push('/leads?filter=hot')}
-                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-500/30"
-                  >
-                    Hot Only
-                  </button>
-                </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                dashboardData.sms.phoneNumbers.length > 0
+                  ? 'bg-green-500/10 text-green-400'
+                  : 'bg-yellow-500/10 text-yellow-400'
+              }`}>
+                {dashboardData.sms.phoneNumbers.length > 0 ? 'Active' : 'Setup'}
+              </span>
+            </div>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Numbers</span>
+                <span className="text-white font-medium">{dashboardData.sms.phoneNumbers.length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Hot Leads</span>
+                <span className="text-orange-400 font-medium">{dashboardData.sms.hotLeadStats.totalHotLeads}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Alerts (24h)</span>
+                <span className="text-red-400 font-medium">{dashboardData.sms.hotLeadStats.alertsLast24h}</span>
               </div>
             </div>
-
-            {/* Channel Status Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-6">
-              {/* Web Chat Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <MessageCircle className="w-6 h-6 text-blue-400" />
-                    <h3 className="text-lg font-semibold text-white">Web Chat AI</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.webChat.aiStatus === 'connected' 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-red-500/20 text-red-400'
-                  }`}>
-                    {dashboardData.webChat.aiStatus === 'connected' ? 'Active' : 'Offline'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Conversations</span>
-                    <span className="text-white font-medium">{dashboardData.webChat.totalConversations}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Messages</span>
-                    <span className="text-white font-medium">{dashboardData.webChat.totalMessages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Leads Generated</span>
-                    <span className="text-green-400 font-medium">{dashboardData.webChat.leadsGenerated}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/demo'}
-                  className="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Web Chat
-                </button>
-              </div>
-
-              {/* SMS Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Phone className="w-6 h-6 text-green-400" />
-                    <h3 className="text-lg font-semibold text-white">SMS AI</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.sms.phoneNumbers.length > 0 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.sms.phoneNumbers.length > 0 ? 'Active' : 'Setup Needed'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Phone Numbers</span>
-                    <span className="text-white font-medium">{dashboardData.sms.phoneNumbers.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Hot Leads</span>
-                    <span className="text-orange-400 font-medium">{dashboardData.sms.hotLeadStats.totalHotLeads}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Alerts (24h)</span>
-                    <span className="text-red-400 font-medium">{dashboardData.sms.hotLeadStats.alertsLast24h}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/customer-sms-dashboard'}
-                  className="w-full mt-4 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage SMS
-                </button>
-              </div>
-
-              {/* Email Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Mail className="w-6 h-6 text-purple-400" />
-                    <h3 className="text-lg font-semibold text-white">Email AI</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.email.emailSettings 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.email.emailSettings ? 'Active' : 'Setup Needed'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Conversations</span>
-                    <span className="text-white font-medium">{dashboardData.email.totalConversations}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Hot Leads Today</span>
-                    <span className="text-purple-400 font-medium">{dashboardData.email.hotLeadsToday}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">AI Engagement Rate</span>
-                    <span className="text-green-400 font-medium">{dashboardData.email.aiEngagementRate.toFixed(1)}%</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/email'}
-                  className="w-full mt-4 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Email
-                </button>
-              </div>
-
-              {/* Facebook Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Users className="w-6 h-6 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-white">Facebook AI</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.facebook.pageConnected 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.facebook.pageConnected ? 'Connected' : 'Setup Needed'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Messages</span>
-                    <span className="text-white font-medium">{dashboardData.facebook.totalMessages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Posts Managed</span>
-                    <span className="text-blue-400 font-medium">{dashboardData.facebook.postsManaged}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Leads Generated</span>
-                    <span className="text-green-400 font-medium">{dashboardData.facebook.leadsGenerated}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/social/facebook'}
-                  className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Facebook
-                </button>
-              </div>
-
-              {/* Instagram Status */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Star className="w-6 h-6 text-pink-400" />
-                    <h3 className="text-lg font-semibold text-white">Instagram AI</h3>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dashboardData.instagram.accountConnected 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {dashboardData.instagram.accountConnected ? 'Connected' : 'Setup Needed'}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Messages</span>
-                    <span className="text-white font-medium">{dashboardData.instagram.totalMessages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Posts Managed</span>
-                    <span className="text-pink-400 font-medium">{dashboardData.instagram.postsManaged}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Leads Generated</span>
-                    <span className="text-green-400 font-medium">{dashboardData.instagram.leadsGenerated}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/social/instagram'}
-                  className="w-full mt-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Manage Instagram
-                </button>
-              </div>
-            </div>
-
-            {/* AI SETTINGS SECTION */}
-            <AISettingsSection />
+            <button
+              onClick={() => router.push('/customer-sms-dashboard')}
+              className="w-full py-1.5 rounded-lg text-xs font-medium text-green-400 bg-green-500/10 hover:bg-green-500/20 transition-colors border border-green-500/20"
+            >
+              Manage
+            </button>
           </div>
-        )}
 
-        {/* Web Chat Tab */}
-        {activeTab === 'webchat' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.webChat.totalConversations} color="blue" />
-              <StatCard icon={Activity} title="Messages" value={dashboardData.webChat.totalMessages} color="green" />
-              <StatCard icon={Users} title="Leads" value={dashboardData.webChat.leadsGenerated} color="purple" />
+          {/* Email */}
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-purple-400" />
+                <h3 className="text-sm font-semibold text-white">Email AI</h3>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                dashboardData.email.emailSettings
+                  ? 'bg-green-500/10 text-green-400'
+                  : 'bg-yellow-500/10 text-yellow-400'
+              }`}>
+                {dashboardData.email.emailSettings ? 'Active' : 'Setup'}
+              </span>
             </div>
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Web Chat AI Status</h3>
-              <div className="flex items-center space-x-4">
-                <div className={`px-4 py-2 rounded-lg ${dashboardData.webChat.aiStatus === 'connected' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                  {dashboardData.webChat.aiStatus === 'connected' ? '✅ AI Connected' : '❌ AI Disconnected'}
-                </div>
-                <button onClick={() => window.location.href = '/demo'} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                  Test Web Chat
-                </button>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Conversations</span>
+                <span className="text-white font-medium">{dashboardData.email.totalConversations}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Hot Leads</span>
+                <span className="text-purple-400 font-medium">{dashboardData.email.hotLeadsToday}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Engagement</span>
+                <span className="text-green-400 font-medium">{dashboardData.email.aiEngagementRate.toFixed(1)}%</span>
               </div>
             </div>
+            <button
+              onClick={() => router.push('/email')}
+              className="w-full py-1.5 rounded-lg text-xs font-medium text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors border border-purple-500/20"
+            >
+              Manage
+            </button>
           </div>
-        )}
 
-        {/* SMS Tab */}
-        {activeTab === 'sms' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard icon={Phone} title="Phone Numbers" value={dashboardData.sms.phoneNumbers.length} color="green" />
-              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.sms.totalConversations} color="blue" />
-              <StatCard icon={Target} title="Hot Leads" value={dashboardData.sms.hotLeadStats.totalHotLeads} color="orange" />
-              <StatCard icon={AlertTriangle} title="Alerts (24h)" value={dashboardData.sms.hotLeadStats.alertsLast24h} color="red" />
+          {/* Facebook */}
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-500" />
+                <h3 className="text-sm font-semibold text-white">Facebook</h3>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                dashboardData.facebook.pageConnected
+                  ? 'bg-green-500/10 text-green-400'
+                  : 'bg-yellow-500/10 text-yellow-400'
+              }`}>
+                {dashboardData.facebook.pageConnected ? 'Connected' : 'Setup'}
+              </span>
             </div>
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">SMS Dashboard</h3>
-              <button onClick={() => window.location.href = '/customer-sms-dashboard'} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                Open SMS Dashboard
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Email Tab */}
-        {activeTab === 'email' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard icon={Mail} title="Email Conversations" value={dashboardData.email.totalConversations} color="purple" />
-              <StatCard icon={Target} title="Hot Leads Today" value={dashboardData.email.hotLeadsToday} color="orange" />
-              <StatCard icon={TrendingUp} title="AI Engagement Rate" value={dashboardData.email.aiEngagementRate.toFixed(1)} subtitle="%" color="green" />
-              <StatCard icon={FileText} title="Templates" value={dashboardData.email.templates.length} color="blue" />
-            </div>
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Email AI Management</h3>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className={`px-3 py-1 rounded-full text-sm ${dashboardData.email.emailSettings ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                    {dashboardData.email.emailSettings ? 'Email AI Active' : 'Setup Required'}
-                  </div>
-                </div>
-                <button onClick={() => window.location.href = '/email'} className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                  Manage Email AI
-                </button>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Messages</span>
+                <span className="text-white font-medium">{dashboardData.facebook.totalMessages}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Posts</span>
+                <span className="text-blue-400 font-medium">{dashboardData.facebook.postsManaged}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Leads</span>
+                <span className="text-green-400 font-medium">{dashboardData.facebook.leadsGenerated}</span>
               </div>
             </div>
+            <button
+              onClick={() => router.push('/facebook-setup')}
+              className="w-full py-1.5 rounded-lg text-xs font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors border border-blue-500/20"
+            >
+              Manage
+            </button>
           </div>
-        )}
 
-        {/* Facebook Tab */}
-        {activeTab === 'facebook' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard icon={Users} title="Facebook Messages" value={dashboardData.facebook.totalMessages} color="blue" />
-              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.facebook.totalConversations} color="green" />
-              <StatCard icon={Target} title="Posts Managed" value={dashboardData.facebook.postsManaged} color="purple" />
-              <StatCard icon={Star} title="Leads Generated" value={dashboardData.facebook.leadsGenerated} color="orange" />
+          {/* Instagram */}
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-pink-400" />
+                <h3 className="text-sm font-semibold text-white">Instagram</h3>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                dashboardData.instagram.accountConnected
+                  ? 'bg-green-500/10 text-green-400'
+                  : 'bg-yellow-500/10 text-yellow-400'
+              }`}>
+                {dashboardData.instagram.accountConnected ? 'Connected' : 'Setup'}
+              </span>
             </div>
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Facebook AI Management</h3>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className={`px-3 py-1 rounded-full text-sm ${dashboardData.facebook.pageConnected ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                    {dashboardData.facebook.pageConnected ? 'Facebook Page Connected' : 'Page Setup Required'}
-                  </div>
-                  {dashboardData.facebook.lastSync && (
-                    <span className="text-gray-400 text-sm">Last sync: {new Date(dashboardData.facebook.lastSync).toLocaleString()}</span>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button onClick={() => window.location.href = '/social/facebook'} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Manage Facebook AI
-                  </button>
-                  <button onClick={() => window.location.href = '/social/facebook/setup'} className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg font-medium border border-blue-500/30 transition-colors">
-                    Facebook Setup
-                  </button>
-                </div>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Messages</span>
+                <span className="text-white font-medium">{dashboardData.instagram.totalMessages}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Posts</span>
+                <span className="text-pink-400 font-medium">{dashboardData.instagram.postsManaged}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Leads</span>
+                <span className="text-green-400 font-medium">{dashboardData.instagram.leadsGenerated}</span>
               </div>
             </div>
+            <button
+              onClick={() => router.push('/instagram-setup')}
+              className="w-full py-1.5 rounded-lg text-xs font-medium text-pink-400 bg-pink-500/10 hover:bg-pink-500/20 transition-colors border border-pink-500/20"
+            >
+              Manage
+            </button>
           </div>
-        )}
 
-        {/* Instagram Tab */}
-        {activeTab === 'instagram' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StatCard icon={Star} title="Instagram Messages" value={dashboardData.instagram.totalMessages} color="purple" />
-              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.instagram.totalConversations} color="blue" />
-              <StatCard icon={Target} title="Posts Managed" value={dashboardData.instagram.postsManaged} color="orange" />
-              <StatCard icon={Users} title="Leads Generated" value={dashboardData.instagram.leadsGenerated} color="green" />
-            </div>
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Instagram AI Management</h3>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${dashboardData.instagram.accountConnected ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                    {dashboardData.instagram.accountConnected ? 'Instagram Account Connected' : 'Account Setup Required'}
-                  </div>
-                  {dashboardData.instagram.lastSync && (
-                    <span className="text-gray-400 text-sm">Last sync: {new Date(dashboardData.instagram.lastSync).toLocaleString()}</span>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button onClick={() => window.location.href = '/social/instagram'} className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Manage Instagram AI
-                  </button>
-                  <button onClick={() => window.location.href = '/social/instagram/setup'} className="bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 px-6 py-3 rounded-lg font-medium border border-pink-500/30 transition-colors">
-                    Instagram Setup
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Settings Tab */}
-        {activeTab === 'settings' && (
-          <div className="space-y-6">
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-6">AI Configuration</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button onClick={() => window.location.href = '/ai-config'} className="flex items-center space-x-3 p-4 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 transition-colors">
-                  <Bot className="w-6 h-6 text-blue-400" />
-                  <div className="text-left">
-                    <div className="text-white font-medium">AI Settings</div>
-                    <div className="text-sm text-gray-400">Configure AI behavior and responses</div>
-                  </div>
-                </button>
-                <button onClick={() => window.location.href = '/test-ai'} className="flex items-center space-x-3 p-4 bg-green-500/20 hover:bg-green-500/30 rounded-lg border border-green-500/30 transition-colors">
-                  <CheckCircle className="w-6 h-6 text-green-400" />
-                  <div className="text-left">
-                    <div className="text-white font-medium">Test AI Connection</div>
-                    <div className="text-sm text-gray-400">Verify OpenAI integration</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-6">Account Settings</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gray-500/20 rounded-lg">
-                  <div>
-                    <div className="text-white font-medium">User Account</div>
-                    <div className="text-sm text-gray-400">{user?.emailAddresses?.[0]?.emailAddress}</div>
-                  </div>
-                  <div className="text-sm text-green-400">Active</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
+
+      {/* AI Settings */}
+      <AISettingsSection />
+
     </div>
   );
 }

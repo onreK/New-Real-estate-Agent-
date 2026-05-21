@@ -310,48 +310,37 @@ export default function LeadsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
+      <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
-          <p className="text-white text-lg">Loading leads data...</p>
+          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">Loading leads...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      {/* Header */}
-      <div className="border-b border-white/10 bg-black/20 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.back()}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                ← Back
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Lead Management</h1>
-                <p className="text-gray-400 text-sm">Track and manage all your potential customers</p>
-              </div>
-            </div>
-            <button 
-              onClick={fetchLeads}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-          </div>
+    <div className="p-8 space-y-6">
+
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Lead Management</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Track and manage all your potential customers</p>
         </div>
+        <button
+          onClick={fetchLeads}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-gray-800"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Refresh
+        </button>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+          <div className="bg-[#161B22] border border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Total Leads</p>
@@ -361,7 +350,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+          <div className="bg-[#161B22] border border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Hot Leads</p>
@@ -371,7 +360,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+          <div className="bg-[#161B22] border border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Warm Leads</p>
@@ -381,7 +370,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+          <div className="bg-[#161B22] border border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Cold Leads</p>
@@ -391,7 +380,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+          <div className="bg-[#161B22] border border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Avg Score</p>
@@ -401,7 +390,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
+          <div className="bg-[#161B22] border border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Total Value</p>
@@ -416,7 +405,7 @@ export default function LeadsPage() {
 
         {/* Source Breakdown */}
         {Object.keys(channelStats).length > 0 && (
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-5 mb-6">
+          <div className="bg-[#161B22] border border-gray-800 rounded-xl p-5 mb-6">
             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Lead Source Breakdown</h3>
             <div className="flex flex-wrap gap-3">
               {Object.entries(channelStats)
@@ -446,7 +435,7 @@ export default function LeadsPage() {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6 mb-6">
+        <div className="bg-[#161B22] border border-gray-800 rounded-xl p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
@@ -457,7 +446,7 @@ export default function LeadsPage() {
                   placeholder="Search by name, email, phone, or company..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 text-white placeholder:text-gray-400 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full pl-10 pr-4 py-2 bg-[#0D1117] border border-gray-800 text-white placeholder:text-gray-600 rounded-lg focus:outline-none focus:border-violet-500"
                 />
               </div>
             </div>
@@ -469,7 +458,7 @@ export default function LeadsPage() {
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   temperatureFilter === 'all' 
                     ? 'bg-purple-600 hover:bg-purple-700 text-white' 
-                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 All
@@ -479,7 +468,7 @@ export default function LeadsPage() {
                 className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
                   temperatureFilter === 'hot' 
                     ? 'bg-red-600 hover:bg-red-700 text-white' 
-                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Flame className="w-4 h-4" />
@@ -490,7 +479,7 @@ export default function LeadsPage() {
                 className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
                   temperatureFilter === 'warm' 
                     ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Thermometer className="w-4 h-4" />
@@ -501,7 +490,7 @@ export default function LeadsPage() {
                 className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
                   temperatureFilter === 'cold' 
                     ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                    : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Snowflake className="w-4 h-4" />
@@ -513,7 +502,7 @@ export default function LeadsPage() {
             <select
               value={stageFilter}
               onChange={(e) => setStageFilter(e.target.value)}
-              className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:border-purple-500 [&>option]:bg-gray-800 [&>option]:text-white"
+              className="px-4 py-2 bg-[#0D1117] border border-gray-800 text-white rounded-lg focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22] [&>option]:text-white"
               style={{ colorScheme: 'dark' }}
             >
               <option value="all" className="bg-gray-800 text-white">All Stages</option>
@@ -528,7 +517,7 @@ export default function LeadsPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:border-purple-500 [&>option]:bg-gray-800 [&>option]:text-white"
+              className="px-4 py-2 bg-[#0D1117] border border-gray-800 text-white rounded-lg focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22] [&>option]:text-white"
               style={{ colorScheme: 'dark' }}
             >
               <option value="recent" className="bg-gray-800 text-white">Sort by Recent</option>
@@ -549,10 +538,10 @@ export default function LeadsPage() {
         </div>
 
         {/* Leads Table */}
-        <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl overflow-hidden">
+        <div className="bg-[#161B22] border border-gray-800 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-white/10">
+              <thead className="border-b border-gray-800">
                 <tr className="text-left">
                   <th className="p-4 text-gray-400 font-medium">Lead</th>
                   <th className="p-4 text-gray-400 font-medium">Contact</th>
@@ -576,7 +565,7 @@ export default function LeadsPage() {
                   </tr>
                 ) : (
                   currentLeads.map((lead) => (
-                    <tr key={lead.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <tr key={lead.id} className="border-b border-gray-800/50 hover:bg-white/[0.02] transition-colors">
                       <td className="p-4">
                         <div>
                           <p className="text-white font-medium">{lead.name || 'Unknown'}</p>
@@ -653,7 +642,7 @@ export default function LeadsPage() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="px-2 py-1 bg-white/10 text-gray-300 border border-white/20 rounded text-sm">
+                        <span className="px-2 py-1 bg-[#0D1117] text-gray-400 border border-gray-800 rounded text-sm">
                           {lead.primary_channel}
                         </span>
                       </td>
@@ -664,7 +653,7 @@ export default function LeadsPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => router.push(`/leads/${lead.id}`)}
-                            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm flex items-center gap-1"
+                            className="px-3 py-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 border border-violet-500/20 rounded-lg transition-colors text-sm flex items-center gap-1"
                           >
                             View
                             <ChevronRight className="w-4 h-4" />
@@ -719,7 +708,7 @@ export default function LeadsPage() {
                     className={`p-2 rounded-lg transition-colors ${
                       currentPage === 1
                         ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                        : 'bg-white/10 text-white hover:bg-white/20'
+                        : 'bg-[#161B22] text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     <ChevronLeft className="w-5 h-5" />
@@ -746,7 +735,7 @@ export default function LeadsPage() {
                           className={`px-3 py-1 rounded-lg transition-colors ${
                             currentPage === pageNum
                               ? 'bg-purple-600 text-white'
-                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                              : 'bg-[#161B22] text-gray-400 hover:text-white hover:bg-white/5'
                           }`}
                         >
                           {pageNum}
@@ -759,7 +748,7 @@ export default function LeadsPage() {
                         <span className="px-2 text-gray-500">...</span>
                         <button
                           onClick={() => goToPage(totalPages)}
-                          className="px-3 py-1 bg-white/10 text-gray-300 hover:bg-white/20 rounded-lg transition-colors"
+                          className="px-3 py-1 bg-[#161B22] text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                         >
                           {totalPages}
                         </button>
@@ -773,7 +762,7 @@ export default function LeadsPage() {
                     className={`p-2 rounded-lg transition-colors ${
                       currentPage === totalPages
                         ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                        : 'bg-white/10 text-white hover:bg-white/20'
+                        : 'bg-[#161B22] text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     <ChevronRight className="w-5 h-5" />

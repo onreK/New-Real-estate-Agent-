@@ -9,7 +9,7 @@ import {
   TrendingUp, Activity, Target, DollarSign, Clock, Users,
   BarChart3, Zap, Phone, Calendar, MessageSquare, Award,
   ArrowUpRight, ArrowDownRight, RefreshCw, Download,
-  ChevronRight, AlertCircle, CheckCircle, Info, ArrowLeft
+  ChevronRight, AlertCircle, CheckCircle, Info
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -109,64 +109,50 @@ export default function AnalyticsPage() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <p className="text-white">Please sign in to view analytics</p>
-        </div>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <p className="text-gray-400">Please sign in to view analytics</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      {/* Header */}
-      <div className="border-b border-white/10 bg-black/20 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.back()}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-white">AI Analytics</h1>
-                <p className="text-gray-400 text-sm">Track your AI's behavior and business impact</p>
-              </div>
-            </div>
-            <button
-              onClick={fetchAnalytics}
-              disabled={loading}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
+    <div className="p-8 space-y-8">
+
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Analytics</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Track your AI's performance and business impact</p>
         </div>
+        <button
+          onClick={fetchAnalytics}
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-gray-800 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div>
         {/* Period Selector */}
         <div className="flex gap-2 mb-8">
           {['today', 'week', 'month', 'year', 'all'].map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-4 py-2 rounded-lg capitalize transition-all ${
+              className={`px-4 py-2 rounded-lg capitalize text-sm transition-all ${
                 period === p
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/20'
+                  ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                  : 'bg-[#161B22] text-gray-400 hover:text-white border border-gray-800'
               }`}
             >
               {p === 'all' ? 'All Time' : p}
@@ -195,7 +181,7 @@ export default function AnalyticsPage() {
         ) : analytics ? (
           <div className="space-y-6">
             {/* Effectiveness Score Hero */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-8">
+            <div className="bg-[#161B22] rounded-xl border border-gray-800 p-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="text-center">
                   <h3 className="text-lg font-medium text-gray-300 mb-4">AI Effectiveness Score</h3>
@@ -235,7 +221,7 @@ export default function AnalyticsPage() {
 
             {/* Key Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="w-5 h-5 text-green-400" />
                   <span className="text-sm text-gray-400">AI Engagement Rate</span>
@@ -244,7 +230,7 @@ export default function AnalyticsPage() {
                   {analytics.overview?.ai_engagement_rate || 0}%
                 </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="w-5 h-5 text-blue-400" />
                   <span className="text-sm text-gray-400">Contact Capture</span>
@@ -253,7 +239,7 @@ export default function AnalyticsPage() {
                   {analytics.overview?.contact_capture_rate || 0}%
                 </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="w-5 h-5 text-yellow-400" />
                   <span className="text-sm text-gray-400">Avg Response</span>
@@ -262,7 +248,7 @@ export default function AnalyticsPage() {
                   {analytics.overview?.avg_response_speed_minutes || 0} min
                 </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Target className="w-5 h-5 text-purple-400" />
                   <span className="text-sm text-gray-400">Leads Captured</span>
@@ -276,7 +262,7 @@ export default function AnalyticsPage() {
             {/* Business Value & Top Behaviors */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Conversion Funnel */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="text-xl font-semibold text-white flex items-center gap-2">
                     <TrendingUp className="w-6 h-6 text-blue-400" />
@@ -324,7 +310,7 @@ export default function AnalyticsPage() {
               </div>
 
               {/* Top Behaviors Card */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-semibold text-white flex items-center gap-2">
                     <Target className="w-6 h-6 text-purple-400" />
@@ -354,7 +340,7 @@ export default function AnalyticsPage() {
 
             {/* Channel Performance */}
             {analytics.channels && analytics.channels.length > 0 && (
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                   <MessageSquare className="w-6 h-6 text-blue-400" />
                   Channel Performance
@@ -391,7 +377,7 @@ export default function AnalyticsPage() {
 
             {/* AI Insights */}
             {analytics.insights && analytics.insights.length > 0 && (
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                   <Activity className="w-6 h-6 text-yellow-400" />
                   AI-Generated Insights
@@ -421,7 +407,7 @@ export default function AnalyticsPage() {
 
             {/* Daily Trend Chart (Simplified) */}
             {analytics.dailyTrend && analytics.dailyTrend.length > 0 && (
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                   <BarChart3 className="w-6 h-6 text-indigo-400" />
                   Activity Trend
@@ -451,7 +437,7 @@ export default function AnalyticsPage() {
 
             {/* No Data Message */}
             {(!analytics.overview || analytics.overview.total_interactions_month === 0) && (
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-12">
+              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-12">
                 <div className="text-center">
                   <BarChart3 className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-white mb-2">No Analytics Data Yet</h3>
@@ -467,7 +453,7 @@ export default function AnalyticsPage() {
                     </button>
                     <button
                       onClick={() => router.push('/ai-config')}
-                      className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all border border-white/20"
+                      className="px-6 py-3 bg-[#161B22] hover:bg-white/5 text-gray-300 rounded-lg transition-all border border-gray-800"
                     >
                       AI Settings
                     </button>
