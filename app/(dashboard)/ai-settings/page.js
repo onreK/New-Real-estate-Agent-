@@ -40,7 +40,7 @@ function Toggle({ checked, onChange }) {
 
 function Section({ icon: Icon, iconColor = 'text-violet-400', title, children }) {
   return (
-    <div className="bg-[#0D1117] rounded-xl border border-gray-800 p-5">
+    <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
       <h4 className="text-white font-medium mb-4 flex items-center gap-2">
         <Icon className={`w-4 h-4 ${iconColor}`} />
         {title}
