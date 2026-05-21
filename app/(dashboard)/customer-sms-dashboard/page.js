@@ -171,89 +171,85 @@ export default function CustomerSMSDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading SMS dashboard...</p>
-          </div>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">Loading SMS...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">📱 SMS AI Dashboard</h1>
-              <p className="text-gray-600 mt-1">
-                {dashboardData.smsConfig?.businessName || 'Your Business'} SMS Assistant
-              </p>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={loadDashboardData}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-              >
-                🔄 Refresh
-              </button>
-              <button
-                onClick={() => window.location.href = '/sms-onboarding'}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 text-sm"
-              >
-                ⚙️ Settings
-              </button>
-            </div>
-          </div>
+    <div className="p-8 space-y-6">
+
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">SMS AI</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {dashboardData.smsConfig?.businessName || 'Your Business'} SMS Assistant
+          </p>
         </div>
+        <div className="flex gap-3">
+          <button
+            onClick={loadDashboardData}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-gray-800"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => window.location.href = '/sms-onboarding'}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-gray-800"
+          >
+            ⚙️ Settings
+          </button>
+        </div>
+      </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-800">{error}</p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+            <p className="text-red-400">{error}</p>
           </div>
         )}
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="flex items-center">
               <div className="text-2xl mr-3">💬</div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Conversations</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardData.totalConversations}</p>
+                <p className="text-sm font-medium text-gray-400">Total Conversations</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.totalConversations}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="flex items-center">
               <div className="text-2xl mr-3">📨</div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Messages</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardData.totalMessages}</p>
+                <p className="text-sm font-medium text-gray-400">Total Messages</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.totalMessages}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="flex items-center">
               <div className="text-2xl mr-3">👥</div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Leads Generated</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardData.leadsGenerated}</p>
+                <p className="text-sm font-medium text-gray-400">Leads Generated</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.leadsGenerated}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="flex items-center">
               <div className="text-2xl mr-3">🔥</div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Hot Leads (24h)</p>
+                <p className="text-sm font-medium text-gray-400">Hot Leads (24h)</p>
                 <p className="text-2xl font-bold text-red-600">{dashboardData.hotLeadStats.alertsLast24h}</p>
               </div>
             </div>
@@ -262,14 +258,14 @@ export default function CustomerSMSDashboard() {
 
         {/* Navigation Tabs */}
         <div className="mb-6">
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-800">
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('overview')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'overview'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-violet-500 text-violet-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
                 }`}
               >
                 📊 Overview
@@ -278,8 +274,8 @@ export default function CustomerSMSDashboard() {
                 onClick={() => setActiveTab('conversations')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'conversations'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-violet-500 text-violet-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
                 }`}
               >
                 💬 Conversations
@@ -288,8 +284,8 @@ export default function CustomerSMSDashboard() {
                 onClick={() => setActiveTab('hotleads')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'hotleads'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-violet-500 text-violet-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
                 }`}
               >
                 🔥 Hot Lead Alerts
@@ -302,7 +298,7 @@ export default function CustomerSMSDashboard() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* SMS Configuration Status */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
               <h2 className="text-lg font-semibold mb-4">⚙️ SMS AI Configuration</h2>
               {dashboardData.smsConfig ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -351,7 +347,7 @@ export default function CustomerSMSDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-600 mb-4">No SMS configuration found</p>
+                  <p className="text-gray-400 mb-4">No SMS configuration found</p>
                   <button
                     onClick={() => window.location.href = '/sms-onboarding'}
                     className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
@@ -363,22 +359,22 @@ export default function CustomerSMSDashboard() {
             </div>
 
             {/* Hot Lead Statistics */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
               <h2 className="text-lg font-semibold mb-4">🔥 Hot Lead Performance</h2>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-red-50 rounded-lg">
+                <div className="text-center p-4 bg-red-500/10 rounded-lg">
                   <div className="text-2xl font-bold text-red-600">{dashboardData.hotLeadStats.totalHotLeads}</div>
                   <div className="text-sm text-red-700">Total Hot Leads</div>
                 </div>
-                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                <div className="text-center p-4 bg-orange-500/10 rounded-lg">
                   <div className="text-2xl font-bold text-orange-600">{dashboardData.hotLeadStats.alertsLast24h}</div>
                   <div className="text-sm text-orange-700">Alerts (24h)</div>
                 </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-center p-4 bg-blue-500/10 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">{dashboardData.hotLeadStats.averageScore}</div>
                   <div className="text-sm text-blue-700">Average Score</div>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <div className="text-center p-4 bg-purple-500/10 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">{dashboardData.hotLeadStats.highestScore}</div>
                   <div className="text-sm text-purple-700">Highest Score</div>
                 </div>
@@ -386,15 +382,15 @@ export default function CustomerSMSDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
               <h2 className="text-lg font-semibold mb-4">⚡ Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <button
                   onClick={toggleHotLeadAlerts}
                   className={`p-4 rounded-lg border ${
                     dashboardData.smsConfig?.enableHotLeadAlerts
-                      ? 'bg-green-50 border-green-200 text-green-800'
-                      : 'bg-red-50 border-red-200 text-red-800'
+                      ? 'bg-green-500/10 border-green-500/20 text-green-400'
+                      : 'bg-red-500/10 border-red-500/20 text-red-400'
                   }`}
                 >
                   <div className="text-xl mb-2">
@@ -409,8 +405,8 @@ export default function CustomerSMSDashboard() {
                   onClick={toggleBusinessHours}
                   className={`p-4 rounded-lg border ${
                     dashboardData.smsConfig?.alertBusinessHours
-                      ? 'bg-blue-50 border-blue-200 text-blue-800'
-                      : 'bg-gray-50 border-gray-200 text-gray-800'
+                      ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                      : 'bg-gray-50 border-gray-200 text-gray-200'
                   }`}
                 >
                   <div className="text-xl mb-2">🕐</div>
@@ -421,7 +417,7 @@ export default function CustomerSMSDashboard() {
 
                 <button
                   onClick={() => window.location.href = '/sms-onboarding'}
-                  className="p-4 rounded-lg border bg-yellow-50 border-yellow-200 text-yellow-800"
+                  className="p-4 rounded-lg border bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
                 >
                   <div className="text-xl mb-2">⚙️</div>
                   <div className="text-sm font-medium">Configure Settings</div>
@@ -429,7 +425,7 @@ export default function CustomerSMSDashboard() {
 
                 <button
                   onClick={loadDashboardData}
-                  className="p-4 rounded-lg border bg-purple-50 border-purple-200 text-purple-800"
+                  className="p-4 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400"
                 >
                   <div className="text-xl mb-2">🔄</div>
                   <div className="text-sm font-medium">Refresh Data</div>
@@ -441,35 +437,35 @@ export default function CustomerSMSDashboard() {
 
         {/* Conversations Tab */}
         {activeTab === 'conversations' && (
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800">
             <div className="p-6 border-b">
               <h2 className="text-lg font-semibold">💬 Recent Conversations</h2>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-800">
               {dashboardData.conversations.length > 0 ? (
                 dashboardData.conversations.slice(0, 10).map((conversation, index) => (
-                  <div key={conversation.id || index} className="p-6 hover:bg-gray-50">
+                  <div key={conversation.id || index} className="p-6 hover:bg-white/[0.02]">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
                           <span className="font-medium">{formatPhoneNumber(conversation.fromNumber)}</span>
                           {conversation.leadCaptured && (
-                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                            <span className="bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-full">
                               📝 Lead
                             </span>
                           )}
                           {conversation.messages?.some(m => m.hotLeadScore >= 7) && (
-                            <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                            <span className="bg-red-500/10 text-red-400 text-xs px-2 py-1 rounded-full">
                               🔥 Hot Lead
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 mb-2">
+                        <div className="text-sm text-gray-400 mb-2">
                           {conversation.messages?.length || 0} messages • 
                           Started {new Date(conversation.createdAt).toLocaleDateString()}
                         </div>
                         {conversation.messages?.length > 0 && (
-                          <div className="text-sm text-gray-800">
+                          <div className="text-sm text-gray-200">
                             Last: "{conversation.messages[conversation.messages.length - 1].body.slice(0, 100)}..."
                           </div>
                         )}
@@ -483,7 +479,7 @@ export default function CustomerSMSDashboard() {
                             </span>
                           </div>
                         )}
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-400">
                           {new Date(conversation.createdAt).toLocaleDateString()}
                         </div>
                       </div>
@@ -493,8 +489,8 @@ export default function CustomerSMSDashboard() {
               ) : (
                 <div className="p-12 text-center">
                   <div className="text-4xl mb-4">📱</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
-                  <p className="text-gray-600">SMS conversations will appear here once customers start texting your AI.</p>
+                  <h3 className="text-lg font-medium text-white mb-2">No conversations yet</h3>
+                  <p className="text-gray-400">SMS conversations will appear here once customers start texting your AI.</p>
                 </div>
               )}
             </div>
@@ -503,17 +499,17 @@ export default function CustomerSMSDashboard() {
 
         {/* Hot Leads Tab */}
         {activeTab === 'hotleads' && (
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800">
             <div className="p-6 border-b">
               <h2 className="text-lg font-semibold">🔥 Hot Lead Alerts</h2>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-400 mt-1">
                 Real-time alerts sent to {dashboardData.smsConfig?.businessOwnerPhone || 'business owner'}
               </p>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-800">
               {dashboardData.hotLeadAlerts.length > 0 ? (
                 dashboardData.hotLeadAlerts.map((alert, index) => (
-                  <div key={alert.id || index} className="p-6 hover:bg-gray-50">
+                  <div key={alert.id || index} className="p-6 hover:bg-white/[0.02]">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
@@ -523,14 +519,14 @@ export default function CustomerSMSDashboard() {
                           <span className="font-medium">
                             Score: {alert.leadInfo?.score || 0}/10
                           </span>
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-gray-400">
                             from {alert.source === 'sms' ? 'SMS' : 'Website'}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-800 mb-2">
+                        <div className="text-sm text-gray-200 mb-2">
                           "{alert.messageContent}"
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-400">
                           <strong>AI Reasoning:</strong> {alert.leadInfo?.reasoning}
                         </div>
                         {alert.leadInfo?.nextAction && (
@@ -539,7 +535,7 @@ export default function CustomerSMSDashboard() {
                           </div>
                         )}
                       </div>
-                      <div className="text-right text-sm text-gray-500">
+                      <div className="text-right text-sm text-gray-400">
                         <div>{new Date(alert.timestamp).toLocaleDateString()}</div>
                         <div>{new Date(alert.timestamp).toLocaleTimeString()}</div>
                         {alert.alertSent && (
@@ -552,8 +548,8 @@ export default function CustomerSMSDashboard() {
               ) : (
                 <div className="p-12 text-center">
                   <div className="text-4xl mb-4">🔥</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No hot leads detected yet</h3>
-                  <p className="text-gray-600 mb-4">
+                  <h3 className="text-lg font-medium text-white mb-2">No hot leads detected yet</h3>
+                  <p className="text-gray-400 mb-4">
                     Hot lead alerts will appear here when our AI detects high-intent customers.
                   </p>
                   {!dashboardData.smsConfig?.enableHotLeadAlerts && (
@@ -569,7 +565,6 @@ export default function CustomerSMSDashboard() {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

@@ -492,59 +492,46 @@ export default function SettingsPage() {
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-        <Loader2 className="w-12 h-12 animate-spin text-white" />
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center space-x-2 text-white/80 hover:text-white mb-4"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back to Dashboard</span>
-          </button>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
-              <p className="text-gray-300">Manage your account and preferences</p>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <div className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Crown className="w-5 h-5 text-white" />
-                  <span className="text-white font-medium capitalize">{subscription.plan} Plan</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="p-8 space-y-6">
 
-        {/* Tabs */}
-        <div className="flex space-x-1 mb-6 bg-white/10 p-1 rounded-lg overflow-x-auto">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Settings</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage your account and preferences</p>
+        </div>
+        <div className="px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2">
+          <Crown className="w-4 h-4 text-green-400" />
+          <span className="text-green-400 text-sm font-medium capitalize">{subscription.plan} Plan</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-800">
+        <nav className="-mb-px flex space-x-6 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 py-2.5 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-white text-gray-900'
-                  : 'text-white hover:bg-white/10'
+                  ? 'border-violet-500 text-violet-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'
               }`}
             >
               <tab.icon className="w-4 h-4" />
               <span>{tab.label}</span>
             </button>
           ))}
-        </div>
+        </nav>
+      </div>
 
         {/* Message Display */}
         {message.text && (
@@ -568,7 +555,7 @@ export default function SettingsPage() {
 
         {/* Account Tab - Unchanged */}
         {activeTab === 'account' && (
-          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Account Information</h2>
               <p className="text-gray-400">Update your personal information</p>
@@ -578,12 +565,12 @@ export default function SettingsPage() {
               {/* Profile Picture Section */}
               <div className="flex items-center space-x-6">
                 <div className="relative">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 p-1">
+                  <div className="w-24 h-24 rounded-full bg-violet-600/20 p-1">
                     <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
                       <User className="w-12 h-12 text-white" />
                     </div>
                   </div>
-                  <button className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full hover:bg-blue-700">
+                  <button className="absolute bottom-0 right-0 p-2 bg-violet-600 rounded-full hover:bg-violet-700">
                     <Camera className="w-4 h-4 text-white" />
                   </button>
                 </div>
@@ -606,7 +593,7 @@ export default function SettingsPage() {
                     type="text"
                     value={accountInfo.firstName}
                     onChange={(e) => setAccountInfo({...accountInfo, firstName: e.target.value})}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                 </div>
                 
@@ -618,7 +605,7 @@ export default function SettingsPage() {
                     type="text"
                     value={accountInfo.lastName}
                     onChange={(e) => setAccountInfo({...accountInfo, lastName: e.target.value})}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                 </div>
                 
@@ -631,7 +618,7 @@ export default function SettingsPage() {
                       type="email"
                       value={accountInfo.email}
                       onChange={(e) => setAccountInfo({...accountInfo, email: e.target.value})}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                      className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                     />
                     {accountInfo.emailVerified && (
                       <CheckCircle className="absolute right-3 top-3 w-5 h-5 text-green-400" />
@@ -648,7 +635,7 @@ export default function SettingsPage() {
                     value={accountInfo.phone}
                     onChange={(e) => setAccountInfo({...accountInfo, phone: e.target.value})}
                     placeholder="+1 (555) 000-0000"
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                 </div>
               </div>
@@ -657,7 +644,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleSaveAccount}
                 disabled={saving}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -672,7 +659,7 @@ export default function SettingsPage() {
 
         {/* Business Profile Tab - Unchanged */}
         {activeTab === 'business' && (
-          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Business Profile</h2>
               <p className="text-gray-400">Manage your company information</p>
@@ -688,7 +675,7 @@ export default function SettingsPage() {
                     type="text"
                     value={businessProfile.companyName}
                     onChange={(e) => setBusinessProfile({...businessProfile, companyName: e.target.value})}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                   />
                 </div>
                 
@@ -699,7 +686,7 @@ export default function SettingsPage() {
                   <select
                     value={businessProfile.industry}
                     onChange={(e) => setBusinessProfile({...businessProfile, industry: e.target.value})}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                   >
                     <option value="">Select Industry</option>
                     <option value="technology">Technology</option>
@@ -721,7 +708,7 @@ export default function SettingsPage() {
                   <select
                     value={businessProfile.companySize}
                     onChange={(e) => setBusinessProfile({...businessProfile, companySize: e.target.value})}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                   >
                     <option value="">Select Size</option>
                     <option value="1-10">1-10 employees</option>
@@ -741,7 +728,7 @@ export default function SettingsPage() {
                     value={businessProfile.website}
                     onChange={(e) => setBusinessProfile({...businessProfile, website: e.target.value})}
                     placeholder="https://example.com"
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   />
                 </div>
                 
@@ -753,7 +740,7 @@ export default function SettingsPage() {
                     type="email"
                     value={businessProfile.businessEmail}
                     onChange={(e) => setBusinessProfile({...businessProfile, businessEmail: e.target.value})}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                   />
                 </div>
                 
@@ -765,13 +752,13 @@ export default function SettingsPage() {
                     type="tel"
                     value={businessProfile.businessPhone}
                     onChange={(e) => setBusinessProfile({...businessProfile, businessPhone: e.target.value})}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                   />
                 </div>
               </div>
 
               {/* Address Fields */}
-              <div className="border-t border-white/10 pt-6">
+              <div className="border-t border-gray-800 pt-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Business Address</h3>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
@@ -782,7 +769,7 @@ export default function SettingsPage() {
                       type="text"
                       value={businessProfile.addressLine1}
                       onChange={(e) => setBusinessProfile({...businessProfile, addressLine1: e.target.value})}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                      className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                     />
                   </div>
                   
@@ -794,7 +781,7 @@ export default function SettingsPage() {
                       type="text"
                       value={businessProfile.addressLine2}
                       onChange={(e) => setBusinessProfile({...businessProfile, addressLine2: e.target.value})}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                      className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                     />
                   </div>
                   
@@ -806,7 +793,7 @@ export default function SettingsPage() {
                       type="text"
                       value={businessProfile.city}
                       onChange={(e) => setBusinessProfile({...businessProfile, city: e.target.value})}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                      className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                     />
                   </div>
                   
@@ -818,7 +805,7 @@ export default function SettingsPage() {
                       type="text"
                       value={businessProfile.state}
                       onChange={(e) => setBusinessProfile({...businessProfile, state: e.target.value})}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                      className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                     />
                   </div>
                   
@@ -830,7 +817,7 @@ export default function SettingsPage() {
                       type="text"
                       value={businessProfile.postalCode}
                       onChange={(e) => setBusinessProfile({...businessProfile, postalCode: e.target.value})}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                      className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                     />
                   </div>
                   
@@ -842,7 +829,7 @@ export default function SettingsPage() {
                       type="text"
                       value={businessProfile.country}
                       onChange={(e) => setBusinessProfile({...businessProfile, country: e.target.value})}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                      className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                     />
                   </div>
                 </div>
@@ -857,7 +844,7 @@ export default function SettingsPage() {
                   value={businessProfile.description}
                   onChange={(e) => setBusinessProfile({...businessProfile, description: e.target.value})}
                   rows={4}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600"
                   placeholder="Tell us about your business..."
                 />
               </div>
@@ -866,7 +853,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleSaveBusinessProfile}
                 disabled={saving}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -881,41 +868,41 @@ export default function SettingsPage() {
 
         {/* Subscription Tab - UPDATED with Discount Code */}
         {activeTab === 'subscription' && (
-          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Billing & Subscription</h2>
               <p className="text-gray-400">Manage your plan and usage</p>
             </div>
 
             {/* Current Plan - FIXED to show correct plan */}
-            <div className="p-6 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 mb-6">
+            <div className="p-6 rounded-xl bg-[#161B22] border border-violet-500/30 mb-6">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
                     <Crown className="w-6 h-6 text-white" />
                     <h3 className="text-2xl font-bold text-white capitalize">{subscription.plan} Plan</h3>
                   </div>
-                  <p className="text-white/80 mb-4">Your plan renews {subscription.billing.interval}ly</p>
+                  <p className="text-gray-400 mb-4">Your plan renews {subscription.billing.interval}ly</p>
                   <div className="text-3xl font-bold text-white">
-                    ${subscription.billing.amount}<span className="text-lg font-normal text-white/80">/{subscription.billing.interval}</span>
+                    ${subscription.billing.amount}<span className="text-lg font-normal text-gray-400">/{subscription.billing.interval}</span>
                   </div>
-                  
+
                   {/* Display Active Discount */}
                   {activeDiscount && (
-                    <div className="mt-4 p-3 bg-white/20 rounded-lg">
+                    <div className="mt-4 p-3 bg-violet-500/10 border border-violet-500/20 rounded-lg">
                       <div className="flex items-center space-x-2">
-                        <Tag className="w-4 h-4 text-white" />
-                        <span className="text-white font-medium">Active Discount</span>
+                        <Tag className="w-4 h-4 text-violet-400" />
+                        <span className="text-violet-400 font-medium">Active Discount</span>
                       </div>
-                      <p className="text-white/80 text-sm mt-1">
+                      <p className="text-gray-400 text-sm mt-1">
                         {activeDiscount.percentOff ? `${activeDiscount.percentOff}% off` : `$${activeDiscount.amountOff} off`}
                         {activeDiscount.coupon && ` - ${activeDiscount.coupon}`}
                       </p>
                     </div>
                   )}
                 </div>
-                <div className="px-3 py-1 bg-white/20 rounded-full">
-                  <span className="text-white font-medium capitalize">
+                <div className="px-3 py-1 bg-violet-500/20 border border-violet-500/30 rounded-full">
+                  <span className="text-violet-400 font-medium capitalize">
                     {subscription.status === 'trialing' ? 'Trial' : subscription.status}
                   </span>
                 </div>
@@ -923,7 +910,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Discount Code Section - NEW */}
-            <div className="p-6 bg-white/5 rounded-xl border border-white/10 mb-6">
+            <div className="p-6 bg-[#0D1117] rounded-xl border border-gray-800 mb-6">
               <div className="flex items-start space-x-3 mb-4">
                 <Gift className="w-5 h-5 text-purple-400 mt-0.5" />
                 <div className="flex-1">
@@ -938,12 +925,12 @@ export default function SettingsPage() {
                   value={discountCode}
                   onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
                   placeholder="Enter discount code"
-                  className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 uppercase"
+                  className="flex-1 px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 uppercase"
                 />
                 <button
                   onClick={handleApplyDiscount}
                   disabled={applyingDiscount || !discountCode.trim()}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  className="px-6 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {applyingDiscount ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -967,9 +954,9 @@ export default function SettingsPage() {
                       {subscription.usage.conversations} / {subscription.usage.maxConversations}
                     </span>
                   </div>
-                  <div className="w-full bg-white/10 rounded-full h-2">
+                  <div className="w-full bg-gray-800 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all"
+                      className="bg-violet-500 h-2 rounded-full transition-all"
                       style={{ 
                         width: subscription.usage.maxConversations === 'Unlimited' 
                           ? '0%' 
@@ -986,9 +973,9 @@ export default function SettingsPage() {
                       {subscription.usage.emailResponses} / {subscription.usage.maxEmailResponses}
                     </span>
                   </div>
-                  <div className="w-full bg-white/10 rounded-full h-2">
+                  <div className="w-full bg-gray-800 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-green-500 to-teal-500 h-2 rounded-full transition-all"
+                      className="bg-green-500 h-2 rounded-full transition-all"
                       style={{ 
                         width: subscription.usage.maxEmailResponses === 'Unlimited'
                           ? '0%'
@@ -1005,9 +992,9 @@ export default function SettingsPage() {
                       {subscription.usage.smsMessages} / {subscription.usage.maxSmsMessages}
                     </span>
                   </div>
-                  <div className="w-full bg-white/10 rounded-full h-2">
+                  <div className="w-full bg-gray-800 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full transition-all"
+                      className="bg-orange-500 h-2 rounded-full transition-all"
                       style={{ 
                         width: `${Math.min((subscription.usage.smsMessages / subscription.usage.maxSmsMessages) * 100, 100)}%` 
                       }}
@@ -1026,8 +1013,8 @@ export default function SettingsPage() {
                     key={plan.name}
                     className={`p-4 rounded-lg border ${
                       plan.current
-                        ? 'bg-white/20 border-white/40'
-                        : 'bg-white/5 border-white/10'
+                        ? 'bg-violet-500/10 border-violet-500/30'
+                        : 'bg-[#161B22] border-gray-800'
                     }`}
                   >
                     <h5 className="text-lg font-semibold text-white mb-2">{plan.name}</h5>
@@ -1043,14 +1030,14 @@ export default function SettingsPage() {
                       ))}
                     </ul>
                     {plan.current ? (
-                      <div className="px-3 py-2 bg-white/10 rounded text-center text-white text-sm">
+                      <div className="px-3 py-2 bg-gray-800 rounded text-center text-gray-400 text-sm">
                         Current Plan
                       </div>
                     ) : (
                       <button
                         onClick={() => handleUpgradePlan(plan.name.toLowerCase())}
                         disabled={loading}
-                        className="w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded text-sm font-medium"
+                        className="w-full px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded text-sm font-medium"
                       >
                         {loading ? 'Processing...' : 'Upgrade'}
                       </button>
@@ -1064,7 +1051,7 @@ export default function SettingsPage() {
 
         {/* Notifications Tab - Unchanged */}
         {activeTab === 'notifications' && (
-          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Notification Preferences</h2>
               <p className="text-gray-400">Choose how you want to be notified</p>
@@ -1072,7 +1059,7 @@ export default function SettingsPage() {
 
             <div className="space-y-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg">
                   <div>
                     <h4 className="text-white font-medium">Email Notifications</h4>
                     <p className="text-sm text-gray-400">Receive updates via email</p>
@@ -1080,7 +1067,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => setNotifications({...notifications, emailNotifications: !notifications.emailNotifications})}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                      notifications.emailNotifications ? 'bg-blue-600' : 'bg-gray-600'
+                      notifications.emailNotifications ? 'bg-violet-600' : 'bg-gray-700'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
@@ -1089,7 +1076,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg">
                   <div>
                     <h4 className="text-white font-medium">SMS Alerts</h4>
                     <p className="text-sm text-gray-400">Get text messages for urgent updates</p>
@@ -1097,7 +1084,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => setNotifications({...notifications, smsAlerts: !notifications.smsAlerts})}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                      notifications.smsAlerts ? 'bg-blue-600' : 'bg-gray-600'
+                      notifications.smsAlerts ? 'bg-violet-600' : 'bg-gray-700'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
@@ -1106,7 +1093,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg">
                   <div>
                     <h4 className="text-white font-medium">Push Notifications</h4>
                     <p className="text-sm text-gray-400">Browser and mobile app notifications</p>
@@ -1114,7 +1101,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => setNotifications({...notifications, pushNotifications: !notifications.pushNotifications})}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                      notifications.pushNotifications ? 'bg-blue-600' : 'bg-gray-600'
+                      notifications.pushNotifications ? 'bg-violet-600' : 'bg-gray-700'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
@@ -1123,7 +1110,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg">
                   <div>
                     <h4 className="text-white font-medium">Weekly Reports</h4>
                     <p className="text-sm text-gray-400">Receive weekly performance summaries</p>
@@ -1131,7 +1118,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => setNotifications({...notifications, weeklyReports: !notifications.weeklyReports})}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                      notifications.weeklyReports ? 'bg-blue-600' : 'bg-gray-600'
+                      notifications.weeklyReports ? 'bg-violet-600' : 'bg-gray-700'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
@@ -1140,7 +1127,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg">
                   <div>
                     <h4 className="text-white font-medium">Hot Lead Alerts</h4>
                     <p className="text-sm text-gray-400">Instant alerts for high-priority leads</p>
@@ -1148,7 +1135,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => setNotifications({...notifications, hotLeadAlerts: !notifications.hotLeadAlerts})}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                      notifications.hotLeadAlerts ? 'bg-blue-600' : 'bg-gray-600'
+                      notifications.hotLeadAlerts ? 'bg-violet-600' : 'bg-gray-700'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
@@ -1157,7 +1144,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-lg">
                   <div>
                     <h4 className="text-white font-medium">Marketing Emails</h4>
                     <p className="text-sm text-gray-400">Product updates and special offers</p>
@@ -1165,7 +1152,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => setNotifications({...notifications, marketingEmails: !notifications.marketingEmails})}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                      notifications.marketingEmails ? 'bg-blue-600' : 'bg-gray-600'
+                      notifications.marketingEmails ? 'bg-violet-600' : 'bg-gray-700'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
@@ -1179,7 +1166,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleSaveNotifications}
                 disabled={saving}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1194,7 +1181,7 @@ export default function SettingsPage() {
 
         {/* Integrations Tab - Unchanged */}
         {activeTab === 'integrations' && (
-          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Integrations</h2>
               <p className="text-gray-400">Connect your favorite tools and services</p>
@@ -1202,10 +1189,10 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               {integrations.map((integration) => (
-                <div key={integration.id} className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div key={integration.id} className="p-4 bg-[#0D1117] rounded-lg border border-gray-800">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="p-3 bg-white/10 rounded-lg">
+                      <div className="p-3 bg-[#0D1117] rounded-lg">
                         <integration.icon className="w-6 h-6 text-white" />
                       </div>
                       <div>
@@ -1248,7 +1235,7 @@ export default function SettingsPage() {
 
         {/* Security Tab - UPDATED with Password Modal */}
         {activeTab === 'security' && (
-          <div className="bg-white/10 rounded-2xl border border-white/20 p-6">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white mb-2">Security Settings</h2>
               <p className="text-gray-400">Keep your account secure</p>
@@ -1256,7 +1243,7 @@ export default function SettingsPage() {
 
             <div className="space-y-6">
               {/* Two-Factor Authentication */}
-              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="p-4 bg-[#0D1117] rounded-lg border border-gray-800">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h4 className="text-white font-medium flex items-center space-x-2">
@@ -1273,13 +1260,13 @@ export default function SettingsPage() {
                     {accountInfo.twoFactorEnabled ? 'Enabled' : 'Disabled'}
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+                <button className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium">
                   {accountInfo.twoFactorEnabled ? 'Manage 2FA' : 'Enable 2FA'}
                 </button>
               </div>
 
               {/* Password - UPDATED */}
-              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="p-4 bg-[#0D1117] rounded-lg border border-gray-800">
                 <h4 className="text-white font-medium mb-2">Password</h4>
                 <p className="text-sm text-gray-400 mb-4">Last changed 30 days ago</p>
                 <button 
@@ -1291,7 +1278,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Active Sessions */}
-              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="p-4 bg-[#0D1117] rounded-lg border border-gray-800">
                 <h4 className="text-white font-medium mb-4">Active Sessions</h4>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded">
@@ -1302,13 +1289,13 @@ export default function SettingsPage() {
                     <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Active</span>
                   </div>
                 </div>
-                <button className="mt-3 text-sm text-blue-400 hover:text-blue-300">
+                <button className="mt-3 text-sm text-violet-400 hover:text-violet-300">
                   View all sessions →
                 </button>
               </div>
 
               {/* Account Management */}
-              <div className="pt-6 border-t border-white/10">
+              <div className="pt-6 border-t border-gray-800">
                 <h3 className="text-lg font-semibold text-white mb-4">Account Management</h3>
                 <div className="space-y-3">
                   <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
@@ -1329,7 +1316,7 @@ export default function SettingsPage() {
         )}
 
         {/* Quick Actions Footer */}
-        <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
+        <div className="mt-8 p-4 bg-[#0D1117] rounded-xl border border-gray-800">
           <div className="flex items-center justify-between">
             <p className="text-gray-400 text-sm">Need help? Contact support at support@bizzybotai.com</p>
             <button
@@ -1346,7 +1333,7 @@ export default function SettingsPage() {
       {/* Password Change Modal - NEW */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-md w-full border border-white/20">
+          <div className="bg-[#161B22] rounded-xl p-6 max-w-md w-full border border-gray-800">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-white">Change Password</h3>
               <button
@@ -1355,7 +1342,7 @@ export default function SettingsPage() {
                   setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
                   setPasswordError('');
                 }}
-                className="p-1 hover:bg-white/10 rounded-lg"
+                className="p-1 hover:bg-[#0D1117] rounded-lg"
               >
                 <X className="w-5 h-5 text-gray-400" />
               </button>
@@ -1376,7 +1363,7 @@ export default function SettingsPage() {
                   type="password"
                   value={passwordForm.currentPassword}
                   onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                 />
               </div>
 
@@ -1388,7 +1375,7 @@ export default function SettingsPage() {
                   type="password"
                   value={passwordForm.newPassword}
                   onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                 />
                 <p className="text-xs text-gray-400 mt-1">Must be at least 8 characters</p>
               </div>
@@ -1401,7 +1388,7 @@ export default function SettingsPage() {
                   type="password"
                   value={passwordForm.confirmPassword}
                   onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  className="w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white"
                 />
               </div>
 
@@ -1419,7 +1406,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handlePasswordChange}
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {saving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
