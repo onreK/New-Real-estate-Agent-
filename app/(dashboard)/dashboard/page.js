@@ -411,12 +411,6 @@ export default function MainDashboard() {
               <div className="text-xs text-gray-500 mt-0.5">AI Engagement Rate</div>
             </div>
           </div>
-          <button
-            onClick={() => router.push('/analytics')}
-            className="w-full px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-violet-500/20"
-          >
-            View Full Analytics <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
 
         {/* Lead Management */}
@@ -447,20 +441,6 @@ export default function MainDashboard() {
               <div className="text-2xl font-bold text-blue-400">0</div>
               <div className="text-xs text-gray-500 mt-0.5">Cold Leads</div>
             </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => router.push('/leads')}
-              className="flex-1 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-cyan-500/20"
-            >
-              View All Leads <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => router.push('/leads?filter=hot')}
-              className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-500/20"
-            >
-              Hot Only
-            </button>
           </div>
         </div>
       </div>
