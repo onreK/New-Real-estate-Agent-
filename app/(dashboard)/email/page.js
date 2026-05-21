@@ -15,7 +15,6 @@ import {
   Users, 
   TrendingUp, 
   Clock, 
-  ArrowLeft,
   MessageSquare,
   Bot,
   FileText,
@@ -1090,7 +1089,7 @@ export default function CompleteEmailSystem() {
     <div className="space-y-6">
       {/* CONSOLIDATED: Professional Gmail AI Control Panel */}
       {gmailConnection ? (
-        <div className="bg-gradient-to-r from-purple-600/5 to-blue-600/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
           <div className="flex items-center justify-between">
             {/* Left Section: Status & Connection Info */}
             <div className="flex items-center gap-4">
@@ -1126,7 +1125,7 @@ export default function CompleteEmailSystem() {
                 disabled={gmailLoading}
                 size="sm"
                 variant="outline"
-                className="bg-white/5 border-white/10 text-white hover:bg-white/10 text-xs px-3 py-1.5"
+                className="bg-[#161B22] border-gray-800 text-gray-400 hover:text-white hover:bg-white/5 text-xs px-3 py-1.5"
               >
                 {gmailLoading ? (
                   <>
@@ -1183,7 +1182,7 @@ export default function CompleteEmailSystem() {
           )}
         </div>
       ) : (
-        <div className="bg-yellow-500/10 backdrop-blur-lg rounded-2xl border border-yellow-500/20 p-6">
+        <div className="bg-yellow-500/5 rounded-xl border border-yellow-500/20 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-5 h-5 text-yellow-400" />
@@ -1208,7 +1207,7 @@ export default function CompleteEmailSystem() {
       {/* UPDATED: New 4-Metric Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* AI Responses Sent */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">AI Responses</p>
@@ -1222,7 +1221,7 @@ export default function CompleteEmailSystem() {
         </div>
 
         {/* Leads Captured */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Leads Captured</p>
@@ -1236,7 +1235,7 @@ export default function CompleteEmailSystem() {
         </div>
 
         {/* Meetings Booked */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Meetings Booked</p>
@@ -1250,7 +1249,7 @@ export default function CompleteEmailSystem() {
         </div>
 
         {/* Response Time */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-5">
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Response Time</p>
@@ -1268,7 +1267,7 @@ export default function CompleteEmailSystem() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Keep all the existing email list JSX here - not changed */}
         <div className="lg:col-span-2">
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
+          <div className="bg-[#161B22] rounded-xl border border-gray-800 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
             {/* All existing inbox/sent tabs code */}
             <div className="p-6 pb-0 flex-shrink-0 border-b border-white/10">
               <div className="flex items-center gap-3 mb-4">
@@ -1286,7 +1285,7 @@ export default function CompleteEmailSystem() {
                     className={`relative px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 ${
                       activeEmailView === 'inbox' 
                         ? 'bg-blue-600 text-white shadow-xl transform scale-[0.98]' 
-                        : 'text-gray-300 hover:text-white hover:bg-white/10'
+                        : 'text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -1294,7 +1293,7 @@ export default function CompleteEmailSystem() {
                       <span>Inbox</span>
                       <div className={`px-2 py-1 rounded-full text-xs font-bold ${
                         activeEmailView === 'inbox' 
-                          ? 'bg-white/20 text-white' 
+                          ? 'bg-white/5 text-white' 
                           : 'bg-blue-500/20 text-blue-300'
                       }`}>
                         {gmailEmails.length}
@@ -1310,7 +1309,7 @@ export default function CompleteEmailSystem() {
                     className={`relative px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 ${
                       activeEmailView === 'sent' 
                         ? 'bg-green-600 text-white shadow-xl transform scale-[0.98]' 
-                        : 'text-gray-300 hover:text-white hover:bg-white/10'
+                        : 'text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -1318,7 +1317,7 @@ export default function CompleteEmailSystem() {
                       <span>Sent</span>
                       <div className={`px-2 py-1 rounded-full text-xs font-bold ${
                         activeEmailView === 'sent' 
-                          ? 'bg-white/20 text-white' 
+                          ? 'bg-white/5 text-white' 
                           : 'bg-green-500/20 text-green-300'
                       }`}>
                         {sentEmails.length}
@@ -1582,7 +1581,7 @@ export default function CompleteEmailSystem() {
         {/* Email Details Panel - Keep all existing code */}
         <div className="lg:col-span-3 space-y-6">
           {selectedGmailEmail ? (
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
+            <div className="bg-[#161B22] rounded-xl border border-gray-800 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
               <div className="p-6 pb-4 border-b border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-3 text-lg font-semibold text-white mb-2">
                   <Globe className="w-5 h-5 text-blue-400" />
@@ -1601,7 +1600,7 @@ export default function CompleteEmailSystem() {
               </div>
               
               <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                <div className="bg-white/5 rounded-xl p-6 border border-white/10 backdrop-blur-sm">
+                <div className="bg-[#161B22] rounded-xl p-6 border border-gray-800">
                   <p className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
                     Email Content:
@@ -1613,7 +1612,7 @@ export default function CompleteEmailSystem() {
 
                 {/* 🎯 ADDED: Preview section - Always rendered but conditionally visible */}
                 <div 
-                  className={`bg-purple-500/10 rounded-xl p-6 border border-purple-500/20 backdrop-blur-sm ${
+                  className={`bg-purple-500/10 rounded-xl p-6 border border-purple-500/20  ${
                     showingPreview && previewResponse ? 'block' : 'hidden'
                   }`}
                 >
@@ -1623,7 +1622,7 @@ export default function CompleteEmailSystem() {
                   </p>
                   <textarea
                     ref={previewTextareaRef}
-                    className="w-full h-48 px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-purple-400 focus:outline-none resize-none"
+                    className="w-full h-48 px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-violet-500 focus:outline-none resize-none"
                     placeholder="AI response will appear here..."
                   />
                   <div className="mt-4 flex gap-2">
@@ -1635,7 +1634,7 @@ export default function CompleteEmailSystem() {
                       }}
                       size="sm"
                       variant="outline"
-                      className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      className="bg-[#161B22] border-gray-800 text-gray-300 hover:text-white hover:bg-white/5"
                     >
                       Reset to Original
                     </Button>
@@ -1665,7 +1664,7 @@ export default function CompleteEmailSystem() {
                     onClick={() => handlePreviewAIResponse(selectedGmailEmail.id)}
                     disabled={generatingPreview || !autoPollStatus.isEnabled}
                     variant="outline"
-                    className="h-14 flex items-center justify-center gap-3 text-base bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg disabled:opacity-50"
+                    className="h-14 flex items-center justify-center gap-3 text-base bg-[#161B22] border-gray-800 text-gray-300 hover:text-white hover:bg-white/5  disabled:opacity-50"
                   >
                     {generatingPreview ? (
                       <>
@@ -1709,7 +1708,7 @@ export default function CompleteEmailSystem() {
                   </div>
                 )}
 
-                <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 backdrop-blur-sm">
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 bg-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
                       <Bot className="w-5 h-5 text-blue-300" />
@@ -1724,7 +1723,7 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
+                <div className="bg-[#161B22] rounded-xl p-4 space-y-3 border border-gray-800">
                   <h4 className="font-medium text-white">Email Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
@@ -1740,7 +1739,7 @@ export default function CompleteEmailSystem() {
               </div>
             </div>
           ) : selectedConversation ? (
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
+            <div className="bg-[#161B22] rounded-xl border border-gray-800 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
               <div className="p-6 pb-4 border-b border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-3 text-lg font-semibold text-white mb-2">
                   <Send className="w-5 h-5 text-green-400" />
@@ -1758,7 +1757,7 @@ export default function CompleteEmailSystem() {
               </div>
               
               <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                <div className="bg-green-500/10 rounded-xl p-6 border border-green-500/20 backdrop-blur-sm">
+                <div className="bg-green-500/5 rounded-xl p-6 border border-green-500/20">
                   <p className="text-sm font-medium text-green-300 mb-4 flex items-center gap-2">
                     <Send className="w-4 h-4" />
                     AI Response Sent:
@@ -1768,7 +1767,7 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-6 backdrop-blur-sm">
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 bg-green-500/30 rounded-full flex items-center justify-center flex-shrink-0">
                       <CheckCircle className="w-5 h-5 text-green-300" />
@@ -1782,7 +1781,7 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                <div className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
+                <div className="bg-[#161B22] rounded-xl p-4 space-y-3 border border-gray-800">
                   <h4 className="font-medium text-white">Response Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
@@ -1806,9 +1805,9 @@ export default function CompleteEmailSystem() {
               </div>
             </div>
           ) : (
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
+            <div className="bg-[#161B22] rounded-xl border border-gray-800 h-[calc(100vh-480px)] min-h-[600px] flex flex-col">
               <div className="flex-1 p-16 text-center flex flex-col items-center justify-center">
-                <div className="w-24 h-24 mx-auto mb-8 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <div className="w-24 h-24 mx-auto mb-8 bg-[#161B22] rounded-full flex items-center justify-center">
                   <MessageSquare className="w-12 h-12 text-gray-400" />
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-3">Select a conversation</h3>
@@ -1842,7 +1841,7 @@ export default function CompleteEmailSystem() {
     <div className="space-y-6">
       {/* ALL OTHER AI SETTINGS SECTIONS REMAIN EXACTLY THE SAME */}
       {/* Business Profile */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Business Profile</h3>
@@ -1858,7 +1857,7 @@ export default function CompleteEmailSystem() {
                 businessProfileRef.current.name = e.target.value;
               }}
               placeholder="Your Business Name"
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
+              className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
             />
           </div>
           <div>
@@ -1870,7 +1869,7 @@ export default function CompleteEmailSystem() {
                 businessProfileRef.current.industry = e.target.value;
               }}
               placeholder="e.g., Real Estate, Consulting"
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
+              className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
             />
           </div>
           <div>
@@ -1882,14 +1881,14 @@ export default function CompleteEmailSystem() {
                 businessProfileRef.current.expertise = e.target.value;
               }}
               placeholder="What you specialize in"
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
+              className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
             />
           </div>
         </div>
       </div>
 
       {/* Communication Settings */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <MessageCircle className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Communication Settings</h3>
@@ -1907,7 +1906,7 @@ export default function CompleteEmailSystem() {
                   className={`capitalize ${
                     aiSettings.communicationTone === tone
                       ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                      : 'bg-[#161B22] border-gray-800 text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   {tone}
@@ -1931,7 +1930,7 @@ export default function CompleteEmailSystem() {
                   className={`${
                     aiSettings.responseLength === length.value
                       ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                      : 'bg-[#161B22] border-gray-800 text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   {length.label}
@@ -1943,7 +1942,7 @@ export default function CompleteEmailSystem() {
       </div>
 
       {/* 📚 KNOWLEDGE BASE SECTION */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-purple-400" />
           <h3 className="text-lg font-semibold text-white">📚 Business Knowledge Base</h3>
@@ -1960,7 +1959,7 @@ export default function CompleteEmailSystem() {
             knowledgeBaseRef.current = e.target.value;
           }}
           rows={8}
-          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-purple-400 focus:outline-none"
+          className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-violet-500 focus:outline-none"
           placeholder={`Example business information:
             
 COMPANY: ABC Real Estate Agency
@@ -2007,7 +2006,7 @@ CURRENT PROMOTIONS:
       </div>
 
       {/* 🎯 CUSTOM AI INSTRUCTIONS SECTION */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-green-400" />
           <h3 className="text-lg font-semibold text-white">🎯 Custom AI Instructions</h3>
@@ -2021,7 +2020,7 @@ CURRENT PROMOTIONS:
           value={aiSettings.customInstructions || ''}
           onChange={(e) => setAiSettings(prev => ({ ...prev, customInstructions: e.target.value }))}
           rows={8}
-          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
+          className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
           placeholder={`Example AI behavior instructions:
 
 RESPONSE BEHAVIOR:
@@ -2063,7 +2062,7 @@ SPECIAL INSTRUCTIONS:
 
       {/* Test Results */}
       {testResult && (
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">🧪 AI Test Results</h3>
           
           <div className="mb-4">
@@ -2119,7 +2118,7 @@ SPECIAL INSTRUCTIONS:
   const AutomationTab = () => (
     <div className="space-y-6">
       {/* ALL AUTOMATION TAB CONTENT REMAINS EXACTLY THE SAME */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Email Filtering</h3>
@@ -2138,7 +2137,7 @@ SPECIAL INSTRUCTIONS:
                 type="checkbox"
                 checked={automationSettings.emailFiltering[key]}
                 onChange={(e) => handleEmailFilteringChange(key, e.target.checked)}
-                className="mt-1 rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500"
+                className="mt-1 rounded border-gray-700 bg-[#161B22] text-blue-500 focus:ring-blue-500"
               />
               <div>
                 <label className="text-sm font-medium text-white">{label}</label>
@@ -2150,7 +2149,7 @@ SPECIAL INSTRUCTIONS:
       </div>
 
       {/* Keep all business rules sections */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Business Rules</h3>
@@ -2178,7 +2177,7 @@ SPECIAL INSTRUCTIONS:
                   onChange={(e) => setNewBlacklistItem(e.target.value)}
                   placeholder="Add email or domain to blacklist"
                   onKeyPress={(e) => e.key === 'Enter' && addToBlacklist()}
-                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+                  className="bg-[#0D1117] border-gray-800 text-white placeholder:text-gray-600 focus:border-blue-500"
                 />
                 <Button onClick={addToBlacklist} size="sm" className="bg-red-600 hover:bg-red-700 text-white">Add</Button>
               </div>
@@ -2206,7 +2205,7 @@ SPECIAL INSTRUCTIONS:
                   onChange={(e) => setNewWhitelistItem(e.target.value)}
                   placeholder="Add email or domain to whitelist"
                   onKeyPress={(e) => e.key === 'Enter' && addToWhitelist()}
-                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+                  className="bg-[#0D1117] border-gray-800 text-white placeholder:text-gray-600 focus:border-blue-500"
                 />
                 <Button onClick={addToWhitelist} size="sm" className="bg-green-600 hover:bg-green-700 text-white">Add</Button>
               </div>
@@ -2221,7 +2220,7 @@ SPECIAL INSTRUCTIONS:
                   <div 
                     key={`custom-keyword-${index}-${keyword}`}
                     onClick={() => removeCustomKeyword(index)}
-                    className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white hover:bg-purple-500/20 hover:border-purple-500/30 transition-colors"
+                    className="cursor-pointer flex items-center gap-1 px-3 py-1 rounded-full bg-[#161B22] border border-gray-700 text-gray-300 hover:bg-violet-500/10 hover:border-violet-500/30 transition-colors"
                   >
                     {keyword}
                     <X className="w-3 h-3" />
@@ -2234,7 +2233,7 @@ SPECIAL INSTRUCTIONS:
                   onChange={(e) => setNewCustomKeyword(e.target.value)}
                   placeholder="Add priority keyword"
                   onKeyPress={(e) => e.key === 'Enter' && addCustomKeyword()}
-                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-blue-400"
+                  className="bg-[#0D1117] border-gray-800 text-white placeholder:text-gray-600 focus:border-blue-500"
                 />
                 <Button onClick={addCustomKeyword} size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">Add</Button>
               </div>
@@ -2258,81 +2257,61 @@ SPECIAL INSTRUCTIONS:
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-6">
-        <div className="animate-pulse space-y-4 max-w-7xl mx-auto">
-          <div className="h-8 bg-white/20 rounded-xl w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="h-24 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-2 h-96 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
-            <div className="lg:col-span-3 h-96 bg-white/10 rounded-2xl backdrop-blur-lg border border-white/20"></div>
-          </div>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">Loading Email AI...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-lg"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Dashboard
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
-              <Mail className="w-6 h-6" />
-              Email AI Manager
-            </h1>
-            <p className="text-gray-300">Unified Gmail automation with smart AI responses and filtering</p>
-          </div>
-        </div>
+    <div className="p-8 space-y-6">
 
-        <div className="mb-6">
-          <div className="border-b border-white/20">
-            <nav className="-mb-px flex space-x-8">
-              {tabs.map(tab => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === tab.id
-                        ? 'border-blue-400 text-blue-300'
-                        : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-500'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-4 h-4" />
-                      {tab.label}
-                    </div>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-          <div className="mt-2">
-            <p className="text-sm text-gray-400">
-              {tabs.find(tab => tab.id === activeTab)?.description}
-            </p>
-          </div>
-        </div>
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Email AI</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Gmail automation with smart AI responses and filtering</p>
+      </div>
 
-        <div className="tab-content">
-          {activeTab === 'dashboard' && <DashboardTab />}
-          {activeTab === 'ai-settings' && <AISettingsTab />}
-          {activeTab === 'automation' && <AutomationTab />}
-          {activeTab === 'connections' && <ConnectionsTab />}
+      {/* Internal Tabs */}
+      <div>
+        <div className="border-b border-gray-800">
+          <nav className="-mb-px flex space-x-6">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-violet-500 text-violet-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </div>
+                </button>
+              );
+            })}
+          </nav>
         </div>
+        <div className="mt-2">
+          <p className="text-sm text-gray-500">
+            {tabs.find(tab => tab.id === activeTab)?.description}
+          </p>
+        </div>
+      </div>
+
+      <div className="tab-content">
+        {activeTab === 'dashboard' && <DashboardTab />}
+        {activeTab === 'ai-settings' && <AISettingsTab />}
+        {activeTab === 'automation' && <AutomationTab />}
+        {activeTab === 'connections' && <ConnectionsTab />}
       </div>
     </div>
   );
