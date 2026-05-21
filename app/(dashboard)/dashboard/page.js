@@ -1786,8 +1786,173 @@ export default function MainDashboard() {
           </div>
         )}
 
-        {/* Rest of the tabs remain unchanged - webchat, sms, email, facebook, instagram tabs */}
-        {/* These would continue here but are cut for brevity since they don't change */}
+        {/* Web Chat Tab */}
+        {activeTab === 'webchat' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.webChat.totalConversations} color="blue" />
+              <StatCard icon={Activity} title="Messages" value={dashboardData.webChat.totalMessages} color="green" />
+              <StatCard icon={Users} title="Leads" value={dashboardData.webChat.leadsGenerated} color="purple" />
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Web Chat AI Status</h3>
+              <div className="flex items-center space-x-4">
+                <div className={`px-4 py-2 rounded-lg ${dashboardData.webChat.aiStatus === 'connected' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                  {dashboardData.webChat.aiStatus === 'connected' ? '✅ AI Connected' : '❌ AI Disconnected'}
+                </div>
+                <button onClick={() => window.location.href = '/demo'} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                  Test Web Chat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SMS Tab */}
+        {activeTab === 'sms' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard icon={Phone} title="Phone Numbers" value={dashboardData.sms.phoneNumbers.length} color="green" />
+              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.sms.totalConversations} color="blue" />
+              <StatCard icon={Target} title="Hot Leads" value={dashboardData.sms.hotLeadStats.totalHotLeads} color="orange" />
+              <StatCard icon={AlertTriangle} title="Alerts (24h)" value={dashboardData.sms.hotLeadStats.alertsLast24h} color="red" />
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">SMS Dashboard</h3>
+              <button onClick={() => window.location.href = '/customer-sms-dashboard'} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                Open SMS Dashboard
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Email Tab */}
+        {activeTab === 'email' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard icon={Mail} title="Email Conversations" value={dashboardData.email.totalConversations} color="purple" />
+              <StatCard icon={Target} title="Hot Leads Today" value={dashboardData.email.hotLeadsToday} color="orange" />
+              <StatCard icon={TrendingUp} title="AI Engagement Rate" value={dashboardData.email.aiEngagementRate.toFixed(1)} subtitle="%" color="green" />
+              <StatCard icon={FileText} title="Templates" value={dashboardData.email.templates.length} color="blue" />
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Email AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-sm ${dashboardData.email.emailSettings ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                    {dashboardData.email.emailSettings ? 'Email AI Active' : 'Setup Required'}
+                  </div>
+                </div>
+                <button onClick={() => window.location.href = '/email'} className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                  Manage Email AI
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Facebook Tab */}
+        {activeTab === 'facebook' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard icon={Users} title="Facebook Messages" value={dashboardData.facebook.totalMessages} color="blue" />
+              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.facebook.totalConversations} color="green" />
+              <StatCard icon={Target} title="Posts Managed" value={dashboardData.facebook.postsManaged} color="purple" />
+              <StatCard icon={Star} title="Leads Generated" value={dashboardData.facebook.leadsGenerated} color="orange" />
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Facebook AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-sm ${dashboardData.facebook.pageConnected ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                    {dashboardData.facebook.pageConnected ? 'Facebook Page Connected' : 'Page Setup Required'}
+                  </div>
+                  {dashboardData.facebook.lastSync && (
+                    <span className="text-gray-400 text-sm">Last sync: {new Date(dashboardData.facebook.lastSync).toLocaleString()}</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button onClick={() => window.location.href = '/social/facebook'} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                    Manage Facebook AI
+                  </button>
+                  <button onClick={() => window.location.href = '/social/facebook/setup'} className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg font-medium border border-blue-500/30 transition-colors">
+                    Facebook Setup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Instagram Tab */}
+        {activeTab === 'instagram' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard icon={Star} title="Instagram Messages" value={dashboardData.instagram.totalMessages} color="purple" />
+              <StatCard icon={MessageCircle} title="Conversations" value={dashboardData.instagram.totalConversations} color="blue" />
+              <StatCard icon={Target} title="Posts Managed" value={dashboardData.instagram.postsManaged} color="orange" />
+              <StatCard icon={Users} title="Leads Generated" value={dashboardData.instagram.leadsGenerated} color="green" />
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Instagram AI Management</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${dashboardData.instagram.accountConnected ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                    {dashboardData.instagram.accountConnected ? 'Instagram Account Connected' : 'Account Setup Required'}
+                  </div>
+                  {dashboardData.instagram.lastSync && (
+                    <span className="text-gray-400 text-sm">Last sync: {new Date(dashboardData.instagram.lastSync).toLocaleString()}</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button onClick={() => window.location.href = '/social/instagram'} className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                    Manage Instagram AI
+                  </button>
+                  <button onClick={() => window.location.href = '/social/instagram/setup'} className="bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 px-6 py-3 rounded-lg font-medium border border-pink-500/30 transition-colors">
+                    Instagram Setup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-6">AI Configuration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onClick={() => window.location.href = '/ai-config'} className="flex items-center space-x-3 p-4 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 transition-colors">
+                  <Bot className="w-6 h-6 text-blue-400" />
+                  <div className="text-left">
+                    <div className="text-white font-medium">AI Settings</div>
+                    <div className="text-sm text-gray-400">Configure AI behavior and responses</div>
+                  </div>
+                </button>
+                <button onClick={() => window.location.href = '/test-ai'} className="flex items-center space-x-3 p-4 bg-green-500/20 hover:bg-green-500/30 rounded-lg border border-green-500/30 transition-colors">
+                  <CheckCircle className="w-6 h-6 text-green-400" />
+                  <div className="text-left">
+                    <div className="text-white font-medium">Test AI Connection</div>
+                    <div className="text-sm text-gray-400">Verify OpenAI integration</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-6">
+              <h3 className="text-xl font-semibold text-white mb-6">Account Settings</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-500/20 rounded-lg">
+                  <div>
+                    <div className="text-white font-medium">User Account</div>
+                    <div className="text-sm text-gray-400">{user?.emailAddresses?.[0]?.emailAddress}</div>
+                  </div>
+                  <div className="text-sm text-green-400">Active</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
