@@ -1,0 +1,326 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Mail, Users, Star, Phone, MessageCircle,
+  RefreshCw, Sliders, Shield, Bot, Cpu, Save,
+  CheckCircle, AlertCircle
+} from 'lucide-react';
+
+const TABS = [
+  { id: 'email',     label: 'Email',      icon: Mail },
+  { id: 'facebook',  label: 'Facebook',   icon: Users },
+  { id: 'instagram', label: 'Instagram',  icon: Star },
+  { id: 'text',      label: 'Text/SMS',   icon: Phone },
+  { id: 'chatbot',   label: 'Chatbot',    icon: MessageCircle },
+];
+
+const DEFAULT_CHANNEL = {
+  businessName: '',
+  industry: '',
+  businessDescription: '',
+  responseTone: 'Professional',
+  responseLength: 'Short',
+  knowledgeBase: '',
+  customInstructions: '',
+};
+
+const inputClass = "w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500 text-sm";
+const selectClass = "px-3 py-1.5 bg-[#0D1117] border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22]";
+const toggleClass = "w-11 h-6 bg-gray-700 peer-focus:ring-2 peer-focus:ring-violet-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600";
+
+function Toggle({ checked, onChange }) {
+  return (
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
+      <div className={toggleClass} />
+    </label>
+  );
+}
+
+function Section({ icon: Icon, iconColor = 'text-violet-400', title, children }) {
+  return (
+    <div className="bg-[#0D1117] rounded-xl border border-gray-800 p-5">
+      <h4 className="text-white font-medium mb-4 flex items-center gap-2">
+        <Icon className={`w-4 h-4 ${iconColor}`} />
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}
+
+export default function AISettingsPage() {
+  const [activeTab, setActiveTab] = useState('email');
+  const [settings, setSettings] = useState({
+    email:     { ...DEFAULT_CHANNEL },
+    facebook:  { ...DEFAULT_CHANNEL, autoRespondMessages: false, autoRespondComments: false },
+    instagram: { ...DEFAULT_CHANNEL, autoRespondDMs: false, autoRespondComments: false },
+    text:      { ...DEFAULT_CHANNEL, enableAutoResponses: false, hotLeadDetection: false, responseDelay: '' },
+    chatbot:   { ...DEFAULT_CHANNEL, proactiveEngagement: false, collectContactInfo: false },
+  });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await fetch('/api/ai-settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setSettings(prev => {
+            const next = { ...prev };
+            Object.keys(data.settings).forEach(ch => {
+              if (next[ch]) next[ch] = { ...next[ch], ...data.settings[ch] };
+            });
+            return next;
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error loading AI settings:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const update = (channel, field, value) => {
+    setSettings(prev => ({ ...prev, [channel]: { ...prev[channel], [field]: value } }));
+  };
+
+  const save = async (channel) => {
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await fetch('/api/ai-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel, settings: settings[channel] }),
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Settings saved successfully!' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to save. Please try again.' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Error saving settings.' });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    }
+  };
+
+  const ch = settings[activeTab];
+
+  const SharedFields = ({ channel, accentColor = 'text-violet-400' }) => (
+    <>
+      <Section icon={Mail} iconColor={accentColor} title="Business Profile">
+        <p className="text-xs text-gray-500 mb-3">Tell the AI about your business</p>
+        <div className="space-y-3">
+          <input placeholder="Business Name" value={ch.businessName} onChange={e => update(channel, 'businessName', e.target.value)} className={inputClass} />
+          <input placeholder="Industry (e.g. Real Estate, Healthcare, Retail)" value={ch.industry} onChange={e => update(channel, 'industry', e.target.value)} className={inputClass} />
+          <textarea placeholder="Business description..." value={ch.businessDescription} onChange={e => update(channel, 'businessDescription', e.target.value)} className={`${inputClass} h-24 resize-none`} />
+        </div>
+      </Section>
+
+      <Section icon={Sliders} iconColor={accentColor} title="Communication Settings">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Response tone</span>
+            <select value={ch.responseTone} onChange={e => update(channel, 'responseTone', e.target.value)} className={selectClass}>
+              <option>Professional</option>
+              <option>Casual</option>
+              <option>Formal</option>
+              <option>Friendly</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Response length</span>
+            <select value={ch.responseLength} onChange={e => update(channel, 'responseLength', e.target.value)} className={selectClass}>
+              <option>Short</option>
+              <option>Medium</option>
+              <option>Long</option>
+            </select>
+          </div>
+        </div>
+      </Section>
+
+      <Section icon={Shield} iconColor={accentColor} title="Business Knowledge Base">
+        <p className="text-xs text-gray-500 mb-3">Add FAQs, pricing, policies — the AI will use this to answer customers</p>
+        <textarea placeholder="Enter business-specific information, FAQs, policies, etc..." value={ch.knowledgeBase} onChange={e => update(channel, 'knowledgeBase', e.target.value)} className={`${inputClass} h-32 resize-none`} />
+      </Section>
+
+      <Section icon={Bot} iconColor={accentColor} title="Custom AI Instructions">
+        <p className="text-xs text-gray-500 mb-3">Tell the AI exactly how to behave and respond to customers</p>
+        <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-32 resize-none`} />
+      </Section>
+    </>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+          <RefreshCw className="w-7 h-7 text-violet-400 animate-spin mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8 space-y-6">
+
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 bg-violet-500/10 border border-violet-500/20 rounded-lg flex items-center justify-center">
+          <Cpu className="w-5 h-5 text-violet-400" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-white">AI Settings</h1>
+          <p className="text-sm text-gray-500">Control how your AI responds on each channel</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-800">
+        <nav className="-mb-px flex space-x-6 overflow-x-auto">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 py-2.5 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                activeTab === tab.id
+                  ? 'border-violet-500 text-violet-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="space-y-4 max-w-2xl">
+
+        {activeTab === 'email' && (
+          <>
+            <SharedFields channel="email" accentColor="text-blue-400" />
+          </>
+        )}
+
+        {activeTab === 'facebook' && (
+          <>
+            <SharedFields channel="facebook" accentColor="text-blue-400" />
+            <Section icon={Users} iconColor="text-blue-400" title="Facebook AI Configuration">
+              <p className="text-xs text-gray-500 mb-4">Configure AI for Facebook Messenger and post responses</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Auto-respond to messages</span>
+                  <Toggle checked={ch.autoRespondMessages || false} onChange={e => update('facebook', 'autoRespondMessages', e.target.checked)} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Auto-respond to comments</span>
+                  <Toggle checked={ch.autoRespondComments || false} onChange={e => update('facebook', 'autoRespondComments', e.target.checked)} />
+                </div>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {activeTab === 'instagram' && (
+          <>
+            <SharedFields channel="instagram" accentColor="text-pink-400" />
+            <Section icon={Star} iconColor="text-pink-400" title="Instagram AI Configuration">
+              <p className="text-xs text-gray-500 mb-4">Configure AI for Instagram DMs and post responses</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Auto-respond to DMs</span>
+                  <Toggle checked={ch.autoRespondDMs || false} onChange={e => update('instagram', 'autoRespondDMs', e.target.checked)} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Auto-respond to comments</span>
+                  <Toggle checked={ch.autoRespondComments || false} onChange={e => update('instagram', 'autoRespondComments', e.target.checked)} />
+                </div>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {activeTab === 'text' && (
+          <>
+            <SharedFields channel="text" accentColor="text-green-400" />
+            <Section icon={Phone} iconColor="text-green-400" title="SMS/Text AI Configuration">
+              <p className="text-xs text-gray-500 mb-4">Configure AI for text message responses and lead qualification</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Enable auto-responses</span>
+                  <Toggle checked={ch.enableAutoResponses || false} onChange={e => update('text', 'enableAutoResponses', e.target.checked)} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Hot lead detection</span>
+                  <Toggle checked={ch.hotLeadDetection || false} onChange={e => update('text', 'hotLeadDetection', e.target.checked)} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1.5">Response delay (seconds)</label>
+                  <input type="number" placeholder="0" value={ch.responseDelay || ''} onChange={e => update('text', 'responseDelay', e.target.value)} className={inputClass} />
+                </div>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {activeTab === 'chatbot' && (
+          <>
+            <SharedFields channel="chatbot" accentColor="text-violet-400" />
+            <Section icon={MessageCircle} iconColor="text-violet-400" title="Web Chatbot Configuration">
+              <p className="text-xs text-gray-500 mb-4">Configure AI for website chat widget responses</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Proactive engagement</span>
+                  <Toggle checked={ch.proactiveEngagement || false} onChange={e => update('chatbot', 'proactiveEngagement', e.target.checked)} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">Collect contact info</span>
+                  <Toggle checked={ch.collectContactInfo || false} onChange={e => update('chatbot', 'collectContactInfo', e.target.checked)} />
+                </div>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* Save Button */}
+        <div className="pt-2">
+          <button
+            onClick={() => save(activeTab)}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-700 text-white rounded-lg font-medium text-sm disabled:cursor-not-allowed transition-colors"
+          >
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Saving...' : `Save ${TABS.find(t => t.id === activeTab)?.label} Settings`}
+          </button>
+
+          {message.text && (
+            <div className={`mt-3 p-3 rounded-lg flex items-center gap-2 text-sm ${
+              message.type === 'success'
+                ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            }`}>
+              {message.type === 'success'
+                ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+              {message.text}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -37,7 +37,7 @@ const NAV = [
   {
     group: 'Account',
     items: [
-      { label: 'AI Settings', href: '/dashboard', icon: Bot },
+      { label: 'AI Settings', href: '/ai-settings', icon: Bot },
       { label: 'Settings', href: '/settings', icon: Settings },
     ]
   }
