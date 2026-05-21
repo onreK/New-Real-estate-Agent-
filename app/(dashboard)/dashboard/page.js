@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import {
   Users, MessageCircle, Phone, Mail,
   Target, ArrowUpRight, Activity, RefreshCw,
-  AlertCircle, ChevronRight, UserCheck,
-  Facebook, Instagram, Zap, ExternalLink, Flame, Bot
+  AlertCircle, ChevronRight, UserCheck, CheckCircle,
+  Facebook, Instagram, Zap, ExternalLink, Flame, Bot, Clock
 } from 'lucide-react';
 
 export default function MainDashboard() {
@@ -18,6 +18,7 @@ export default function MainDashboard() {
   const [error, setError] = useState('');
   const [recentActivity, setRecentActivity] = useState([]);
   const [dailyTrend, setDailyTrend] = useState([]);
+  const [todayData, setTodayData] = useState({ conversations: 0, leads: 0, hotLeads: 0, messages: 0 });
 
   const [dashboardData, setDashboardData] = useState({
     webChat: { conversations: [], totalConversations: 0, totalMessages: 0, leadsGenerated: 0, aiStatus: 'checking' },
@@ -96,6 +97,21 @@ export default function MainDashboard() {
 
       setDashboardData({ webChat, sms, email, facebook: facebookData, instagram: instagramData, combined, analytics: analyticsData });
       setDailyTrend(trendData);
+
+      try {
+        const r = await fetch('/api/customer/analytics?period=today');
+        if (r.ok) {
+          const d = await r.json();
+          if (d.success && d.analytics?.overview) {
+            setTodayData({
+              conversations: d.analytics.overview.total_interactions_month || 0,
+              leads: d.analytics.overview.total_leads_captured || 0,
+              hotLeads: d.analytics.overview.hot_leads_today || 0,
+              messages: d.analytics.overview.total_interactions_month || 0,
+            });
+          }
+        }
+      } catch {}
 
       try {
         const r = await fetch('/api/notifications');
@@ -288,6 +304,65 @@ export default function MainDashboard() {
         </div>
       )}
 
+      {/* Setup Checklist — only shown when channels are missing */}
+      {channels.filter(c => !c.connected).length > 0 && (
+        <div className="bg-[#161B22] rounded-xl border border-violet-500/20 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-white font-semibold text-sm">Complete your setup</h3>
+              <p className="text-gray-500 text-xs mt-0.5">
+                {channels.filter(c => c.connected).length} of {channels.length} channels connected — connect more to capture leads from every source
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-2xl font-bold text-violet-400">{channels.filter(c => c.connected).length}</span>
+              <span className="text-gray-600 text-sm">/{channels.length}</span>
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1.5 bg-gray-800 rounded-full mb-4 overflow-hidden">
+            <div
+              className="h-full bg-violet-500 rounded-full transition-all duration-500"
+              style={{ width: `${(channels.filter(c => c.connected).length / channels.length) * 100}%` }}
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {channels.map(ch => (
+              <button
+                key={ch.id}
+                onClick={() => router.push(ch.connected ? ch.href : ch.setupHref)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
+                  ch.connected
+                    ? 'bg-green-500/10 border border-green-500/20 text-green-400 cursor-default'
+                    : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:border-violet-500/50 hover:text-white'
+                }`}
+              >
+                {ch.connected
+                  ? <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  : <ch.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                }
+                <span className="truncate">{ch.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Today at a Glance */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Conversations today", value: todayData.conversations, color: "text-green-400" },
+          { label: "Leads today", value: todayData.leads, color: "text-blue-400" },
+          { label: "Hot leads today", value: todayData.hotLeads, color: "text-red-400" },
+          { label: "Avg response time", value: `${dashboardData.analytics?.avgResponseTime || 2}m`, color: "text-violet-400", isText: true },
+        ].map(({ label, value, color, isText }) => (
+          <div key={label} className="bg-[#161B22] rounded-xl border border-gray-800 px-4 py-3 flex items-center gap-3">
+            <div className={`text-xl font-bold ${color}`}>{isText ? value : (value ?? 0)}</div>
+            <div className="text-xs text-gray-500 leading-tight">{label}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Top Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard icon={Users} title="Total Leads" value={dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads} subtitle="All channels" trend={23} color="blue" />
@@ -410,38 +485,74 @@ export default function MainDashboard() {
               <div className="text-2xl font-bold text-violet-400">{dashboardData.analytics?.aiEngagementRate?.toFixed(1) || 0}%</div>
               <div className="text-xs text-gray-500 mt-0.5">AI Engagement Rate</div>
             </div>
+            <div className="bg-[#0D1117] rounded-lg p-4 col-span-2 flex items-center gap-3">
+              <Clock className="w-5 h-5 text-cyan-400 flex-shrink-0" />
+              <div>
+                <div className="text-2xl font-bold text-cyan-400">{dashboardData.analytics?.avgResponseTime || 2}<span className="text-sm font-normal text-gray-500 ml-1">min</span></div>
+                <div className="text-xs text-gray-500">Avg AI Response Time</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Lead Management */}
+        {/* Lead Pipeline Funnel */}
         <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
           <div className="flex items-center gap-3 mb-5">
             <div className="p-2 rounded-lg bg-cyan-500/10">
               <UserCheck className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Lead Management</h3>
-              <p className="text-xs text-gray-500">Track and manage your pipeline</p>
+              <h3 className="text-base font-semibold text-white">Lead Pipeline</h3>
+              <p className="text-xs text-gray-500">Conversion funnel across all channels</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="bg-[#0D1117] rounded-lg p-4">
-              <div className="text-2xl font-bold text-white">{dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads || 0}</div>
-              <div className="text-xs text-gray-500 mt-0.5">Total Leads</div>
-            </div>
-            <div className="bg-[#0D1117] rounded-lg p-4">
-              <div className="text-2xl font-bold text-red-400">{dashboardData.analytics?.hotLeadsMonth || dashboardData.combined.hotLeadsToday || 0}</div>
-              <div className="text-xs text-gray-500 mt-0.5">Hot Leads</div>
-            </div>
-            <div className="bg-[#0D1117] rounded-lg p-4">
-              <div className="text-2xl font-bold text-yellow-400">0</div>
-              <div className="text-xs text-gray-500 mt-0.5">Warm Leads</div>
-            </div>
-            <div className="bg-[#0D1117] rounded-lg p-4">
-              <div className="text-2xl font-bold text-blue-400">0</div>
-              <div className="text-xs text-gray-500 mt-0.5">Cold Leads</div>
-            </div>
-          </div>
+          {(() => {
+            const totalConvs = dashboardData.analytics?.totalInteractions || dashboardData.combined.totalConversations || 0;
+            const totalLeads = dashboardData.analytics?.leadsCapture || dashboardData.combined.totalLeads || 0;
+            const hotLeads = dashboardData.analytics?.hotLeadsMonth || 0;
+            const base = Math.max(totalConvs, 1);
+            const stages = [
+              { label: 'All Conversations', value: totalConvs, pct: 100, color: 'bg-blue-500', text: 'text-blue-400' },
+              { label: 'Leads Captured', value: totalLeads, pct: Math.round((totalLeads / base) * 100), color: 'bg-violet-500', text: 'text-violet-400' },
+              { label: 'Hot Leads', value: hotLeads, pct: Math.round((hotLeads / base) * 100), color: 'bg-red-500', text: 'text-red-400' },
+            ];
+            return (
+              <div className="space-y-3">
+                {stages.map((s, i) => (
+                  <div key={s.label}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 w-4 text-center">{i + 1}</span>
+                        <span className="text-sm text-gray-300">{s.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold ${s.text}`}>{s.value}</span>
+                        <span className="text-xs text-gray-600 w-10 text-right">{s.pct}%</span>
+                      </div>
+                    </div>
+                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${s.color} rounded-full transition-all duration-700`}
+                        style={{ width: `${s.pct}%` }}
+                      />
+                    </div>
+                    {i < stages.length - 1 && (
+                      <div className="flex justify-center mt-1">
+                        <ChevronRight className="w-3 h-3 text-gray-700 rotate-90" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="pt-2 border-t border-gray-800 mt-3">
+                  <p className="text-xs text-gray-600 text-center">
+                    {totalConvs > 0
+                      ? `${Math.round((totalLeads / Math.max(totalConvs, 1)) * 100)}% conversation → lead conversion rate`
+                      : 'Start conversations to see your funnel'}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
