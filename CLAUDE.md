@@ -185,9 +185,7 @@ BizzyBot gives businesses an AI agent that:
 - [ ] Update status here as work continues
 
 ### ⚠️ Known Issues — Fix Before Launch
-- [ ] **Clerk webhook customer creation is disabled** — `/api/webhooks/clerk` receives the "user.created" event but the database insert code is commented out. New signups get a Clerk account but no row is created in the PostgreSQL `customers` table automatically.
-- [ ] **Onboarding page is missing** — `app/onboarding/page.js` does not exist. The `/onboarding` route is a dead end.
-- [ ] **`/api/create-customer` is never called** — The endpoint exists and works, but nothing in the app calls it. Once the above two are fixed, wire the onboarding page to call this endpoint.
+- No known critical issues at this time.
 
 ### ❌ Not Started
 - [ ] Update status here as new features are planned
@@ -197,6 +195,15 @@ BizzyBot gives businesses an AI agent that:
 ## Session Log
 
 > Update this section at the end of every Claude Code session.
+
+### Session — 2026-05-21 (continued)
+**Web Chat dashboard + embed instructions**
+
+- Created `/web-chat` page inside the dashboard (with sidebar) — shows the unique embed code snippet, 5-step installation guide, platform quick guides (WordPress, Wix, Squarespace, Webflow, Shopify, plain HTML), and a "Test your bot" link to `/demo`
+- Updated sidebar "Web Chat" nav link from `/demo` → `/web-chat`
+- Fixed `/demo` page: now pulls real business name from `/api/dashboard` and falls back to Clerk first name; replaced hardcoded "Test Real Estate Co" and real estate example questions with neutral business-agnostic content
+
+---
 
 ### Session — 2026-05-21
 **Dashboard overhaul & AI Settings improvements**
@@ -220,8 +227,8 @@ BizzyBot gives businesses an AI agent that:
 - Created `app/api/notifications/route.js` — queries `hot_leads` table for last 14 days, returns formatted notification objects
 
 **Next priorities:**
-- Fix Clerk webhook so new signups auto-create a DB customer record
-- Build the `/onboarding` page and wire it to `/api/create-customer`
+- ✅ Clerk webhook fixed — new signups auto-create a DB customer record
+- ✅ Onboarding page built — 5-step flow at `/onboarding`, wired to `/api/create-customer` and `/api/onboarding/complete`
 
 ---
 

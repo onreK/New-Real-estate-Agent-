@@ -3,13 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Zap, MessageCircle } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
 
 export default function DemoPage() {
+  const { user } = useUser();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversationKey] = useState(`conv_${Date.now()}`);
   const [hotLeadAlert, setHotLeadAlert] = useState(null);
+  const [businessName, setBusinessName] = useState('');
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -17,13 +20,29 @@ export default function DemoPage() {
   }, [messages]);
 
   useEffect(() => {
-    setMessages([{
-      id: 'welcome',
-      content: "Hi! I'm the AI assistant for Test Real Estate Co. How can I help you with your real estate needs today?",
-      isAI: true,
-      timestamp: new Date().toISOString()
-    }]);
-  }, []);
+    fetch('/api/dashboard')
+      .then(r => r.json())
+      .then(data => {
+        const name = data.customer?.business_name || user?.firstName || 'Your Business';
+        setBusinessName(name);
+        setMessages([{
+          id: 'welcome',
+          content: `Hi! I'm the AI assistant for ${name}. How can I help you today?`,
+          isAI: true,
+          timestamp: new Date().toISOString()
+        }]);
+      })
+      .catch(() => {
+        const name = user?.firstName || 'Your Business';
+        setBusinessName(name);
+        setMessages([{
+          id: 'welcome',
+          content: `Hi! I'm the AI assistant for ${name}. How can I help you today?`,
+          isAI: true,
+          timestamp: new Date().toISOString()
+        }]);
+      });
+  }, [user]);
 
   const sendMessage = async (messageText = null) => {
     const messageToSend = messageText || inputMessage.trim();
@@ -77,10 +96,10 @@ export default function DemoPage() {
   };
 
   const suggestedQuestions = [
-    "What's the average cost of a home in Virginia?",
-    "What services do you provide?",
-    "I'm ready to buy a house today",
-    "Can you help me find a luxury property?"
+    "What services do you offer?",
+    "How do I get started?",
+    "I need help right away",
+    "Can you tell me about your pricing?"
   ];
 
   return (
@@ -180,7 +199,7 @@ export default function DemoPage() {
                       <Zap className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-white text-sm">Test Real Estate Co</h3>
+                      <h3 className="font-semibold text-white text-sm">{businessName || 'Your Business'}</h3>
                       <p className="text-violet-200 text-xs">AI Assistant</p>
                     </div>
                   </div>
