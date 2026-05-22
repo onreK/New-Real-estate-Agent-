@@ -101,24 +101,25 @@ export default function SettingsPage() {
     description: ''
   });
   
-  // Subscription State - UPDATED with correct pricing
+  // Subscription State
   const [subscription, setSubscription] = useState({
-    plan: 'professional', // Changed from 'starter' since $299 = Professional
-    status: 'trialing',
+    plan: 'starter',
+    status: 'active',
     billing: {
-      amount: 299, // Professional plan price
+      amount: 29,
       interval: 'month',
-      nextBilling: '2025-01-15'
+      nextBilling: ''
     },
-    usage: {
-      conversations: 0,
-      maxConversations: 2000, // Professional tier
-      emailResponses: 0,
-      maxEmailResponses: 5000, // Professional tier
-      smsMessages: 0,
-      maxSmsMessages: 1000 // Professional tier
-    },
-    discount: null // For active discount display
+    discount: null
+  });
+
+  // Live usage from customer_usage table
+  const [usageData, setUsageData] = useState({
+    count: 0,
+    limit: 300,
+    plan: 'starter',
+    remaining: 300,
+    overLimit: false
   });
   
   // Notification Preferences
@@ -146,6 +147,7 @@ export default function SettingsPage() {
       loadSubscription();
       loadNotifications();
       loadScheduling();
+      loadUsage();
     }
   }, [user]);
 
@@ -200,48 +202,22 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.subscription) {
-          // Map the plan correctly based on price
-          let planName = 'starter';
-          let planPrice = 99;
-          let maxConversations = 500;
-          let maxEmailResponses = 1000;
-          let maxSmsMessages = 200;
-          
-          if (data.subscription.plan === 'professional' || data.subscription.planDetails?.price === 299) {
-            planName = 'professional';
-            planPrice = 299;
-            maxConversations = 2000;
-            maxEmailResponses = 5000;
-            maxSmsMessages = 1000;
-          } else if (data.subscription.plan === 'enterprise' || data.subscription.planDetails?.price === 799) {
-            planName = 'enterprise';
-            planPrice = 799;
-            maxConversations = 'Unlimited';
-            maxEmailResponses = 'Unlimited';
-            maxSmsMessages = 5000;
-          }
-          
+          const planPrices = { starter: 29, professional: 69, business: 199 };
+          const planName = data.subscription.plan || 'starter';
+          const planPrice = planPrices[planName] || 29;
+
           setSubscription(prev => ({
             ...prev,
             plan: planName,
-            status: data.subscription.status || 'trialing',
+            status: data.subscription.status || 'active',
             billing: {
               amount: planPrice,
               interval: 'month',
               nextBilling: data.subscription.current_period_end || prev.billing.nextBilling
             },
-            usage: {
-              conversations: data.subscription.usage?.conversations || 0,
-              maxConversations: maxConversations,
-              emailResponses: data.subscription.usage?.emailResponses || 0,
-              maxEmailResponses: maxEmailResponses,
-              smsMessages: data.subscription.usage?.smsMessages || 0,
-              maxSmsMessages: maxSmsMessages
-            },
             discount: data.subscription.discount || null
           }));
-          
-          // Set active discount if exists
+
           if (data.subscription.discount) {
             setActiveDiscount(data.subscription.discount);
           }
@@ -249,6 +225,18 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Error loading subscription:', error);
+    }
+  };
+
+  const loadUsage = async () => {
+    try {
+      const response = await fetch('/api/customer/usage');
+      if (response.ok) {
+        const data = await response.json();
+        setUsageData(data);
+      }
+    } catch (error) {
+      console.error('Error loading usage:', error);
     }
   };
 
@@ -487,46 +475,46 @@ export default function SettingsPage() {
     { id: 'security', label: 'Security', icon: Shield }
   ];
 
-  // UPDATED PRICING - Based on your actual pricing structure
   const availablePlans = [
     {
+      id: 'starter',
       name: 'Starter',
-      price: 99,
+      price: 29,
       features: [
-        '500 Conversations',
-        '1,000 Email Responses', 
-        '200 SMS Messages',
-        '1 AI Agent',
-        '2 Team Members',
-        '3 Integrations'
+        '300 AI responses/month',
+        'Email, SMS & Web Chat AI',
+        'Scheduling integration',
+        'Lead tracking & export',
+        '1 user seat',
       ],
       current: subscription.plan === 'starter'
     },
     {
+      id: 'professional',
       name: 'Professional',
-      price: 299,
+      price: 69,
       features: [
-        '2,000 Conversations',
-        '5,000 Email Responses',
-        '1,000 SMS Messages',
-        '3 AI Agents',
-        '10 Team Members',
-        'All Integrations'
+        '1,500 AI responses/month',
+        'Everything in Starter',
+        'Facebook Messenger AI',
+        'Instagram DM AI',
+        'Full analytics dashboard',
+        '2 user seats',
       ],
       current: subscription.plan === 'professional'
     },
     {
-      name: 'Enterprise',
-      price: 799,
+      id: 'business',
+      name: 'Business',
+      price: 199,
       features: [
-        'Unlimited Conversations',
-        'Unlimited Emails',
-        '5,000 SMS Messages',
-        'Unlimited AI Agents',
-        'Unlimited Team Members',
-        'Custom Integrations'
+        '5,000 AI responses/month',
+        'Everything in Professional',
+        'AI Voice calls',
+        '5 user seats',
+        'Priority support',
       ],
-      current: subscription.plan === 'enterprise'
+      current: subscription.plan === 'business'
     }
   ];
 
@@ -982,66 +970,25 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Usage Stats - FIXED to show actual values */}
-            <div className="space-y-4 mb-6">
-              <h4 className="text-lg font-semibold text-white">Usage This Month</h4>
-              
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-300">Conversations</span>
-                    <span className="text-white">
-                      {subscription.usage.conversations} / {subscription.usage.maxConversations}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div 
-                      className="bg-violet-500 h-2 rounded-full transition-all"
-                      style={{ 
-                        width: subscription.usage.maxConversations === 'Unlimited' 
-                          ? '0%' 
-                          : `${Math.min((subscription.usage.conversations / subscription.usage.maxConversations) * 100, 100)}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-300">Email Responses</span>
-                    <span className="text-white">
-                      {subscription.usage.emailResponses} / {subscription.usage.maxEmailResponses}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div 
-                      className="bg-green-500 h-2 rounded-full transition-all"
-                      style={{ 
-                        width: subscription.usage.maxEmailResponses === 'Unlimited'
-                          ? '0%'
-                          : `${Math.min((subscription.usage.emailResponses / subscription.usage.maxEmailResponses) * 100, 100)}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-300">SMS Messages</span>
-                    <span className="text-white">
-                      {subscription.usage.smsMessages} / {subscription.usage.maxSmsMessages}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div 
-                      className="bg-orange-500 h-2 rounded-full transition-all"
-                      style={{ 
-                        width: `${Math.min((subscription.usage.smsMessages / subscription.usage.maxSmsMessages) * 100, 100)}%` 
-                      }}
-                    />
-                  </div>
-                </div>
+            {/* Usage Stats — live from customer_usage table */}
+            <div className="p-5 bg-[#0D1117] rounded-xl border border-gray-800 mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-base font-semibold text-white">AI Responses This Month</h4>
+                <span className={`text-sm font-medium ${usageData.overLimit ? 'text-red-400' : 'text-gray-400'}`}>
+                  {usageData.count.toLocaleString()} / {usageData.limit.toLocaleString()}
+                </span>
               </div>
+              <div className="w-full bg-gray-800 rounded-full h-2.5 mb-2">
+                <div
+                  className={`h-2.5 rounded-full transition-all ${usageData.overLimit ? 'bg-red-500' : usageData.count / usageData.limit > 0.8 ? 'bg-amber-500' : 'bg-violet-500'}`}
+                  style={{ width: `${Math.min((usageData.count / usageData.limit) * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                {usageData.overLimit
+                  ? 'Limit reached — upgrade to keep responding automatically'
+                  : `${usageData.remaining.toLocaleString()} responses remaining this month`}
+              </p>
             </div>
 
             {/* Available Plans */}
@@ -1050,7 +997,7 @@ export default function SettingsPage() {
               <div className="grid md:grid-cols-3 gap-4">
                 {availablePlans.map((plan) => (
                   <div
-                    key={plan.name}
+                    key={plan.id}
                     className={`p-4 rounded-lg border ${
                       plan.current
                         ? 'bg-violet-500/10 border-violet-500/30'
@@ -1075,7 +1022,7 @@ export default function SettingsPage() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => handleUpgradePlan(plan.name.toLowerCase())}
+                        onClick={() => handleUpgradePlan(plan.id)}
                         disabled={loading}
                         className="w-full px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded text-sm font-medium"
                       >
