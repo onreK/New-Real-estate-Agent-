@@ -106,9 +106,28 @@ BizzyBot gives businesses an AI agent that:
 
 | Plan | Price | Target |
 |------|-------|--------|
-| Starter | $49/mo | Small businesses |
-| Professional | $149/mo | Growing teams |
-| Enterprise | $499/mo | Large operations |
+| Starter | $29/mo | Solo/small businesses getting started |
+| Professional | $69/mo | Businesses wanting social media channels |
+| Business | $199/mo | High-volume operations + voice calls |
+
+### What each tier includes
+
+| Feature | Starter | Professional | Business |
+|---|---|---|---|
+| Email AI | ✅ | ✅ | ✅ |
+| SMS AI | ✅ | ✅ | ✅ |
+| Web Chat | ✅ | ✅ | ✅ |
+| Scheduling | ✅ | ✅ | ✅ |
+| Lead tracking & export | ✅ | ✅ | ✅ |
+| Facebook Messenger AI | ❌ | ✅ | ✅ |
+| Instagram DM AI | ❌ | ✅ | ✅ |
+| Full analytics | ❌ | ✅ | ✅ |
+| AI Voice calls | ❌ | ❌ | ✅ |
+| AI responses/mo | 300 | 1,500 | 5,000 |
+| User seats | 1 | 2 | 5 |
+
+### Stripe price IDs
+⚠️ New Stripe prices need to be created for $29, $69, $199 and IDs updated in `lib/stripe.js`
 
 ---
 

@@ -3,8 +3,34 @@
 import { useState } from 'react';
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { Check, Zap, Star, Crown, ArrowRight } from 'lucide-react';
+import { Check, X, Zap, Star, Crown, ArrowRight } from 'lucide-react';
 import { PRICING_PLANS } from '../../lib/stripe';
+
+const COMPARISON = [
+  { feature: 'Email AI',                  starter: true,  pro: true,  business: true  },
+  { feature: 'SMS AI',                    starter: true,  pro: true,  business: true  },
+  { feature: 'Web Chat widget',           starter: true,  pro: true,  business: true  },
+  { feature: 'Scheduling integration',    starter: true,  pro: true,  business: true  },
+  { feature: 'Lead tracking & export',    starter: true,  pro: true,  business: true  },
+  { feature: 'Facebook Messenger AI',     starter: false, pro: true,  business: true  },
+  { feature: 'Instagram DM AI',           starter: false, pro: true,  business: true  },
+  { feature: 'Full analytics',            starter: false, pro: true,  business: true  },
+  { feature: 'AI Voice calls',            starter: false, pro: false, business: true  },
+  { feature: 'AI responses/month',        starter: '300', pro: '1,500', business: '5,000' },
+  { feature: 'User seats',               starter: '1',   pro: '2',   business: '5'   },
+];
+
+const ICONS = {
+  starter:      <Zap  className="w-6 h-6 text-blue-400" />,
+  professional: <Star className="w-6 h-6 text-violet-400" />,
+  business:     <Crown className="w-6 h-6 text-amber-400" />,
+};
+
+const ACCENT = {
+  starter:      'text-blue-400',
+  professional: 'text-violet-400',
+  business:     'text-amber-400',
+};
 
 export default function PricingPage() {
   const [loading, setLoading] = useState(null);
@@ -13,36 +39,19 @@ export default function PricingPage() {
   const router = useRouter();
 
   const handleSubscribe = async (priceId, planName) => {
-    if (!isSignedIn) {
-      router.push('/sign-up');
-      return;
-    }
-
+    if (!isSignedIn) { router.push('/sign-up'); return; }
     setLoading(planName);
-    
     try {
       const response = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceId, planName }),
       });
-
       const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      // Redirect to Stripe Checkout
-      const stripe = await import('@stripe/stripe-js').then(({ loadStripe }) =>
-        loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-      );
-      
-      if (stripe) {
-        await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      }
+      if (data.error) throw new Error(data.error);
+      const { loadStripe } = await import('@stripe/stripe-js');
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+      if (stripe) await stripe.redirectToCheckout({ sessionId: data.sessionId });
     } catch (error) {
       console.error('Error:', error);
       alert('Something went wrong. Please try again.');
@@ -51,132 +60,109 @@ export default function PricingPage() {
     }
   };
 
-  const PlanIcon = ({ plan }) => {
-    switch (plan) {
-      case 'starter': return <Zap className="w-8 h-8 text-blue-500" />;
-      case 'professional': return <Star className="w-8 h-8 text-purple-500" />;
-      case 'enterprise': return <Crown className="w-8 h-8 text-amber-500" />;
-      default: return <Zap className="w-8 h-8 text-blue-500" />;
-    }
-  };
-
-  const getCurrentPlan = () => {
-    return user?.publicMetadata?.subscriptionPlan || null;
-  };
-
-  const getSubscriptionStatus = () => {
-    return user?.publicMetadata?.subscriptionStatus || null;
-  };
+  const currentPlan = user?.publicMetadata?.subscriptionPlan || null;
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+      <div className="min-h-screen bg-[#0D1117] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  const currentPlan = getCurrentPlan();
-  const subscriptionStatus = getSubscriptionStatus();
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="container mx-auto px-4 py-16">
+    <div className="min-h-screen bg-[#0D1117]">
+      <div className="max-w-6xl mx-auto px-6 py-20">
+
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-white mb-6">
-            Choose Your <span className="text-purple-400">IntelliHub AI</span> Plan
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full text-violet-400 text-sm font-medium mb-6">
+            <Zap className="w-3.5 h-3.5" />
+            Simple, honest pricing
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            AI that works while you don't
           </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Transform your business with AI automation. Start small, scale unlimited.
+          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+            BizzyBot responds to your leads 24/7 across email, SMS, and web — so you never miss a customer again.
           </p>
-          
           {currentPlan && (
-            <div className="mt-6 inline-flex items-center bg-green-500/20 text-green-400 px-4 py-2 rounded-full border border-green-500/30">
-              <Check className="w-4 h-4 mr-2" />
+            <div className="mt-6 inline-flex items-center gap-2 bg-green-500/10 text-green-400 px-4 py-2 rounded-full border border-green-500/20 text-sm">
+              <Check className="w-4 h-4" />
               Currently on {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} plan
-              {subscriptionStatus === 'active' ? ' (Active)' : ` (${subscriptionStatus})`}
             </div>
           )}
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 mb-20">
           {Object.entries(PRICING_PLANS).map(([key, plan]) => {
             const isCurrentPlan = currentPlan === key;
             const isPopular = plan.popular;
-            
+
             return (
               <div
                 key={key}
-                className={`relative bg-white/10 backdrop-blur-lg rounded-2xl p-8 border transition-all duration-300 hover:scale-105 ${
-                  isPopular 
-                    ? 'border-purple-500 scale-105 shadow-2xl shadow-purple-500/25' 
-                    : isCurrentPlan
-                    ? 'border-green-500 shadow-xl shadow-green-500/25'
-                    : 'border-white/20 hover:border-purple-300'
+                className={`relative rounded-2xl p-8 border transition-all ${
+                  isPopular
+                    ? 'bg-violet-500/5 border-violet-500/40 shadow-xl shadow-violet-500/10'
+                    : 'bg-[#161B22] border-gray-800'
                 }`}
               >
                 {isPopular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="bg-violet-600 text-white px-4 py-1 rounded-full text-xs font-semibold">
                       Most Popular
                     </span>
                   </div>
                 )}
 
-                {isCurrentPlan && (
-                  <div className="absolute -top-4 right-4">
-                    <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                      Current Plan
-                    </span>
+                {/* Plan header */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    {ICONS[key]}
+                    <h3 className={`text-lg font-bold ${ACCENT[key]}`}>{plan.name}</h3>
                   </div>
-                )}
-
-                <div className="text-center mb-8">
-                  <div className="flex justify-center mb-4">
-                    <PlanIcon plan={key} />
+                  <div className="flex items-end gap-1">
+                    <span className="text-4xl font-bold text-white">${plan.price}</span>
+                    <span className="text-gray-500 mb-1">/month</span>
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                  <div className="text-4xl font-bold text-white mb-2">
-                    ${plan.price}
-                    <span className="text-lg text-gray-400">/month</span>
-                  </div>
-                  <p className="text-gray-400 text-sm">Perfect for {key === 'starter' ? 'small businesses' : key === 'professional' ? 'growing companies' : 'enterprise clients'}</p>
+                  <p className="text-gray-500 text-sm mt-1">
+                    {key === 'starter' ? 'Perfect for getting started' : key === 'professional' ? 'For businesses capturing social leads' : 'For high-volume operations'}
+                  </p>
                 </div>
 
-                <ul className="space-y-4 mb-8">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start text-gray-300">
-                      <Check className="w-5 h-5 text-green-400 mr-3 flex-shrink-0 mt-0.5" />
-                      <span>{feature}</span>
+                {/* Features */}
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-gray-300">
+                      <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                      {feature}
                     </li>
                   ))}
                 </ul>
 
+                {/* CTA */}
                 <button
                   onClick={() => handleSubscribe(plan.priceId, plan.name)}
                   disabled={loading === plan.name || isCurrentPlan}
-                  className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-200 ${
+                  className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
                     isCurrentPlan
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-not-allowed'
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20 cursor-not-allowed'
                       : isPopular
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-lg hover:shadow-xl'
-                      : 'bg-white/10 text-white border border-white/20 hover:bg-white/20 hover:border-white/40'
-                  } ${loading === plan.name ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                      : 'bg-[#0D1117] border border-gray-700 text-white hover:border-gray-500'
+                  }`}
                 >
                   {loading === plan.name ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Processing...
-                    </div>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : isCurrentPlan ? (
                     'Current Plan'
                   ) : (
-                    <div className="flex items-center justify-center">
-                      {isSignedIn ? `Upgrade to ${plan.name}` : `Start with ${plan.name}`}
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </div>
+                    <>
+                      {isSignedIn ? `Get ${plan.name}` : `Start for $${plan.price}/mo`}
+                      <ArrowRight className="w-4 h-4" />
+                    </>
                   )}
                 </button>
               </div>
@@ -184,91 +170,70 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* Feature Comparison */}
-        <div className="mt-20 max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-white text-center mb-12">What's Included</h2>
-          <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-            <div className="grid grid-cols-4 gap-4 p-6 bg-white/5">
-              <div className="font-semibold text-white">Features</div>
-              <div className="text-center font-semibold text-blue-400">Starter</div>
-              <div className="text-center font-semibold text-purple-400">Professional</div>
-              <div className="text-center font-semibold text-amber-400">Enterprise</div>
+        {/* Feature Comparison Table */}
+        <div className="mb-20">
+          <h2 className="text-2xl font-bold text-white text-center mb-8">Full comparison</h2>
+          <div className="bg-[#161B22] border border-gray-800 rounded-2xl overflow-hidden">
+            {/* Header row */}
+            <div className="grid grid-cols-4 px-6 py-4 bg-[#0D1117] border-b border-gray-800">
+              <div className="text-gray-400 text-sm font-medium">Feature</div>
+              <div className="text-center text-blue-400 text-sm font-semibold">Starter</div>
+              <div className="text-center text-violet-400 text-sm font-semibold">Professional</div>
+              <div className="text-center text-amber-400 text-sm font-semibold">Business</div>
             </div>
-            
-            {[
-              ['AI Chat Bot', true, true, true],
-              ['SMS Assistant', false, true, true],
-              ['Voice Representative', false, true, true],
-              ['Email Automation', true, true, true],
-              ['Calendar Integration', false, true, true],
-              ['Advanced Analytics', false, true, true],
-              ['API Access', false, false, true],
-              ['Custom Integrations', false, false, true],
-              ['White-label Option', false, false, true],
-            ].map(([feature, starter, professional, enterprise], index) => (
-              <div key={index} className="grid grid-cols-4 gap-4 p-4 border-t border-white/10">
-                <div className="text-gray-300">{feature}</div>
-                <div className="text-center">
-                  {starter ? <Check className="w-5 h-5 text-green-400 mx-auto" /> : <span className="text-gray-500">—</span>}
-                </div>
-                <div className="text-center">
-                  {professional ? <Check className="w-5 h-5 text-green-400 mx-auto" /> : <span className="text-gray-500">—</span>}
-                </div>
-                <div className="text-center">
-                  {enterprise ? <Check className="w-5 h-5 text-green-400 mx-auto" /> : <span className="text-gray-500">—</span>}
-                </div>
+
+            {COMPARISON.map(({ feature, starter, pro, business }, i) => (
+              <div key={i} className={`grid grid-cols-4 px-6 py-3.5 border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-white/[0.02]'}`}>
+                <div className="text-gray-300 text-sm">{feature}</div>
+                {[starter, pro, business].map((val, j) => (
+                  <div key={j} className="text-center">
+                    {typeof val === 'string' ? (
+                      <span className="text-white text-sm font-medium">{val}</span>
+                    ) : val ? (
+                      <Check className="w-4 h-4 text-green-400 mx-auto" />
+                    ) : (
+                      <X className="w-4 h-4 text-gray-700 mx-auto" />
+                    )}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
         </div>
 
-        {/* FAQ Section */}
-        <div className="mt-20 text-center">
-          <h2 className="text-3xl font-bold text-white mb-8">Frequently Asked Questions</h2>
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        {/* FAQ */}
+        <div className="mb-20">
+          <h2 className="text-2xl font-bold text-white text-center mb-8">Common questions</h2>
+          <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
             {[
-              {
-                q: "Can I change plans anytime?",
-                a: "Yes! You can upgrade or downgrade your plan at any time from your dashboard. Changes take effect immediately."
-              },
-              {
-                q: "Is there a free trial?",
-                a: "All plans come with a 14-day free trial. No credit card required to start exploring IntelliHub AI."
-              },
-              {
-                q: "What payment methods do you accept?",
-                a: "We accept all major credit cards and debit cards through our secure Stripe integration."
-              },
-              {
-                q: "Can I cancel anytime?",
-                a: "Yes, you can cancel your subscription at any time. No long-term contracts or cancellation fees."
-              }
-            ].map((faq, index) => (
-              <div key={index} className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 text-left">
-                <h3 className="text-xl font-semibold text-white mb-3">{faq.q}</h3>
-                <p className="text-gray-300">{faq.a}</p>
+              { q: 'Can I upgrade or downgrade anytime?', a: 'Yes. Changes take effect immediately and your billing is prorated.' },
+              { q: 'Is there a free trial?', a: 'All plans come with a 14-day free trial. No credit card required to start.' },
+              { q: 'What counts as an AI response?', a: 'Each time the AI sends a reply to a lead — via email, SMS, web chat, or social — that counts as one response.' },
+              { q: 'Can I cancel anytime?', a: 'Yes, no long-term contracts. Cancel from your dashboard and you keep access until the end of your billing period.' },
+            ].map((faq, i) => (
+              <div key={i} className="bg-[#161B22] border border-gray-800 rounded-xl p-5">
+                <h3 className="text-white font-semibold mb-2 text-sm">{faq.q}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{faq.a}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* CTA Section */}
-        <div className="mt-20 text-center">
-          <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-8 max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold text-white mb-4">Ready to Transform Your Business?</h2>
-            <p className="text-gray-300 mb-6">
-              Join thousands of businesses already using IntelliHub AI to automate their operations and boost productivity.
-            </p>
-            {!isSignedIn && (
+        {/* CTA */}
+        {!isSignedIn && (
+          <div className="text-center">
+            <div className="bg-violet-500/5 border border-violet-500/20 rounded-2xl p-10 max-w-xl mx-auto">
+              <h2 className="text-2xl font-bold text-white mb-3">Ready to stop missing leads?</h2>
+              <p className="text-gray-400 mb-6 text-sm">Start your 14-day free trial. No credit card required.</p>
               <button
                 onClick={() => router.push('/sign-up')}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+                className="bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl font-semibold transition-colors"
               >
-                Start Your Free Trial
+                Get started free
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
