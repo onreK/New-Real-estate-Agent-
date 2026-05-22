@@ -482,7 +482,6 @@ export default function SettingsPage() {
     { id: 'account', label: 'Account', icon: User },
     { id: 'business', label: 'Business Profile', icon: Building },
     { id: 'subscription', label: 'Subscription', icon: CreditCard },
-    { id: 'scheduling', label: 'Scheduling', icon: Calendar },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'integrations', label: 'Integrations', icon: Globe },
     { id: 'security', label: 'Security', icon: Shield }
@@ -904,98 +903,6 @@ export default function SettingsPage() {
                 <span>{saving ? 'Saving...' : 'Save Business Profile'}</span>
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Scheduling Tab */}
-        {activeTab === 'scheduling' && (
-          <div className="space-y-5">
-            {/* Booking URL */}
-            <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-              <div className="flex items-center gap-2 mb-1">
-                <Calendar className="w-4 h-4 text-violet-400" />
-                <h2 className="text-lg font-semibold text-white">Booking Link</h2>
-              </div>
-              <p className="text-gray-400 text-sm mb-5">
-                Paste your booking URL here — Calendly, Acuity, Square Appointments, or any scheduling page. The AI will send this link whenever a customer asks to book, schedule, or set up a meeting.
-              </p>
-
-              {/* Platform badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {['Calendly', 'Acuity', 'Square', 'Vagaro', 'SimplyBook', 'Any link'].map(p => (
-                  <span key={p} className="px-2.5 py-1 bg-[#0D1117] border border-gray-800 rounded-full text-xs text-gray-400">{p}</span>
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-300">Your Booking URL</label>
-                <input
-                  type="url"
-                  value={scheduling.booking_url}
-                  onChange={e => setScheduling(s => ({ ...s, booking_url: e.target.value }))}
-                  placeholder="https://calendly.com/yourbusiness/consultation"
-                  className="w-full px-4 py-2.5 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500 text-sm"
-                />
-                {scheduling.booking_url && (
-                  <p className="text-green-400 text-xs flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Link saved — AI will use this across all channels
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* AI Auto-Send Toggle */}
-            <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-white font-medium">AI Auto-Send</h3>
-                  <p className="text-gray-400 text-sm mt-0.5">
-                    When on, the AI automatically includes your booking link whenever a customer asks to schedule or book an appointment.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setScheduling(s => ({ ...s, booking_auto_send: !s.booking_auto_send }))}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                    scheduling.booking_auto_send ? 'bg-violet-600' : 'bg-gray-700'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    scheduling.booking_auto_send ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Manual send instructions */}
-            <div className="bg-[#0D1117] border border-gray-800 rounded-xl p-5">
-              <div className="flex items-start gap-3">
-                <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="text-white text-sm font-medium mb-1">Sending it manually</h4>
-                  <p className="text-gray-400 text-sm leading-relaxed">
-                    You can also copy your booking link and paste it directly into any conversation from the SMS, Email, or Web Chat dashboards. The AI handles it automatically, but you're always in control.
-                  </p>
-                  {scheduling.booking_url && (
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(scheduling.booking_url); setMessage({ type: 'success', text: 'Booking link copied to clipboard!' }); }}
-                      className="mt-3 flex items-center gap-2 px-3 py-1.5 bg-[#161B22] border border-gray-800 rounded-lg text-sm text-gray-300 hover:text-white hover:border-gray-600 transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Copy booking link
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Save */}
-            <button
-              onClick={handleSaveScheduling}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? 'Saving...' : 'Save Scheduling Settings'}
-            </button>
           </div>
         )}
 
