@@ -53,46 +53,68 @@ function Section({ icon: Icon, iconColor = 'text-violet-400', title, children })
 function SharedFields({ channel, ch, update, accentColor = 'text-violet-400' }) {
   return (
     <>
-      <Section icon={Mail} iconColor={accentColor} title="Business Profile">
-        <p className="text-xs text-gray-500 mb-3">Tell the AI about your business</p>
-        <div className="space-y-3">
-          <input placeholder="Business Name" value={ch.businessName} onChange={e => update(channel, 'businessName', e.target.value)} className={inputClass} />
-          <input placeholder="Industry (e.g. Real Estate, Healthcare, Retail)" value={ch.industry} onChange={e => update(channel, 'industry', e.target.value)} className={inputClass} />
-          <textarea placeholder="Business description..." value={ch.businessDescription} onChange={e => update(channel, 'businessDescription', e.target.value)} className={`${inputClass} h-24 resize-none`} />
-        </div>
-      </Section>
-
-      <Section icon={Sliders} iconColor={accentColor} title="Communication Settings">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Response tone</span>
-            <select value={ch.responseTone} onChange={e => update(channel, 'responseTone', e.target.value)} className={selectClass}>
-              <option>Professional</option>
-              <option>Casual</option>
-              <option>Formal</option>
-              <option>Friendly</option>
-            </select>
+      {/* Top row: 2-column grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Section icon={Mail} iconColor={accentColor} title="Business Profile">
+          <p className="text-xs text-gray-500 mb-3">Tell the AI about your business</p>
+          <div className="space-y-3">
+            <input placeholder="Business Name" value={ch.businessName} onChange={e => update(channel, 'businessName', e.target.value)} className={inputClass} />
+            <input placeholder="Industry (e.g. Real Estate, Healthcare, Retail)" value={ch.industry} onChange={e => update(channel, 'industry', e.target.value)} className={inputClass} />
+            <textarea placeholder="Business description..." value={ch.businessDescription} onChange={e => update(channel, 'businessDescription', e.target.value)} className={`${inputClass} h-24 resize-none`} />
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Response length</span>
-            <select value={ch.responseLength} onChange={e => update(channel, 'responseLength', e.target.value)} className={selectClass}>
-              <option>Short</option>
-              <option>Medium</option>
-              <option>Long</option>
-            </select>
+        </Section>
+
+        <Section icon={Sliders} iconColor={accentColor} title="Communication Settings">
+          <p className="text-xs text-gray-500 mb-3">Control the AI's tone and response style</p>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-gray-500 block mb-2">Response tone</label>
+              <div className="grid grid-cols-2 gap-2">
+                {['Professional', 'Casual', 'Formal', 'Friendly'].map(tone => (
+                  <button
+                    key={tone}
+                    onClick={() => update(channel, 'responseTone', tone)}
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                      ch.responseTone === tone
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
+                    }`}
+                  >{tone}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-2">Response length</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['Short', 'Medium', 'Long'].map(len => (
+                  <button
+                    key={len}
+                    onClick={() => update(channel, 'responseLength', len)}
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                      ch.responseLength === len
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
+                    }`}
+                  >{len}</button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </Section>
+        </Section>
+      </div>
 
-      <Section icon={Shield} iconColor={accentColor} title="Business Knowledge Base">
-        <p className="text-xs text-gray-500 mb-3">Add FAQs, pricing, policies — the AI will use this to answer customers</p>
-        <textarea placeholder="Enter business-specific information, FAQs, policies, etc..." value={ch.knowledgeBase} onChange={e => update(channel, 'knowledgeBase', e.target.value)} className={`${inputClass} h-32 resize-none`} />
-      </Section>
+      {/* Bottom row: 2-column grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Section icon={Shield} iconColor={accentColor} title="Business Knowledge Base">
+          <p className="text-xs text-gray-500 mb-3">Add FAQs, pricing, policies — the AI will use this to answer customers</p>
+          <textarea placeholder="Enter business-specific information, FAQs, policies, etc..." value={ch.knowledgeBase} onChange={e => update(channel, 'knowledgeBase', e.target.value)} className={`${inputClass} h-40 resize-none`} />
+        </Section>
 
-      <Section icon={Bot} iconColor={accentColor} title="Custom AI Instructions">
-        <p className="text-xs text-gray-500 mb-3">Tell the AI exactly how to behave and respond to customers</p>
-        <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-32 resize-none`} />
-      </Section>
+        <Section icon={Bot} iconColor={accentColor} title="Custom AI Instructions">
+          <p className="text-xs text-gray-500 mb-3">Tell the AI exactly how to behave and respond to customers</p>
+          <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-40 resize-none`} />
+        </Section>
+      </div>
     </>
   );
 }
@@ -210,7 +232,7 @@ export default function AISettingsPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4">
 
         {activeTab === 'email' && (
           <>
