@@ -849,14 +849,43 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
     } else {
       // 🎯 GENERATE AI RESPONSE USING CENTRALIZED SERVICE
       console.log('🧠 Using centralized AI service from lib/ai-service.js...');
-      
+
+      // Load prior messages from this Gmail thread for conversation context
+      let conversationHistory = [];
+      try {
+        const threadId = messageData.data.threadId;
+        if (threadId && dbConnectionId) {
+          const historyResult = await query(`
+            SELECT gm.sender_type, gm.body_text, gm.sent_at
+            FROM gmail_messages gm
+            JOIN gmail_conversations gc ON gm.conversation_id = gc.id
+            WHERE gc.thread_id = $1
+              AND gc.gmail_connection_id = $2
+              AND gm.body_text IS NOT NULL
+            ORDER BY gm.sent_at ASC
+            LIMIT 20
+          `, [threadId, dbConnectionId]);
+
+          conversationHistory = historyResult.rows.map(row => ({
+            role: row.sender_type === 'ai' ? 'assistant' : 'user',
+            content: row.body_text.substring(0, 1000)
+          }));
+
+          if (conversationHistory.length > 0) {
+            console.log(`📚 Loaded ${conversationHistory.length} prior messages from thread ${threadId}`);
+          }
+        }
+      } catch (histErr) {
+        console.log('⚠️ Could not load conversation history:', histErr.message);
+      }
+
       try {
         // Call your centralized AI service
         const aiResult = await generateGmailResponse(
           connection.email,          // customerEmail (the BizzyBot user's Gmail)
           customMessage || originalBody, // emailContent
           subject,                   // subject
-          [],                        // conversationHistory
+          conversationHistory,       // prior thread messages for context
           connection.user_id || null, // clerkUserId — loads channel-specific AI settings
           replyToEmail || null        // contactEmail — enables lead context enrichment
         );
