@@ -432,7 +432,7 @@ export default function AnalyticsPage() {
                 {(() => {
                   const trend = analytics.dailyTrend;
                   const maxVal = Math.max(...trend.map(d => d.metrics?.total || 0), 1);
-                  const W = 800, chartH = 190, totalSvgH = 220;
+                  const W = 800, chartH = 180, PAD_TOP = 16, totalSvgH = 220;
                   const PAD_L = 52, PAD_R = 12;
                   const chartW = W - PAD_L - PAD_R;
                   const barSpacing = chartW / trend.length;
@@ -444,7 +444,7 @@ export default function AnalyticsPage() {
                     <svg viewBox={`0 0 ${W} ${totalSvgH}`} className="w-full" style={{ height: '220px' }}>
                       {/* Y-axis gridlines + labels */}
                       {yLabels.map(pct => {
-                        const y = Math.round(chartH * (1 - pct));
+                        const y = PAD_TOP + Math.round(chartH * (1 - pct));
                         return (
                           <g key={pct}>
                             <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="#1f2937" strokeWidth={1} />
@@ -463,10 +463,10 @@ export default function AnalyticsPage() {
                         const x = PAD_L + i * barSpacing + (barSpacing - barW) / 2;
                         return (
                           <g key={i}>
-                            {bH > 0 && <rect x={x} y={chartH - bH} width={barW} height={bH} rx={2} fill="#7c3aed" opacity={0.8} />}
-                            {hH > 0 && <rect x={x} y={chartH - hH} width={barW} height={hH} rx={2} fill="#ef4444" />}
+                            {bH > 0 && <rect x={x} y={PAD_TOP + chartH - bH} width={barW} height={bH} rx={2} fill="#7c3aed" opacity={0.8} />}
+                            {hH > 0 && <rect x={x} y={PAD_TOP + chartH - hH} width={barW} height={hH} rx={2} fill="#ef4444" />}
                             {i % labelEvery === 0 && (
-                              <text x={x + barW / 2} y={totalSvgH - 4} textAnchor="middle" fill="#6b7280" fontSize={10}>
+                              <text x={x + barW / 2} y={totalSvgH - 2} textAnchor="middle" fill="#6b7280" fontSize={10}>
                                 {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                               </text>
                             )}
