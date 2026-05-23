@@ -553,30 +553,44 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
               // Email passed all filters (or is whitelisted) — now create the lead
               if (customerSettings.customer_id) {
                 try {
-                  const contactResult = await createOrUpdateContact(customerSettings.customer_id, {
-                    email: customerEmail,
-                    name: customerName,
-                    source_channel: 'gmail'
-                  });
+                  // Deduplicate: only log once per Gmail message ID
+                  const alreadyLogged = await query(
+                    `SELECT id FROM ai_analytics_events
+                     WHERE customer_id = $1
+                       AND event_type = 'email_received'
+                       AND metadata::text LIKE $2
+                     LIMIT 1`,
+                    [customerSettings.customer_id, `%${message.id}%`]
+                  );
 
-                  if (contactResult.success) {
-                    leadsCreated++;
-                    await trackLeadEventWithContact(
-                      customerSettings.customer_id,
-                      contactResult.contact.id,
-                      {
-                        type: 'email_received',
-                        channel: 'gmail',
-                        message: body.substring(0, 500),
-                        metadata: JSON.stringify({
-                          subject: subjectHeader?.value,
-                          from: customerEmail,
-                          gmail_message_id: message.id,
-                          thread_id: messageData.data.threadId
-                        })
-                      }
-                    );
-                    await updateLeadScoring(customerSettings.customer_id, contactResult.contact.id);
+                  if (alreadyLogged.rows.length > 0) {
+                    console.log(`⏭️ Already logged email ${message.id} — skipping duplicate`);
+                  } else {
+                    const contactResult = await createOrUpdateContact(customerSettings.customer_id, {
+                      email: customerEmail,
+                      name: customerName,
+                      source_channel: 'gmail'
+                    });
+
+                    if (contactResult.success) {
+                      leadsCreated++;
+                      await trackLeadEventWithContact(
+                        customerSettings.customer_id,
+                        contactResult.contact.id,
+                        {
+                          type: 'email_received',
+                          channel: 'gmail',
+                          message: body.substring(0, 500),
+                          metadata: JSON.stringify({
+                            subject: subjectHeader?.value,
+                            from: customerEmail,
+                            gmail_message_id: message.id,
+                            thread_id: messageData.data.threadId
+                          })
+                        }
+                      );
+                      await updateLeadScoring(customerSettings.customer_id, contactResult.contact.id);
+                    }
                   }
                 } catch (contactError) {
                   console.error('❌ Failed to create/update contact:', contactError);
