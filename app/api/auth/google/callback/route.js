@@ -99,9 +99,9 @@ export async function GET(request) {
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (user_id, gmail_email) 
-        DO UPDATE SET 
+        DO UPDATE SET
           access_token = EXCLUDED.access_token,
-          refresh_token = EXCLUDED.refresh_token,
+          refresh_token = COALESCE(EXCLUDED.refresh_token, gmail_connections.refresh_token),
           token_expiry = EXCLUDED.token_expiry,
           user_name = EXCLUDED.user_name,
           google_user_id = EXCLUDED.google_user_id,

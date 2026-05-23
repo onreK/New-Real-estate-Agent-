@@ -97,6 +97,7 @@ export default function CompleteEmailSystem() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [saving, setSaving] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
   
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
@@ -907,7 +908,7 @@ export default function CompleteEmailSystem() {
         }
       } else if (response.status === 401) {
         console.log('⚠️ Gmail token refresh failed - needs reconnection');
-        alert('Your Gmail connection needs to be refreshed. Go to the Connections tab and click "Connect Gmail" to reconnect.');
+        setNeedsReconnect(true);
       } else if (response.status === 404) {
         console.log('⚠️ Gmail monitor API not available');
       } else {
@@ -1087,6 +1088,26 @@ export default function CompleteEmailSystem() {
   // UPDATED DashboardTab Component with cleaner UI
   const DashboardTab = () => (
     <div className="space-y-6">
+
+      {/* Reconnect banner — shown when token refresh fails */}
+      {needsReconnect && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div>
+              <p className="text-amber-300 font-medium text-sm">Gmail token expired — reconnection required</p>
+              <p className="text-amber-400/70 text-xs mt-0.5">Go to the Connections tab and click "Connect Gmail" to restore access.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setNeedsReconnect(false); setActiveTab('connections'); }}
+            className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0 ml-4"
+          >
+            Go to Connections
+          </button>
+        </div>
+      )}
+
       {/* CONSOLIDATED: Professional Gmail AI Control Panel */}
       {gmailConnection ? (
         <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">

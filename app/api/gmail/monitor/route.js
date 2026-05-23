@@ -319,6 +319,16 @@ export async function POST(request) {
       }, { status: 404 });
     }
 
+    // If we have no refresh token we can't make API calls — tell the user to reconnect
+    if (!connection.refreshToken || connection.refreshToken === 'will-refresh') {
+      clearTimeout(requestTimeout);
+      console.error('⚠️ No valid refresh token — user needs to reconnect Gmail');
+      return NextResponse.json({
+        error: 'Gmail refresh token missing. Please reconnect your Gmail account.',
+        suggestion: 'Go to the Connections tab and click Connect Gmail'
+      }, { status: 401 });
+    }
+
     // Set up OAuth and refresh tokens
     oauth2Client.setCredentials({
       access_token: connection.accessToken,
