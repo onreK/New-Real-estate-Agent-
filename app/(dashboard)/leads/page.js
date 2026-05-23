@@ -322,6 +322,17 @@ export default function LeadsPage() {
     return 'Just now';
   };
 
+  const formatDate = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    const now = new Date();
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
+  };
+
   // Format currency properly
   const formatCurrency = (value) => {
     const num = parseFloat(value) || 0;
@@ -686,6 +697,9 @@ export default function LeadsPage() {
                       <td className="p-4">
                         <div>
                           <p className="text-gray-300 text-sm">{formatTimeAgo(lead.last_interaction)}</p>
+                          {lead.created_at && (
+                            <p className="text-gray-600 text-xs mt-0.5">Added {formatDate(lead.created_at)}</p>
+                          )}
                           {lead.last_message && (
                             <p className="text-gray-500 text-xs mt-1 truncate max-w-xs">
                               "{lead.last_message}"
