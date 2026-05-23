@@ -1019,7 +1019,8 @@ ${businessName}`;
           `, [dbConnectionId, messageData.data.threadId]);
 
           if (convResult.rows.length > 0) {
-            await saveMessageToDatabase(convResult.rows[0].id, {
+            const convId = convResult.rows[0].id;
+            await saveMessageToDatabase(convId, {
               gmail_message_id: sendResponse.data.id,
               thread_id: messageData.data.threadId,
               sender_type: isCustom ? 'user' : 'ai',
@@ -1031,6 +1032,17 @@ ${businessName}`;
               ai_model: isCustom ? 'custom' : 'gpt-4o-mini',
               sent_at: new Date()
             });
+
+            // Stamp last_ai_response_at so follow-up tracking knows when the AI last replied
+            if (!isCustom) {
+              await query(`
+                UPDATE gmail_conversations
+                SET last_ai_response_at = CURRENT_TIMESTAMP,
+                    ai_response_sent    = true,
+                    updated_at          = CURRENT_TIMESTAMP
+                WHERE id = $1
+              `, [convId]).catch(() => {});
+            }
           }
         } catch (dbError) {
           console.error('⚠️ Database save failed:', dbError.message);
@@ -1204,7 +1216,7 @@ async function checkForFollowUps(gmail, connection, dbConnectionId) {
           .replace(/\//g, '_')
           .replace(/=+$/, '');
 
-        await withTimeout(
+        const sendResponse = await withTimeout(
           gmail.users.messages.send({
             userId: 'me',
             requestBody: { raw: encoded, threadId: thread.thread_id }
@@ -1213,12 +1225,29 @@ async function checkForFollowUps(gmail, connection, dbConnectionId) {
           'Follow-up send'
         );
 
-        // Update tracking counters
+        // Save follow-up to gmail_messages so it appears in the dashboard
+        await saveMessageToDatabase(thread.id, {
+          gmail_message_id: sendResponse.data.id,
+          thread_id: thread.thread_id,
+          sender_type: 'ai',
+          sender_email: connection.email,
+          recipient_email: thread.customer_email,
+          subject: replySubject,
+          body_text: aiResult.response,
+          is_ai_response: true,
+          ai_model: 'gpt-4o-mini',
+          sent_at: new Date()
+        });
+
+        // Update conversation: follow-up counters + last_ai_response_at so
+        // the next follow-up cycle measures from this send, not the original reply
         await query(`
           UPDATE gmail_conversations
-          SET followup_count  = COALESCE(followup_count, 0) + 1,
-              last_followup_at = CURRENT_TIMESTAMP,
-              updated_at       = CURRENT_TIMESTAMP
+          SET followup_count      = COALESCE(followup_count, 0) + 1,
+              last_followup_at    = CURRENT_TIMESTAMP,
+              last_ai_response_at = CURRENT_TIMESTAMP,
+              ai_response_sent    = true,
+              updated_at          = CURRENT_TIMESTAMP
           WHERE id = $1
         `, [thread.id]);
 
