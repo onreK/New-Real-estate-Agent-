@@ -196,24 +196,18 @@ export default function LeadsPage() {
     // Sorting with direction
     const dir = sortDir === 'asc' ? 1 : -1;
     switch (sortBy) {
-      case 'score':
-        filtered.sort((a, b) => dir * (b.score - a.score));
-        break;
       case 'recent':
         filtered.sort((a, b) => dir * (new Date(b.last_interaction) - new Date(a.last_interaction)));
+        break;
+      case 'added':
+        filtered.sort((a, b) => dir * (new Date(b.created_at || b.last_interaction) - new Date(a.created_at || a.last_interaction)));
+        break;
+      case 'score':
+        filtered.sort((a, b) => dir * (b.score - a.score));
         break;
       case 'value':
         filtered.sort((a, b) => dir * (b.potential_value - a.potential_value));
         break;
-      case 'stage': {
-        const stageOrder = { new: 0, contacted: 1, qualified: 2, converted: 3, lost: 4 };
-        filtered.sort((a, b) => {
-          const aStage = stageUpdates[a.id] ?? a.status ?? 'new';
-          const bStage = stageUpdates[b.id] ?? b.status ?? 'new';
-          return dir * ((stageOrder[bStage] ?? 0) - (stageOrder[aStage] ?? 0));
-        });
-        break;
-      }
       default:
         break;
     }
@@ -549,10 +543,10 @@ export default function LeadsPage() {
                 className="px-4 py-2 bg-[#0D1117] border border-gray-800 text-white rounded-lg focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22] [&>option]:text-white"
                 style={{ colorScheme: 'dark' }}
               >
-                <option value="recent">Sort by Recent</option>
+                <option value="recent">Sort by Last Active</option>
+                <option value="added">Sort by Date Added</option>
                 <option value="score">Sort by Score</option>
                 <option value="value">Sort by Value</option>
-                <option value="stage">Sort by Stage</option>
               </select>
               <button
                 onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
