@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { auth } from '@clerk/nextjs/server';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -25,15 +24,9 @@ export async function GET(request) {
   console.log('🚀 === GMAIL OAUTH STARTER (NO AUTH REQUIRED) ===');
   
   try {
-    // Get user ID from Clerk auth first, fall back to URL param
-    const { userId: clerkUserId } = auth();
+    // Read userId from URL param — ConnectionsTab always sends ?userId=<clerkId>
     const { searchParams } = new URL(request.url);
-    const userId = clerkUserId || searchParams.get('userId') || searchParams.get('user');
-
-    if (!userId) {
-      console.error('❌ No authenticated user found - cannot start OAuth without a user ID');
-      return NextResponse.redirect(`https://bizzybotai.com/email?tab=connections&error=not_authenticated`);
-    }
+    const userId = searchParams.get('userId') || searchParams.get('user') || 'anonymous';
 
     console.log('🔗 Starting Gmail OAuth flow for user:', userId);
 
