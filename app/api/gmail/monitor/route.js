@@ -853,10 +853,12 @@ async function respondToEmail(gmail, connection, dbConnectionId, emailId, custom
       try {
         // Call your centralized AI service
         const aiResult = await generateGmailResponse(
-          connection.email,  // customerEmail
-          customMessage || originalBody,  // emailContent
-          subject,  // subject
-          []  // conversationHistory (could load from DB if needed)
+          connection.email,          // customerEmail (the BizzyBot user's Gmail)
+          customMessage || originalBody, // emailContent
+          subject,                   // subject
+          [],                        // conversationHistory
+          connection.user_id || null, // clerkUserId — loads channel-specific AI settings
+          replyToEmail || null        // contactEmail — enables lead context enrichment
         );
         
         if (aiResult.success) {
