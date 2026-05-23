@@ -215,6 +215,26 @@ BizzyBot gives businesses an AI agent that:
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-23
+**Lead scoring, email filtering hardening, leads page UX improvements**
+
+**Lead scoring:**
+- Added automated sender zero-scoring safety net in `lib/leads-service.js` — if a contact's email local-part matches known noreply/notification prefixes (noreply, no-reply, notifications, mailer-daemon, etc.) `calculateLeadScore` returns 0 immediately. Defense-in-depth in case a bad sender slips through the email filter.
+- Decided NOT to overhaul scoring algorithm — current Engagement/Recency/Contact/Frequency model is good enough for a non-CRM product at this price point. Revisit when/if product evolves toward full CRM.
+
+**Email filtering hardening (`lib/email-filtering.js` + `app/api/gmail/monitor/route.js`):**
+- Added `AUTOMATED_SUBDOMAINS` check to `checkSenderPatterns` — catches senders like `hello@news.railway.app` or `hello@notify.company.com` where the local-part is normal but the subdomain signals automation. Only fires on 3+ part domains so root domains (e.g. `uber.com`) are unaffected.
+- Fixed `respondToEmail` in monitor route: contact/lead creation now runs AFTER the filter check, matching the safe order already in `checkForNewEmails`. Previously, manually clicking Respond on any email still created a lead record even for filtered senders.
+
+**Leads page (`app/(dashboard)/leads/page.js`):**
+- Added date filter row (All time / Today / 7 / 30 / 90 days) filtering by `created_at`
+- Added sort direction toggle (↑↓ arrow button next to sort dropdown) — flips any sort; resets to desc when sort field changes
+- Added channel filter dropdown (All Channels / Email / SMS / Facebook / Instagram / Web Chat)
+- Added "Added [date]" subtitle under Last Activity column — stacks in same cell, no extra column width
+- Updated sort dropdown: added "Sort by Date Added", removed "Sort by Stage" (covered by Stage filter), renamed "Sort by Recent" → "Sort by Last Active"
+
+---
+
 ### Session — 2026-05-21 (continued)
 **Web Chat dashboard + embed instructions**
 
