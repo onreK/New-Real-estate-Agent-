@@ -531,13 +531,7 @@ export default function CompleteEmailSystem() {
       icon: BarChart3,
       description: 'Real-time Gmail conversations and AI responses'
     },
-    { 
-      id: 'ai-settings', 
-      label: 'AI Settings', 
-      icon: Bot,
-      description: 'Business profile, communication tone, and AI behavior'
-    },
-    { 
+    {
       id: 'automation', 
       label: 'Automation', 
       icon: Wrench,
@@ -1857,12 +1851,12 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // Keep AISettingsTab exactly the same
-  const AISettingsTab = () => (
-    <div className="space-y-6">
-      {/* ALL OTHER AI SETTINGS SECTIONS REMAIN EXACTLY THE SAME */}
-      {/* Business Profile */}
-      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
+  // Keep AutomationTab exactly the same — AI Settings removed (lives in sidebar /ai-settings)
+  const _AISettingsRemoved = true; // AI Settings tab removed — lives in sidebar /ai-settings
+
+  // stub that holds dead JSX from old AISettingsTab — kept to avoid parse errors during cleanup
+  const _deadJSX = () => (
+    <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building className="w-5 h-5 text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Business Profile</h3>
@@ -2330,7 +2324,7 @@ SPECIAL INSTRUCTIONS:
 
       <div className="tab-content">
         {activeTab === 'dashboard' && <DashboardTab />}
-        {activeTab === 'ai-settings' && <AISettingsTab />}
+
         {activeTab === 'automation' && <AutomationTab />}
         {activeTab === 'connections' && <ConnectionsTab />}
       </div>
