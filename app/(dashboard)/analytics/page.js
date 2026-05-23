@@ -432,22 +432,28 @@ export default function AnalyticsPage() {
                 {(() => {
                   const trend = analytics.dailyTrend;
                   const maxVal = Math.max(...trend.map(d => d.metrics?.total || 0), 1);
-                  const W = 800, chartH = 130, totalSvgH = 158;
-                  const PAD_L = 6, PAD_R = 6;
+                  const W = 800, chartH = 190, totalSvgH = 220;
+                  const PAD_L = 52, PAD_R = 12;
                   const chartW = W - PAD_L - PAD_R;
                   const barSpacing = chartW / trend.length;
-                  const barW = Math.max(3, barSpacing * 0.72);
+                  const barW = Math.min(60, Math.max(3, barSpacing * 0.72));
                   const labelEvery = Math.ceil(trend.length / 8);
+                  const yLabels = [0, 0.5, 1];
+                  const fmtY = (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v);
                   return (
-                    <svg viewBox={`0 0 ${W} ${totalSvgH}`} className="w-full" style={{ height: '160px' }}>
-                      {/* Gridlines */}
-                      {[0.25, 0.5, 0.75, 1].map(pct => (
-                        <line key={pct}
-                          x1={PAD_L} y1={chartH * (1 - pct)}
-                          x2={W - PAD_R} y2={chartH * (1 - pct)}
-                          stroke="#1f2937" strokeWidth={1}
-                        />
-                      ))}
+                    <svg viewBox={`0 0 ${W} ${totalSvgH}`} className="w-full" style={{ height: '220px' }}>
+                      {/* Y-axis gridlines + labels */}
+                      {yLabels.map(pct => {
+                        const y = Math.round(chartH * (1 - pct));
+                        return (
+                          <g key={pct}>
+                            <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="#1f2937" strokeWidth={1} />
+                            <text x={PAD_L - 6} y={y + 4} textAnchor="end" fill="#6b7280" fontSize={11}>
+                              {fmtY(Math.round(maxVal * pct))}
+                            </text>
+                          </g>
+                        );
+                      })}
                       {/* Bars */}
                       {trend.map((day, i) => {
                         const total = day.metrics?.total || 0;
@@ -460,7 +466,7 @@ export default function AnalyticsPage() {
                             {bH > 0 && <rect x={x} y={chartH - bH} width={barW} height={bH} rx={2} fill="#7c3aed" opacity={0.8} />}
                             {hH > 0 && <rect x={x} y={chartH - hH} width={barW} height={hH} rx={2} fill="#ef4444" />}
                             {i % labelEvery === 0 && (
-                              <text x={x + barW / 2} y={totalSvgH - 4} textAnchor="middle" fill="#6b7280" fontSize={9}>
+                              <text x={x + barW / 2} y={totalSvgH - 4} textAnchor="middle" fill="#6b7280" fontSize={10}>
                                 {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                               </text>
                             )}
