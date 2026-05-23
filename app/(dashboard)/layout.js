@@ -27,7 +27,7 @@ const NAV = [
   {
     group: 'Channels',
     items: [
-      { label: 'Email AI', href: '/email', icon: Mail },
+      { label: 'Email', href: '/email', icon: Mail },
       { label: 'SMS', href: '/customer-sms-dashboard', icon: Phone },
       { label: 'Web Chat', href: '/web-chat', icon: MessageCircle },
       { label: 'Scheduling', href: '/scheduling', icon: Calendar },

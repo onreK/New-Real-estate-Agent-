@@ -1984,7 +1984,7 @@ export default function CompleteEmailSystem() {
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">Loading Email AI...</p>
+          <p className="text-gray-400 text-sm">Loading Email...</p>
         </div>
       </div>
     );
@@ -1995,7 +1995,7 @@ export default function CompleteEmailSystem() {
 
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Email AI</h1>
+        <h1 className="text-2xl font-bold text-white">Email</h1>
         <p className="text-sm text-gray-500 mt-0.5">Gmail automation with smart AI responses and filtering</p>
       </div>
 
