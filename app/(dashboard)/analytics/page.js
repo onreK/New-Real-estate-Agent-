@@ -107,6 +107,77 @@ export default function AnalyticsPage() {
     }
   };
 
+  const getHealthScoreMessage = (overview, channels) => {
+    const score = overview?.effectiveness_score || 0;
+    const total = overview?.total_interactions_month || 0;
+    const hotLeads = overview?.hot_leads_month || 0;
+    const leads = overview?.total_leads_captured || 0;
+    if (total === 0) return 'No activity yet — connect a channel to get started';
+    if (score < 30) {
+      if (hotLeads === 0 && leads > 0) return 'Improve: tune your AI prompt to better detect high-intent signals like pricing or scheduling requests';
+      if (leads === 0) return 'Improve: have your AI ask visitors for their name and contact info';
+      return 'Early stage — more consistent engagement will push your score up';
+    }
+    if (score < 50) return 'Growing — refine your AI prompt or connect more channels to improve';
+    if (score < 70) return 'Developing well — focus on converting more interactions into hot leads';
+    if (score < 85) return 'Healthy — your AI is performing well across your channels';
+    return 'Excellent — your AI is firing on all cylinders!';
+  };
+
+  const generateSmartInsights = (overview, channels, trend) => {
+    const insights = [];
+    const total = overview?.total_interactions_month || 0;
+    const leads = overview?.total_leads_captured || 0;
+    const hotLeads = overview?.hot_leads_month || 0;
+    const responseTime = overview?.avg_response_speed_minutes || 0;
+
+    if (total === 0) {
+      return [{ type: 'alert', message: 'No AI activity recorded yet — make sure your channels are connected and AI is enabled in AI Settings' }];
+    }
+
+    const convRate = total > 0 ? Math.round((leads / total) * 100) : 0;
+    if (convRate < 2 && total > 10) {
+      insights.push({ type: 'warning', message: `Lead capture rate is ${convRate}% — try having your AI ask for contact info earlier in the conversation` });
+    } else if (convRate >= 5) {
+      insights.push({ type: 'success', message: `Strong lead capture rate of ${convRate}% — your AI is qualifying leads effectively` });
+    }
+
+    if (leads > 0 && hotLeads === 0) {
+      insights.push({ type: 'alert', message: `You have ${formatNumber(leads)} leads but 0 hot leads — update your AI prompt to detect high-intent signals like pricing questions or scheduling requests` });
+    } else if (leads > 0) {
+      const hotRate = Math.round((hotLeads / leads) * 100);
+      if (hotRate >= 20) {
+        insights.push({ type: 'success', message: `${hotRate}% of your leads are hot — great job identifying high-intent prospects` });
+      }
+    }
+
+    if (responseTime > 0 && responseTime < 3) {
+      insights.push({ type: 'success', message: `Lightning-fast average response time of ${responseTime} min — leads get answers before they lose interest` });
+    } else if (responseTime > 30) {
+      insights.push({ type: 'warning', message: `Average response time is ${responseTime} min — slow responses risk losing hot leads. Check your AI automation settings` });
+    }
+
+    const activeChannels = channels?.length || 0;
+    if (activeChannels === 1) {
+      insights.push({ type: 'info', message: `You're only active on ${channels[0]?.name || 'one channel'} — adding SMS or Web Chat typically doubles lead capture` });
+    }
+
+    if (trend && trend.length > 1) {
+      const bestDay = trend.reduce((best, day) =>
+        (day.metrics?.total || 0) > (best.metrics?.total || 0) ? day : best, trend[0]);
+      if (bestDay?.metrics?.total > 0) {
+        const dayLabel = new Date(bestDay.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        insights.push({ type: 'info', message: `Your busiest day was ${dayLabel} with ${formatNumber(bestDay.metrics.total)} interactions — a great day to prioritize manual follow-ups` });
+      }
+    }
+
+    if (insights.length === 0) {
+      insights.push({ type: 'success', message: `Your AI handled ${formatNumber(total)} interactions this period. Consistent activity builds a strong health score.` });
+    }
+
+    return insights;
+  };
+
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -184,11 +255,27 @@ export default function AnalyticsPage() {
             <div className="bg-[#161B22] rounded-xl border border-gray-800 p-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="text-center">
-                  <h3 className="text-lg font-medium text-gray-300 mb-4">AI Effectiveness Score</h3>
+                  <h3 className="text-lg font-medium text-gray-300 mb-3">AI Health Score</h3>
                   <div className={`text-6xl font-bold ${getScoreColor(analytics.overview?.effectiveness_score || 0)}`}>
                     {analytics.overview?.effectiveness_score || 0}
                   </div>
-                  <div className="text-gray-400 mt-2">out of 100</div>
+                  <div className="text-gray-500 text-sm mt-1">out of 100</div>
+                  <div className="mt-4 px-1">
+                    <div className="relative h-2 rounded-full" style={{ background: 'linear-gradient(to right, #ef4444 0%, #ef4444 39%, #f59e0b 40%, #f59e0b 69%, #22c55e 70%, #22c55e 100%)' }}>
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow border-2 border-gray-900"
+                        style={{ left: `calc(${Math.min(97, Math.max(3, analytics.overview?.effectiveness_score || 0))}% - 6px)` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-600 mt-1.5">
+                      <span>Needs Work</span>
+                      <span>Developing</span>
+                      <span>Healthy</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3 leading-relaxed px-2">
+                    {getHealthScoreMessage(analytics.overview, analytics.channels)}
+                  </p>
                 </div>
                 <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-black/30 rounded-xl p-4 border border-white/10">
@@ -392,23 +479,26 @@ export default function AnalyticsPage() {
               </div>
             )}
 
-            {/* AI Insights */}
-            {analytics.insights && analytics.insights.length > 0 && (
-              <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <Activity className="w-6 h-6 text-yellow-400" />
-                  AI-Generated Insights
-                </h3>
-                <div className="space-y-3">
-                  {analytics.insights.map((insight, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-black/30 rounded-lg border border-white/10">
-                      {getInsightIcon(insight.type)}
-                      <p className="text-gray-300 flex-1 text-sm leading-relaxed">{insight.message}</p>
-                    </div>
-                  ))}
+            {/* AI Insights & Recommendations */}
+            {(() => {
+              const smartInsights = generateSmartInsights(analytics.overview, analytics.channels, analytics.dailyTrend);
+              return (
+                <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
+                  <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-yellow-400" />
+                    Insights & Recommendations
+                  </h3>
+                  <div className="space-y-3">
+                    {smartInsights.map((insight, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-black/30 rounded-lg border border-white/10">
+                        {getInsightIcon(insight.type)}
+                        <p className="text-gray-300 flex-1 text-sm leading-relaxed">{insight.message}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Activity Trend — Bar Chart */}
             {analytics.dailyTrend && analytics.dailyTrend.length > 0 && (
