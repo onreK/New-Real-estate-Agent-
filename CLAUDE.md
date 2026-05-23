@@ -215,6 +215,49 @@ BizzyBot gives businesses an AI agent that:
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-23 (continued)
+**AI Brain — conversation history, automated follow-ups, escalation handling**
+
+**Conversation history (`app/api/gmail/monitor/route.js`):**
+- AI now loads all prior messages from the Gmail thread before generating a reply
+- Queries `gmail_messages` joined to `gmail_conversations` by `thread_id`, maps rows to `{role, content}` pairs (`sender_type='ai'` → `'assistant'`, else `'user'`)
+- Capped at 20 messages, 1000-char body truncation per message for token safety
+- Passed to `generateGmailResponse` instead of the previous empty array `[]`
+
+**Automated follow-ups (`app/api/gmail/monitor/route.js` + `app/api/ai-settings/route.js` + `app/(dashboard)/ai-settings/page.js`):**
+- When a lead goes silent after the AI's last reply, the AI auto-sends a re-engagement email after a configurable delay (2/3/5/7 days), up to a configurable max (1×/2×/3×)
+- Settings live in AI Settings → Email tab → "Automated Follow-ups" section (toggle + delay selector + max selector)
+- `checkForFollowUps(gmail, connection, dbConnectionId)` function runs at the end of every email poll cycle (`checkForNewEmails`)
+- Follow-ups are saved to `gmail_messages` and visible in the dashboard like any regular AI reply
+- Tracking columns `followup_count` and `last_followup_at` added to `gmail_conversations` via `ALTER TABLE IF NOT EXISTS` on first run
+- New DB columns on `ai_channel_settings`: `followup_enabled`, `followup_delay_days`, `followup_max_count`
+- **Bug fixed:** `respondToEmail` never stamped `last_ai_response_at` — follow-up query would never match. Now updates this column after every AI send.
+- **Bug fixed:** Follow-ups were sent but not saved to `gmail_messages` (invisible in dashboard). Fixed by calling `saveMessageToDatabase` after each follow-up send and updating `last_ai_response_at` to the follow-up's timestamp so next cycle measures from the correct date.
+
+**Escalation handling (`lib/ai-service.js` + `app/api/ai-settings/route.js` + `app/(dashboard)/ai-settings/page.js`):**
+- Two-layer detection: fast keyword pre-check (before OpenAI call) + `[ESCALATE]` marker in system prompt for nuanced AI-detected cases
+- When triggered, AI steps aside and sends the owner's custom handoff message instead of guessing
+- Configurable per channel in AI Settings → each channel tab → "Escalation Handling" section (toggle + trigger keywords + escalation message)
+- Keywords field is optional — leaving it blank lets the AI decide on its own using the system prompt instruction
+- New DB columns on `ai_channel_settings`: `escalation_enabled`, `escalation_triggers`, `escalation_message`
+- `checkForEscalation(message, triggers)` helper splits comma-separated triggers and does a lowercase includes check
+- Escalation settings loaded in `getCustomerAIConfiguration` and merged into the config object for all channels
+
+**Key files changed this session:**
+- `app/api/gmail/monitor/route.js` — conversation history, follow-up engine, last_ai_response_at fix
+- `lib/ai-service.js` — escalation pre-check, [ESCALATE] marker in prompt, checkForEscalation helper, escalation + follow-up settings loading/merging
+- `app/api/ai-settings/route.js` — 6 new DB columns added to ensureChannelSettingsTableExists (with ALTER TABLE for existing tables), GET/POST handlers updated
+- `app/(dashboard)/ai-settings/page.js` — Escalation section in SharedFields (all channels), Follow-up section in email tab only
+
+**Next priorities:**
+- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
+- [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
+- [ ] Consider Railway cron job to call follow-up endpoint so follow-ups fire even when dashboard isn't open
+
+---
+
 ### Session — 2026-05-23
 **Lead scoring, email filtering hardening, leads page UX improvements**
 
