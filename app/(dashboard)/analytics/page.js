@@ -318,22 +318,27 @@ export default function AnalyticsPage() {
                   </h3>
                 </div>
                 {analytics.behaviors && analytics.behaviors.length > 0 ? (
-                  <div className="space-y-3">
-                    {analytics.behaviors.slice(0, 5).map((behavior, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-black/20 rounded-lg">
-                        <span className="text-gray-300">
-                          {behavior.label || behavior.event_type?.replace(/_/g, ' ')}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-white font-medium bg-purple-600/20 px-2 py-1 rounded">
-                            {behavior.count}
-                          </span>
+                  <div className="space-y-4">
+                    {analytics.behaviors.slice(0, 5).map((behavior, index) => {
+                      const maxCount = analytics.behaviors[0]?.count || 1;
+                      const pct = Math.round((behavior.count / maxCount) * 100);
+                      return (
+                        <div key={index}>
+                          <div className="flex items-center justify-between text-sm mb-1.5">
+                            <span className="text-gray-300 capitalize">
+                              {behavior.label || behavior.event_type?.replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-white font-medium">{behavior.count}</span>
+                          </div>
+                          <div className="w-full bg-black/30 rounded-full h-1.5">
+                            <div className="bg-violet-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p className="text-gray-400">No behavior data available yet</p>
+                  <p className="text-gray-400 text-sm">No behavior data available yet</p>
                 )}
               </div>
             </div>
@@ -345,33 +350,45 @@ export default function AnalyticsPage() {
                   <MessageSquare className="w-6 h-6 text-blue-400" />
                   Channel Performance
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {analytics.channels.map((channel, index) => (
-                    <div key={index} className="bg-black/30 rounded-xl p-4 border border-white/10">
-                      <div className="text-lg font-medium text-white capitalize mb-3">
-                        {channel.name}
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Interactions</span>
-                          <span className="text-white font-medium">{formatNumber(channel.total_interactions)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Hot Leads</span>
-                          <span className="text-green-400 font-medium">{channel.hot_leads}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Phone Requests</span>
-                          <span className="text-blue-400 font-medium">{channel.phone_requests}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Appointments</span>
-                          <span className="text-purple-400 font-medium">{channel.appointments}</span>
-                        </div>
-                      </div>
+                {(() => {
+                  const totalInteractions = analytics.channels.reduce((sum, c) => sum + (c.total_interactions || 0), 0) || 1;
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {analytics.channels.map((channel, index) => {
+                        const sharePct = Math.round((channel.total_interactions / totalInteractions) * 100);
+                        return (
+                          <div key={index} className="bg-black/30 rounded-xl p-4 border border-white/10">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="text-lg font-medium text-white capitalize">{channel.name}</div>
+                              <span className="text-xs text-gray-500">{sharePct}% of total</span>
+                            </div>
+                            <div className="w-full bg-black/40 rounded-full h-1 mb-4">
+                              <div className="bg-blue-500 h-1 rounded-full transition-all duration-500" style={{ width: `${sharePct}%` }} />
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Interactions</span>
+                                <span className="text-white font-medium">{formatNumber(channel.total_interactions)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Hot Leads</span>
+                                <span className="text-green-400 font-medium">{channel.hot_leads}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Phone Requests</span>
+                                <span className="text-blue-400 font-medium">{channel.phone_requests}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Appointments</span>
+                                <span className="text-purple-400 font-medium">{channel.appointments}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -386,52 +403,73 @@ export default function AnalyticsPage() {
                   {analytics.insights.map((insight, index) => (
                     <div key={index} className="flex items-start gap-3 p-3 bg-black/30 rounded-lg border border-white/10">
                       {getInsightIcon(insight.type)}
-                      <div className="flex-1">
-                        <p className="text-gray-300">{insight.message}</p>
-                        {insight.importance && (
-                          <span className={`text-xs mt-1 inline-block px-2 py-1 rounded ${
-                            insight.importance === 'high' ? 'bg-red-500/20 text-red-400' :
-                            insight.importance === 'urgent' ? 'bg-orange-500/20 text-orange-400' :
-                            insight.importance === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-gray-500/20 text-gray-400'
-                          }`}>
-                            {insight.importance}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-gray-300 flex-1 text-sm leading-relaxed">{insight.message}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Daily Trend Chart (Simplified) */}
+            {/* Activity Trend — Bar Chart */}
             {analytics.dailyTrend && analytics.dailyTrend.length > 0 && (
               <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <BarChart3 className="w-6 h-6 text-indigo-400" />
-                  Activity Trend
-                </h3>
-                <div className="space-y-2">
-                  {analytics.dailyTrend.slice(0, 7).map((day, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b border-white/10">
-                      <span className="text-gray-400">
-                        {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </span>
-                      <div className="flex items-center gap-4">
-                        <span className="text-white bg-black/30 px-2 py-1 rounded">
-                          {day.metrics?.total || 0} events
-                        </span>
-                        {day.metrics?.hotLeads > 0 && (
-                          <span className="text-green-400">{day.metrics.hotLeads} hot leads</span>
-                        )}
-                        {day.metrics?.phoneRequests > 0 && (
-                          <span className="text-blue-400">{day.metrics.phoneRequests} calls</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <BarChart3 className="w-6 h-6 text-indigo-400" />
+                    Activity Trend
+                  </h3>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block" />
+                      Interactions
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block" />
+                      Hot Leads
+                    </span>
+                  </div>
                 </div>
+                {(() => {
+                  const trend = analytics.dailyTrend;
+                  const maxVal = Math.max(...trend.map(d => d.metrics?.total || 0), 1);
+                  const W = 800, chartH = 130, totalSvgH = 158;
+                  const PAD_L = 6, PAD_R = 6;
+                  const chartW = W - PAD_L - PAD_R;
+                  const barSpacing = chartW / trend.length;
+                  const barW = Math.max(3, barSpacing * 0.72);
+                  const labelEvery = Math.ceil(trend.length / 8);
+                  return (
+                    <svg viewBox={`0 0 ${W} ${totalSvgH}`} className="w-full" style={{ height: '160px' }}>
+                      {/* Gridlines */}
+                      {[0.25, 0.5, 0.75, 1].map(pct => (
+                        <line key={pct}
+                          x1={PAD_L} y1={chartH * (1 - pct)}
+                          x2={W - PAD_R} y2={chartH * (1 - pct)}
+                          stroke="#1f2937" strokeWidth={1}
+                        />
+                      ))}
+                      {/* Bars */}
+                      {trend.map((day, i) => {
+                        const total = day.metrics?.total || 0;
+                        const hot   = day.metrics?.hotLeads || 0;
+                        const bH = total > 0 ? Math.max(2, Math.round((total / maxVal) * chartH)) : 0;
+                        const hH = hot   > 0 ? Math.max(2, Math.round((hot   / maxVal) * chartH)) : 0;
+                        const x = PAD_L + i * barSpacing + (barSpacing - barW) / 2;
+                        return (
+                          <g key={i}>
+                            {bH > 0 && <rect x={x} y={chartH - bH} width={barW} height={bH} rx={2} fill="#7c3aed" opacity={0.8} />}
+                            {hH > 0 && <rect x={x} y={chartH - hH} width={barW} height={hH} rx={2} fill="#ef4444" />}
+                            {i % labelEvery === 0 && (
+                              <text x={x + barW / 2} y={totalSvgH - 4} textAnchor="middle" fill="#6b7280" fontSize={9}>
+                                {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  );
+                })()}
               </div>
             )}
 
