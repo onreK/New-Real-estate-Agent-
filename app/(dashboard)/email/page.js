@@ -1138,7 +1138,7 @@ export default function CompleteEmailSystem() {
                 ) : (
                   <>
                     <RefreshCw className="w-3 h-3 mr-1" />
-                    Check Emails
+                    Refresh
                   </>
                 )}
               </Button>

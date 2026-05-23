@@ -33,24 +33,28 @@ export async function GET() {
       const analytics = result.analytics;
       
       // Format response for backward compatibility with your dashboard
+      // Pull raw AI response count from behaviors list
+      const aiResponseBehavior = analytics.behaviors?.find(b => b.event_type === 'ai_response');
+
       return NextResponse.json({
         success: true,
         stats: {
           // Basic metrics
           totalConversations: analytics.overview?.total_interactions_month || 0,
           activeToday: analytics.overview?.interactions_today || 0,
-          
+
           // NEW metrics (better than old broken ones!)
           aiEngagementRate: analytics.overview?.ai_engagement_rate || 0,
           contactCaptureRate: analytics.overview?.contact_capture_rate || 0,
           avgResponseTimeMinutes: analytics.overview?.avg_response_speed_minutes || 0,
           totalLeadsCaptured: analytics.overview?.total_leads_captured || 0,
-          
+          totalResponsesSent: aiResponseBehavior?.count || 0,
+
           // Email-specific metrics
           emailThreads: analytics.metrics?.channelSpecific?.email?.total_threads || 0,
           emailOpenRate: analytics.metrics?.channelSpecific?.email?.open_rate || 0,
           emailClickRate: analytics.metrics?.channelSpecific?.email?.click_rate || 0,
-          
+
           // Legacy compatibility fields (for old dashboard code)
           responseRate: analytics.overview?.ai_engagement_rate || 0,
           avgResponseTime: Math.round(analytics.overview?.avg_response_speed_minutes || 0)
