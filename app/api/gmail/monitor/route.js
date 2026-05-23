@@ -518,22 +518,49 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                 return; // Skip this email completely
               }
               
-              // 🎯 NEW: CREATE/UPDATE CONTACT FOR NON-BLACKLISTED EMAILS
+              // Run email filter BEFORE creating any lead record
+              if (!businessRules.isWhitelisted) {
+                const isMassEmail = !!(listIdHeader || listUnsubscribeHeader);
+
+                const filterResult = await checkEmailFilter({
+                  from: fromEmail,
+                  subject: subjectHeader?.value || '',
+                  body: body,
+                  headers: emailHeaders,
+                  isMassEmail
+                }, customerSettings);
+
+                if (filterResult.shouldFilter) {
+                  console.log(`🚫 Email filtered from ${fromEmail}: ${filterResult.reason}`);
+                  filteredCount++;
+
+                  if (customerSettings.auto_archive_spam !== false) {
+                    try {
+                      await gmail.users.messages.modify({
+                        userId: 'me',
+                        id: message.id,
+                        requestBody: { removeLabelIds: ['INBOX'] }
+                      });
+                    } catch (archiveError) {
+                      console.error('Failed to archive:', archiveError);
+                    }
+                  }
+
+                  return; // filtered — do NOT create a lead record
+                }
+              }
+
+              // Email passed all filters (or is whitelisted) — now create the lead
               if (customerSettings.customer_id) {
                 try {
-                  console.log(`📇 Creating/updating contact for ${customerEmail}`);
-                  
                   const contactResult = await createOrUpdateContact(customerSettings.customer_id, {
                     email: customerEmail,
                     name: customerName,
                     source_channel: 'gmail'
                   });
-                  
+
                   if (contactResult.success) {
                     leadsCreated++;
-                    console.log(`✅ Contact ${contactResult.action}: ${contactResult.contact.id}`);
-                    
-                    // Track the email received event
                     await trackLeadEventWithContact(
                       customerSettings.customer_id,
                       contactResult.contact.id,
@@ -549,51 +576,10 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
                         })
                       }
                     );
-                    
-                    // Update lead scoring
                     await updateLeadScoring(customerSettings.customer_id, contactResult.contact.id);
                   }
                 } catch (contactError) {
                   console.error('❌ Failed to create/update contact:', contactError);
-                }
-              }
-              
-              // If whitelisted, skip other filters
-              if (businessRules.isWhitelisted) {
-                console.log(`✅ Whitelisted email from ${fromEmail} - bypassing filters`);
-              } else {
-                // CHECK EMAIL FILTERS — pass raw headers so the filter layer can do full detection
-                const isMassEmail = !!(listIdHeader || listUnsubscribeHeader);
-
-                const filterResult = await checkEmailFilter({
-                  from: fromEmail,
-                  subject: subjectHeader?.value || '',
-                  body: body,
-                  headers: emailHeaders,
-                  isMassEmail
-                }, customerSettings);
-
-                if (filterResult.shouldFilter) {
-                  console.log(`🚫 Email filtered from ${fromEmail}: ${filterResult.reason}`);
-                  filteredCount++;
-                  
-                  // Archive filtered email if enabled
-                  if (customerSettings.auto_archive_spam !== false) {
-                    try {
-                      await gmail.users.messages.modify({
-                        userId: 'me',
-                        id: message.id,
-                        requestBody: {
-                          removeLabelIds: ['INBOX']
-                        }
-                      });
-                      console.log(`🗂️ Archived filtered email`);
-                    } catch (archiveError) {
-                      console.error('Failed to archive:', archiveError);
-                    }
-                  }
-                  
-                  return; // Skip adding to email list
                 }
               }
             }
