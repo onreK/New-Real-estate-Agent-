@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -68,13 +68,13 @@ export default function CompleteEmailSystem() {
   
   const knowledgeBaseRef = useRef('');
   
-  // 🎯 ADDED: Preview state and ref for the textarea
+  // ðŸŽ¯ ADDED: Preview state and ref for the textarea
   const [showingPreview, setShowingPreview] = useState(false);
   const [previewResponse, setPreviewResponse] = useState(null);
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const previewTextareaRef = useRef(null);
   
-  // 🎯 UNIFIED: Single auto-poll state that controls everything
+  // ðŸŽ¯ UNIFIED: Single auto-poll state that controls everything
   // FIXED: Set interval to 30 seconds permanently
   const [autoPollStatus, setAutoPollStatus] = useState({
     isRunning: false,
@@ -126,7 +126,7 @@ export default function CompleteEmailSystem() {
     refreshInterval: 30
   });
 
-  // 🎯 SIMPLIFIED: AI settings without the conflicting toggle
+  // ðŸŽ¯ SIMPLIFIED: AI settings without the conflicting toggle
   const [aiSettings, setAiSettings] = useState({
     communicationTone: 'professional',
     knowledgeBase: '',
@@ -159,7 +159,7 @@ export default function CompleteEmailSystem() {
   const [newWhitelistItem, setNewWhitelistItem] = useState('');
   const [newCustomKeyword, setNewCustomKeyword] = useState('');
 
-  // 🎯 ADDED: Handle preview generation
+  // ðŸŽ¯ ADDED: Handle preview generation
   const handlePreviewAIResponse = async (emailId) => {
     if (!gmailConnection) return;
     
@@ -168,7 +168,7 @@ export default function CompleteEmailSystem() {
     setPreviewResponse(null);
     
     try {
-      console.log('🚀 Generating AI preview for email:', emailId);
+      console.log('ðŸš€ Generating AI preview for email:', emailId);
       
       const response = await fetch('/api/gmail/monitor', {
         method: 'POST',
@@ -183,7 +183,7 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📧 Preview generated:', data);
+        console.log('ðŸ“§ Preview generated:', data);
         
         const generatedResponse = data.response || data.aiResponse || 'No response generated';
         setPreviewResponse(generatedResponse);
@@ -202,14 +202,14 @@ export default function CompleteEmailSystem() {
         return data;
       }
     } catch (error) {
-      console.error('❌ Error generating preview:', error);
+      console.error('âŒ Error generating preview:', error);
       alert('Failed to generate preview. Please try again.');
     } finally {
       setGeneratingPreview(false);
     }
   };
 
-  // 🎯 ADDED: Send edited response
+  // ðŸŽ¯ ADDED: Send edited response
   const sendEditedResponse = async () => {
     if (!gmailConnection || !selectedGmailEmail || !previewTextareaRef.current) return;
     
@@ -221,7 +221,7 @@ export default function CompleteEmailSystem() {
     
     setResponding(true);
     try {
-      console.log('🚀 Sending edited response:', editedResponse);
+      console.log('ðŸš€ Sending edited response:', editedResponse);
       
       const response = await fetch('/api/gmail/monitor', {
         method: 'POST',
@@ -237,7 +237,7 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Response sent successfully');
+        console.log('âœ… Response sent successfully');
         
         // Add to sent emails
         const sentEmail = {
@@ -268,25 +268,25 @@ export default function CompleteEmailSystem() {
           checkGmailEmails(false);
         }, 500);
         
-        alert('✅ Response sent successfully!');
+        alert('âœ… Response sent successfully!');
       } else {
         throw new Error('Failed to send response');
       }
     } catch (error) {
-      console.error('❌ Error sending response:', error);
+      console.error('âŒ Error sending response:', error);
       alert('Failed to send response. Please try again.');
     } finally {
       setResponding(false);
     }
   };
 
-  // 🎯 UNIFIED: Toggle that controls both auto-polling AND AI responses
+  // ðŸŽ¯ UNIFIED: Toggle that controls both auto-polling AND AI responses
   const toggleAutoPoll = useCallback(async () => {
     const newState = !autoPollStatus.isRunning;
     const newEnabled = !autoPollStatus.isEnabled;
     
-    console.log(`🔄 Toggling Auto-Poll: ${newState ? 'ON' : 'OFF'}`);
-    console.log(`🤖 AI Responses will be: ${newEnabled ? 'ENABLED' : 'DISABLED'}`);
+    console.log(`ðŸ”„ Toggling Auto-Poll: ${newState ? 'ON' : 'OFF'}`);
+    console.log(`ðŸ¤– AI Responses will be: ${newEnabled ? 'ENABLED' : 'DISABLED'}`);
     
     // Update local state immediately for responsive UI
     setAutoPollStatus(prev => ({ 
@@ -298,7 +298,7 @@ export default function CompleteEmailSystem() {
     // Save to database
     setSaving(true);
     try {
-      // 🎯 UPDATED: Use the new save endpoint for business rules
+      // ðŸŽ¯ UPDATED: Use the new save endpoint for business rules
       const response = await fetch('/api/email-settings/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -327,7 +327,7 @@ export default function CompleteEmailSystem() {
       });
 
       if (response.ok) {
-        console.log('✅ AI settings saved successfully');
+        console.log('âœ… AI settings saved successfully');
         
         if (newState) {
           // Start polling
@@ -337,7 +337,7 @@ export default function CompleteEmailSystem() {
           
           // Fixed 30 second interval
           const effectiveInterval = 30;
-          console.log('🚀 Starting auto-poll with interval:', effectiveInterval, 'seconds');
+          console.log('ðŸš€ Starting auto-poll with interval:', effectiveInterval, 'seconds');
           
           // Delay first run by 3 seconds
           setTimeout(() => {
@@ -350,7 +350,7 @@ export default function CompleteEmailSystem() {
           }, effectiveInterval * 1000);
         } else {
           // Stop polling
-          console.log('🛑 Stopping auto-poll');
+          console.log('ðŸ›‘ Stopping auto-poll');
           if (autoPollIntervalRef.current) {
             clearInterval(autoPollIntervalRef.current);
             autoPollIntervalRef.current = null;
@@ -360,7 +360,7 @@ export default function CompleteEmailSystem() {
         throw new Error('Failed to save settings');
       }
     } catch (error) {
-      console.error('❌ Error saving settings:', error);
+      console.error('âŒ Error saving settings:', error);
       // Revert on error
       setAutoPollStatus(prev => ({ 
         ...prev, 
@@ -373,15 +373,15 @@ export default function CompleteEmailSystem() {
     }
   }, [autoPollStatus, aiSettings, automationSettings]);
 
-  // 🎯 FIXED: Client-side auto-poll that calls monitor API directly
+  // ðŸŽ¯ FIXED: Client-side auto-poll that calls monitor API directly
   const runAutoPoll = useCallback(async () => {
     if (!gmailConnection?.email) return;
     
-    console.log('🔄 Running auto-poll cycle...');
+    console.log('ðŸ”„ Running auto-poll cycle...');
     
     try {
       // Step 1: Check for emails directly (not through auto-poll API)
-      console.log('📬 Checking for new emails...');
+      console.log('ðŸ“¬ Checking for new emails...');
       
       const checkResponse = await fetch('/api/gmail/monitor', {
         method: 'POST',
@@ -393,20 +393,20 @@ export default function CompleteEmailSystem() {
       });
 
       if (!checkResponse.ok) {
-        console.error('❌ Monitor check failed:', checkResponse.status);
+        console.error('âŒ Monitor check failed:', checkResponse.status);
         return;
       }
 
       const emailData = await checkResponse.json();
       const emails = emailData.emails || [];
-      console.log('📊 Found', emails.length, 'emails');
+      console.log('ðŸ“Š Found', emails.length, 'emails');
       
       // Update the email list in UI
       setGmailEmails(emails);
       
       // Step 2: If enabled and we have emails, send AI responses
       if (autoPollStatus.isEnabled && emails.length > 0) {
-        console.log('🤖 Processing emails with AI responses...');
+        console.log('ðŸ¤– Processing emails with AI responses...');
         
         // Process up to 2 emails at a time
         const emailsToProcess = emails.slice(0, 2);
@@ -414,7 +414,7 @@ export default function CompleteEmailSystem() {
         
         for (let i = 0; i < emailsToProcess.length; i++) {
           const email = emailsToProcess[i];
-          console.log(`📧 Processing email ${i + 1}: "${email.subject}"`);
+          console.log(`ðŸ“§ Processing email ${i + 1}: "${email.subject}"`);
           
           try {
             const respondResponse = await fetch('/api/gmail/monitor', {
@@ -432,7 +432,7 @@ export default function CompleteEmailSystem() {
               const responseData = await respondResponse.json();
               if (responseData.success) {
                 responsesGenerated++;
-                console.log(`✅ AI response sent for email ${i + 1}`);
+                console.log(`âœ… AI response sent for email ${i + 1}`);
                 
                 // Add to sent emails list
                 const sentEmail = {
@@ -455,10 +455,10 @@ export default function CompleteEmailSystem() {
                   totalResponsesSent: prev.totalResponsesSent + 1
                 }));
               } else {
-                console.log(`⚠️ Response not sent for email ${i + 1}:`, responseData.error);
+                console.log(`âš ï¸ Response not sent for email ${i + 1}:`, responseData.error);
               }
             } else {
-              console.error(`❌ Failed to respond to email ${i + 1}:`, respondResponse.status);
+              console.error(`âŒ Failed to respond to email ${i + 1}:`, respondResponse.status);
             }
             
             // Wait 1 second between responses
@@ -466,7 +466,7 @@ export default function CompleteEmailSystem() {
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
           } catch (err) {
-            console.error(`❌ Failed to respond to email ${i + 1}:`, err);
+            console.error(`âŒ Failed to respond to email ${i + 1}:`, err);
           }
         }
         
@@ -478,7 +478,7 @@ export default function CompleteEmailSystem() {
           totalResponsesSent: prev.totalResponsesSent + responsesGenerated
         }));
         
-        console.log(`🎉 Auto-poll completed: ${responsesGenerated} responses sent`);
+        console.log(`ðŸŽ‰ Auto-poll completed: ${responsesGenerated} responses sent`);
       } else {
         // Just update the last poll time
         setAutoPollStatus(prev => ({
@@ -487,20 +487,20 @@ export default function CompleteEmailSystem() {
           totalEmailsProcessed: prev.totalEmailsProcessed + emails.length
         }));
         
-        console.log('🔭 No emails to process or AI disabled');
+        console.log('ðŸ”­ No emails to process or AI disabled');
       }
       
       // Refresh the UI
       setLastRefresh(new Date());
       
     } catch (error) {
-      console.error('❌ Auto-poll error:', error);
+      console.error('âŒ Auto-poll error:', error);
     }
   }, [gmailConnection?.email, autoPollStatus.isEnabled]);
 
   // Stop auto-poll function
   const stopAutoPoll = useCallback(() => {
-    console.log('🛑 Stopping auto-poll');
+    console.log('ðŸ›‘ Stopping auto-poll');
     
     if (autoPollIntervalRef.current) {
       clearInterval(autoPollIntervalRef.current);
@@ -556,30 +556,30 @@ export default function CompleteEmailSystem() {
     const success = urlParams.get('success');
     const error = urlParams.get('error');
     
-    console.log('🔍 URL Parameters:', { tab, success, error });
+    console.log('ðŸ” URL Parameters:', { tab, success, error });
     
     if (tab && tabs.some(t => t.id === tab)) {
-      console.log('🎯 Setting active tab to:', tab);
+      console.log('ðŸŽ¯ Setting active tab to:', tab);
       setActiveTab(tab);
     }
     
     if (success === 'gmail_connected') {
-      console.log('✅ Gmail connection successful');
+      console.log('âœ… Gmail connection successful');
     }
     
     if (error) {
-      console.log('❌ OAuth error:', error);
+      console.log('âŒ OAuth error:', error);
     }
     
     if (tab || success || error) {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-      console.log('🧹 Cleaned URL parameters');
+      console.log('ðŸ§¹ Cleaned URL parameters');
     }
   };
 
   useEffect(() => {
-    console.log('📊 Sent emails state changed:', sentEmails);
+    console.log('ðŸ“Š Sent emails state changed:', sentEmails);
   }, [sentEmails]);
 
   useEffect(() => {
@@ -618,7 +618,7 @@ export default function CompleteEmailSystem() {
         loadEmailData(),
         checkGmailConnection(),
         loadAISettings(),
-        loadEmailSettings()  // 🎯 NEW: Load email settings separately
+        loadEmailSettings()  // ðŸŽ¯ NEW: Load email settings separately
       ]);
     } catch (error) {
       console.error('Error loading initial data:', error);
@@ -685,7 +685,7 @@ export default function CompleteEmailSystem() {
           
           knowledgeBaseRef.current = data.settings.knowledge_base || '';
           
-          // 🎯 IMPORTANT: Load the enabled state from database
+          // ðŸŽ¯ IMPORTANT: Load the enabled state from database
           const isEnabled = data.settings.enable_ai_responses !== false;
           setAutoPollStatus(prev => ({
             ...prev,
@@ -723,7 +723,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 NEW: Load email settings (business rules) separately
+  // ðŸŽ¯ NEW: Load email settings (business rules) separately
   const loadEmailSettings = async () => {
     try {
       const response = await fetch('/api/email-settings/save', {
@@ -749,7 +749,7 @@ export default function CompleteEmailSystem() {
             }
           }));
           
-          console.log('✅ Loaded email settings with business rules');
+          console.log('âœ… Loaded email settings with business rules');
         }
       }
     } catch (error) {
@@ -757,7 +757,7 @@ export default function CompleteEmailSystem() {
     }
   };
 
-  // 🎯 UPDATED: Save all settings using the new endpoint
+  // ðŸŽ¯ UPDATED: Save all settings using the new endpoint
   const saveAllSettings = async () => {
     setSaving(true);
     try {
@@ -791,9 +791,9 @@ export default function CompleteEmailSystem() {
         priority_keywords: automationSettings.businessRules.customKeywords
       };
 
-      console.log('💾 Saving all settings with business rules:', settingsToSave);
+      console.log('ðŸ’¾ Saving all settings with business rules:', settingsToSave);
 
-      // 🎯 CRITICAL: Use the new endpoint that properly handles JSONB
+      // ðŸŽ¯ CRITICAL: Use the new endpoint that properly handles JSONB
       const response = await fetch('/api/email-settings/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -802,26 +802,26 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Settings saved successfully:', result);
+        console.log('âœ… Settings saved successfully:', result);
         
         // Show what was actually saved
         if (result.processed) {
-          console.log('📋 Saved business rules:', {
+          console.log('ðŸ“‹ Saved business rules:', {
             blacklist: result.processed.blacklist_emails,
             whitelist: result.processed.whitelist_emails,
             priority: result.processed.priority_keywords
           });
         }
         
-        alert('✅ Settings saved successfully!');
+        alert('âœ… Settings saved successfully!');
       } else {
         const errorData = await response.json();
-        console.error('❌ Failed to save settings:', errorData);
-        alert(`❌ Failed to save settings: ${errorData.error || 'Unknown error'}`);
+        console.error('âŒ Failed to save settings:', errorData);
+        alert(`âŒ Failed to save settings: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('❌ Error saving settings:', error);
-      alert('❌ Error saving settings. Please try again.');
+      console.error('âŒ Error saving settings:', error);
+      alert('âŒ Error saving settings. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -866,9 +866,9 @@ export default function CompleteEmailSystem() {
   const connectGmail = () => {
     if (gmailConnection) {
       setReconnecting(true);
-      console.log('🔗 Reconnecting Gmail account...');
+      console.log('ðŸ”— Reconnecting Gmail account...');
     } else {
-      console.log('🔗 Connecting Gmail account...');
+      console.log('ðŸ”— Connecting Gmail account...');
     }
     window.location.href = '/api/auth/google';
   };
@@ -896,15 +896,15 @@ export default function CompleteEmailSystem() {
         
         if (!silent) setLastRefresh(new Date());
         
-        // 🎯 NEW: Show blacklist status if any were filtered
+        // ðŸŽ¯ NEW: Show blacklist status if any were filtered
         if (data.blacklistedCount > 0) {
-          console.log(`🚫 ${data.blacklistedCount} blacklisted emails were archived`);
+          console.log(`ðŸš« ${data.blacklistedCount} blacklisted emails were archived`);
         }
       } else if (response.status === 401) {
-        console.log('⚠️ Gmail token refresh failed - needs reconnection');
+        console.log('âš ï¸ Gmail token refresh failed - needs reconnection');
         setNeedsReconnect(true);
       } else if (response.status === 404) {
-        console.log('⚠️ Gmail monitor API not available');
+        console.log('âš ï¸ Gmail monitor API not available');
       } else {
         console.error('Gmail check failed:', response.status);
       }
@@ -920,7 +920,7 @@ export default function CompleteEmailSystem() {
     
     setResponding(true);
     try {
-      console.log('🚀 Sending AI response:', { emailId, preview, selectedEmail: selectedGmailEmail });
+      console.log('ðŸš€ Sending AI response:', { emailId, preview, selectedEmail: selectedGmailEmail });
       
       const response = await fetch('/api/gmail/monitor', {
         method: 'POST',
@@ -935,11 +935,11 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📧 API Response:', data);
+        console.log('ðŸ“§ API Response:', data);
         
-        // 🎯 NEW: Check if email was blacklisted
+        // ðŸŽ¯ NEW: Check if email was blacklisted
         if (data.filtered && data.isBlacklisted) {
-          alert(`🚫 This email is blacklisted. No response will be sent.`);
+          alert(`ðŸš« This email is blacklisted. No response will be sent.`);
           return data;
         }
         
@@ -956,10 +956,10 @@ export default function CompleteEmailSystem() {
             status: 'sent'
           };
           
-          console.log('📤 Adding sent email to state:', sentEmail);
+          console.log('ðŸ“¤ Adding sent email to state:', sentEmail);
           setSentEmails(prev => {
             const updated = [sentEmail, ...prev];
-            console.log('📋 Updated sent emails:', updated);
+            console.log('ðŸ“‹ Updated sent emails:', updated);
             return updated;
           });
           
@@ -971,7 +971,7 @@ export default function CompleteEmailSystem() {
           
           setTimeout(() => {
             setActiveEmailView('sent');
-            console.log('🔄 Switched to sent tab');
+            console.log('ðŸ”„ Switched to sent tab');
           }, 500);
         }
         
@@ -980,10 +980,10 @@ export default function CompleteEmailSystem() {
         }
         return data;
       } else {
-        console.error('❌ API response not ok:', response.status, response.statusText);
+        console.error('âŒ API response not ok:', response.status, response.statusText);
       }
     } catch (error) {
-      console.error('❌ Error sending AI response:', error);
+      console.error('âŒ Error sending AI response:', error);
     } finally {
       setResponding(false);
     }
@@ -1083,13 +1083,13 @@ export default function CompleteEmailSystem() {
   const DashboardTab = () => (
     <div className="space-y-6">
 
-      {/* Reconnect banner — shown when token refresh fails */}
+      {/* Reconnect banner â€” shown when token refresh fails */}
       {needsReconnect && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
             <div>
-              <p className="text-amber-300 font-medium text-sm">Gmail token expired — reconnection required</p>
+              <p className="text-amber-300 font-medium text-sm">Gmail token expired â€” reconnection required</p>
               <p className="text-amber-400/70 text-xs mt-0.5">Go to the Connections tab and click "Connect Gmail" to restore access.</p>
             </div>
           </div>
@@ -1124,7 +1124,7 @@ export default function CompleteEmailSystem() {
                     )}
                   </h3>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {gmailConnection.email} • Auto-monitoring active
+                    {gmailConnection.email} â€¢ Auto-monitoring active
                   </p>
                 </div>
               </div>
@@ -1369,7 +1369,7 @@ export default function CompleteEmailSystem() {
                       }}
                       className="px-2 py-1 rounded-md bg-yellow-600/20 text-yellow-400 text-xs hover:bg-yellow-600/30 transition-colors"
                     >
-                      🧪 Add Test
+                      ðŸ§ª Add Test
                     </button>
                   </div>
                 </div>
@@ -1535,7 +1535,7 @@ export default function CompleteEmailSystem() {
                         </p>
                         <div className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg max-w-sm">
                           <p className="text-green-300 text-sm">
-                            💡 <strong>Tip:</strong> Use the "🧪 Add Test" button above to see how sent emails will look
+                            ðŸ’¡ <strong>Tip:</strong> Use the "ðŸ§ª Add Test" button above to see how sent emails will look
                           </p>
                         </div>
                       </div>
@@ -1550,7 +1550,7 @@ export default function CompleteEmailSystem() {
                                 : ''
                             } ${index === 0 ? 'border-t-0' : ''}`}
                             onClick={() => {
-                              console.log('📧 Clicked sent email:', sentEmail);
+                              console.log('ðŸ“§ Clicked sent email:', sentEmail);
                               setSelectedGmailEmail(null);
                               setSelectedConversation(sentEmail);
                             }}
@@ -1561,7 +1561,7 @@ export default function CompleteEmailSystem() {
                               </h4>
                               <div className="flex items-center gap-2">
                                 <div className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-medium">
-                                  ✓ Sent
+                                  âœ“ Sent
                                 </div>
                                 {selectedConversation?.id === sentEmail.id && (
                                   <div className="w-2 h-2 rounded-full bg-green-400"></div>
@@ -1625,7 +1625,7 @@ export default function CompleteEmailSystem() {
                   </div>
                 </div>
 
-                {/* 🎯 ADDED: Preview section - Always rendered but conditionally visible */}
+                {/* ðŸŽ¯ ADDED: Preview section - Always rendered but conditionally visible */}
                 <div 
                   className={`bg-purple-500/10 rounded-xl p-6 border border-purple-500/20  ${
                     showingPreview && previewResponse ? 'block' : 'hidden'
@@ -1766,7 +1766,7 @@ export default function CompleteEmailSystem() {
                   </Badge>
                 </div>
                 <p className="text-sm text-gray-300">
-                  <span className="font-medium">To:</span> {selectedConversation.to} •
+                  <span className="font-medium">To:</span> {selectedConversation.to} â€¢
                   <span className="font-medium"> Subject:</span> Re: {selectedConversation.originalSubject}
                 </p>
               </div>
@@ -1813,7 +1813,7 @@ export default function CompleteEmailSystem() {
                     </div>
                     <div>
                       <span className="font-medium text-gray-400">Status:</span>
-                      <p className="text-green-300 font-medium">✓ Delivered</p>
+                      <p className="text-green-300 font-medium">âœ“ Delivered</p>
                     </div>
                   </div>
                 </div>
@@ -1851,284 +1851,7 @@ export default function CompleteEmailSystem() {
     </div>
   );
 
-  // Keep AutomationTab exactly the same — AI Settings removed (lives in sidebar /ai-settings)
-  const _AISettingsRemoved = true; // AI Settings tab removed — lives in sidebar /ai-settings
-
-  // stub that holds dead JSX from old AISettingsTab — kept to avoid parse errors during cleanup
-  const _deadJSX = () => (
-    <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Building className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">Business Profile</h3>
-        </div>
-        <p className="text-gray-300 mb-6">Tell the AI about your business</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Business Name</label>
-            <input
-              type="text"
-              defaultValue={businessProfileRef.current.name}
-              onChange={(e) => {
-                businessProfileRef.current.name = e.target.value;
-              }}
-              placeholder="Your Business Name"
-              className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Industry</label>
-            <input
-              type="text"
-              defaultValue={businessProfileRef.current.industry}
-              onChange={(e) => {
-                businessProfileRef.current.industry = e.target.value;
-              }}
-              placeholder="e.g., Real Estate, Consulting"
-              className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Expertise</label>
-            <input
-              type="text"
-              defaultValue={businessProfileRef.current.expertise}
-              onChange={(e) => {
-                businessProfileRef.current.expertise = e.target.value;
-              }}
-              placeholder="What you specialize in"
-              className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Communication Settings */}
-      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <MessageCircle className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">Communication Settings</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-3 text-gray-300">Tone</label>
-            <div className="grid grid-cols-3 gap-3">
-              {['professional', 'casual', 'formal'].map(tone => (
-                <Button
-                  key={tone}
-                  variant={aiSettings.communicationTone === tone ? "default" : "outline"}
-                  onClick={() => setAiSettings(prev => ({ ...prev, communicationTone: tone }))}
-                  className={`capitalize ${
-                    aiSettings.communicationTone === tone
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-                      : 'bg-[#161B22] border-gray-800 text-gray-300 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {tone}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-3 text-gray-300">Response Length</label>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { value: 'short', label: 'Short' },
-                { value: 'medium', label: 'Medium' },
-                { value: 'long', label: 'Long' }
-              ].map((length) => (
-                <Button
-                  key={length.value}
-                  variant={aiSettings.responseLength === length.value ? "default" : "outline"}
-                  onClick={() => setAiSettings(prev => ({ ...prev, responseLength: length.value }))}
-                  className={`${
-                    aiSettings.responseLength === length.value
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-                      : 'bg-[#161B22] border-gray-800 text-gray-300 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {length.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 📚 KNOWLEDGE BASE SECTION */}
-      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Brain className="w-5 h-5 text-purple-400" />
-          <h3 className="text-lg font-semibold text-white">📚 Business Knowledge Base</h3>
-        </div>
-        
-        <p className="text-gray-300 mb-4">
-          Add specific information about your business that the AI should know. 
-          This includes facts, services, prices, policies, FAQs, and any other business-specific information.
-        </p>
-        
-        <textarea
-          defaultValue={knowledgeBaseRef.current}
-          onChange={(e) => {
-            knowledgeBaseRef.current = e.target.value;
-          }}
-          rows={8}
-          className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-violet-500 focus:outline-none"
-          placeholder={`Example business information:
-            
-COMPANY: ABC Real Estate Agency
-FOUNDED: 2010
-LOCATION: Downtown Chicago, IL
-
-SERVICES:
-- Residential home buying/selling
-- Commercial property leasing
-- Property management services
-- Real estate investment consulting
-
-PRICING:
-- Buyer's agent commission: 2.5%
-- Seller's agent commission: 3%
-- Property management: 8% of monthly rent
-
-OFFICE HOURS: Monday-Friday 9AM-6PM, Saturday 10AM-4PM
-EMERGENCY LINE: Available 24/7 for property management clients
-
-SPECIALTIES:
-- Luxury condos in downtown area
-- First-time home buyers
-- Investment properties
-- Corporate relocations
-
-KEY DIFFERENTIATORS:
-- 15+ years of local market expertise
-- Average home sells in 21 days (market average: 45 days)
-- 98% client satisfaction rate
-- Bilingual agents (English/Spanish)
-
-CURRENT PROMOTIONS:
-- Free home staging for listings over $500K
-- First-time buyer rebate program (1% cash back at closing)`}
-        />
-        
-        <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-          <p className="text-purple-400 text-sm flex items-center gap-2">
-            <Info className="w-4 h-4" />
-            This information will be used by the AI to answer customer questions accurately.
-          </p>
-        </div>
-      </div>
-
-      {/* 🎯 CUSTOM AI INSTRUCTIONS SECTION */}
-      <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Brain className="w-5 h-5 text-green-400" />
-          <h3 className="text-lg font-semibold text-white">🎯 Custom AI Instructions</h3>
-        </div>
-        <p className="text-gray-300 mb-4">
-          Tell the AI exactly how to behave and respond to customers. 
-          Be specific about when to ask for phone numbers, schedule appointments, identify hot leads, etc.
-        </p>
-        
-        <textarea
-          value={aiSettings.customInstructions || ''}
-          onChange={(e) => setAiSettings(prev => ({ ...prev, customInstructions: e.target.value }))}
-          rows={8}
-          className="w-full px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-blue-500 focus:outline-none"
-          placeholder={`Example AI behavior instructions:
-
-RESPONSE BEHAVIOR:
-- Always ask for phone numbers when someone expresses interest
-- Schedule appointments within 24 hours when possible
-- Keep initial responses under 3 sentences unless detailed info is requested
-- Always end responses with a clear call-to-action
-
-LEAD QUALIFICATION:
-- Mark as HOT LEAD if they mention: urgent, ASAP, immediately, ready to buy
-- Ask qualifying questions about budget and timeline
-- For hot leads, offer immediate callback within 1 hour
-
-SCHEDULING:
-- Always suggest 3 specific time slots when scheduling
-- Prioritize morning appointments (higher show rate)
-- For urgent requests, offer same-day or next-day appointments
-
-OBJECTION HANDLING:
-- If price concerns: Emphasize value and ROI, offer payment plans
-- If timing concerns: Create urgency with limited availability
-- If comparing competitors: Highlight our unique advantages
-
-SPECIAL INSTRUCTIONS:
-- Never discuss pricing in first response - build value first
-- Always mention our 5-star Google reviews
-- For after-hours inquiries, promise response within 1 hour next business day
-- If technical questions, offer free consultation call
-- Always collect email AND phone for lead capture`}
-        />
-        
-        <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-          <p className="text-blue-400 text-sm flex items-center gap-2">
-            <Info className="w-4 h-4" />
-            The AI will follow these instructions for every email response. Be clear and specific.
-          </p>
-        </div>
-      </div>
-
-      {/* Test Results */}
-      {testResult && (
-        <div className="bg-[#161B22] rounded-xl border border-gray-800 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">🧪 AI Test Results</h3>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">AI Response</label>
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-200">
-              {testResult.response}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="font-medium text-gray-300">Status</div>
-              <div className="text-gray-400">{autoPollStatus.isEnabled ? '✅ Enabled' : '❌ Disabled'}</div>
-            </div>
-            <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="font-medium text-gray-300">Model</div>
-              <div className="text-gray-400">{aiSettings.aiModel}</div>
-            </div>
-            <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="font-medium text-gray-300">Creativity</div>
-              <div className="text-gray-400">{aiSettings.creativity}</div>
-            </div>
-            <div className="bg-white/5 p-2 rounded border border-white/10">
-              <div className="font-medium text-gray-300">Length</div>
-              <div className="text-gray-400">{aiSettings.responseLength}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-4 pt-4">
-        <Button
-          onClick={testAIResponse}
-          disabled={testing}
-          className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-        >
-          {testing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-          {testing ? 'Testing...' : 'Test AI Response'}
-        </Button>
-        <Button
-          onClick={saveAllSettings}
-          disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-        >
-          {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-          {saving ? 'Saving...' : 'Save All Settings'}
-        </Button>
-      </div>
-    </div>
-  );
-
+  const _deadJSX = () => null;
   // Keep AutomationTab exactly the same
   const AutomationTab = () => (
     <div className="space-y-6">
