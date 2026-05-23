@@ -906,8 +906,8 @@ export default function CompleteEmailSystem() {
           console.log(`🚫 ${data.blacklistedCount} blacklisted emails were archived`);
         }
       } else if (response.status === 401) {
-        console.log('⚠️ Gmail authentication expired - please reconnect');
-        setGmailConnection(null);
+        console.log('⚠️ Gmail token refresh failed - needs reconnection');
+        alert('Your Gmail connection needs to be refreshed. Go to the Connections tab and click "Connect Gmail" to reconnect.');
       } else if (response.status === 404) {
         console.log('⚠️ Gmail monitor API not available');
       } else {

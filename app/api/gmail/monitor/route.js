@@ -278,28 +278,42 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Get connection from memory
+    // Get connection from memory first, then fall back to database
     let connection = null;
     let dbConnectionId = null;
-    
+
     if (global.gmailConnections) {
-      connection = global.gmailConnections.get(emailAddress) || 
+      connection = global.gmailConnections.get(emailAddress) ||
                    Array.from(global.gmailConnections.values()).find(conn => conn.email === emailAddress);
     }
-    
-    // Fallback for kernojunk@gmail.com
-    if (!connection && emailAddress === 'kernojunk@gmail.com') {
-      connection = {
-        email: 'kernojunk@gmail.com',
-        accessToken: 'will-refresh',
-        refreshToken: 'will-refresh',
-        tokenExpiry: Date.now() - 1000
-      };
+
+    // Fallback: load real tokens from the database (handles server restarts clearing memory)
+    if (!connection) {
+      try {
+        const dbResult = await query(
+          `SELECT * FROM gmail_connections WHERE gmail_email = $1 AND status = 'connected' ORDER BY updated_at DESC LIMIT 1`,
+          [emailAddress]
+        );
+        if (dbResult.rows.length > 0) {
+          const row = dbResult.rows[0];
+          connection = {
+            email: row.gmail_email,
+            accessToken: row.access_token,
+            refreshToken: row.refresh_token,
+            tokenExpiry: row.token_expiry ? new Date(row.token_expiry).getTime() : null,
+            user_id: row.user_id
+          };
+          dbConnectionId = row.id;
+          console.log('✅ Loaded Gmail tokens from database (memory was empty)');
+        }
+      } catch (dbLookupError) {
+        console.error('⚠️ Database token lookup failed:', dbLookupError.message);
+      }
     }
-    
+
     if (!connection) {
       clearTimeout(requestTimeout);
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: `Gmail connection not found for ${emailAddress}`,
         suggestion: 'Please reconnect Gmail'
       }, { status: 404 });
