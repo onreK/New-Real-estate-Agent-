@@ -70,7 +70,8 @@ export default function CompleteEmailSystem() {
   
   // ðŸŽ¯ ADDED: Preview state and ref for the textarea
   const [showingPreview, setShowingPreview] = useState(false);
-  const [previewResponse, setPreviewResponse] = useState(null);
+  const [previewResponse, setPreviewResponse] = useState(null); // original for Reset
+  const [editedResponse, setEditedResponse] = useState(''); // controlled textarea value
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const previewTextareaRef = useRef(null);
   
@@ -183,22 +184,10 @@ export default function CompleteEmailSystem() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('ðŸ“§ Preview generated:', data);
-        
         const generatedResponse = data.response || data.aiResponse || 'No response generated';
-        setPreviewResponse(generatedResponse);
-        
-        // Show the preview section first
+        setPreviewResponse(generatedResponse); // keep original for Reset button
+        setEditedResponse(generatedResponse);  // controlled textarea value
         setShowingPreview(true);
-        
-        // Then set the textarea value after a tiny delay
-        setTimeout(() => {
-          if (previewTextareaRef.current) {
-            previewTextareaRef.current.value = generatedResponse;
-            previewTextareaRef.current.focus();
-          }
-        }, 10);
-        
         return data;
       }
     } catch (error) {
@@ -211,9 +200,8 @@ export default function CompleteEmailSystem() {
 
   // ðŸŽ¯ ADDED: Send edited response
   const sendEditedResponse = async () => {
-    if (!gmailConnection || !selectedGmailEmail || !previewTextareaRef.current) return;
-    
-    const editedResponse = previewTextareaRef.current.value;
+    if (!gmailConnection || !selectedGmailEmail) return;
+
     if (!editedResponse.trim()) {
       alert('Please enter a response message');
       return;
@@ -1637,16 +1625,14 @@ export default function CompleteEmailSystem() {
                   </p>
                   <textarea
                     ref={previewTextareaRef}
+                    value={editedResponse}
+                    onChange={(e) => setEditedResponse(e.target.value)}
                     className="w-full h-48 px-3 py-2 bg-[#0D1117] border border-gray-800 rounded-md text-white placeholder:text-gray-600 focus:border-violet-500 focus:outline-none resize-none"
                     placeholder="AI response will appear here..."
                   />
                   <div className="mt-4 flex gap-2">
                     <Button
-                      onClick={() => {
-                        if (previewTextareaRef.current && previewResponse) {
-                          previewTextareaRef.current.value = previewResponse;
-                        }
-                      }}
+                      onClick={() => setEditedResponse(previewResponse || '')}
                       size="sm"
                       variant="outline"
                       className="bg-[#161B22] border-gray-800 text-gray-300 hover:text-white hover:bg-white/5"
