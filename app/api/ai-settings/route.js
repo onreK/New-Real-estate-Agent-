@@ -46,6 +46,14 @@ export async function GET() {
           responseLength: row.response_length || 'Short',
           knowledgeBase: row.knowledge_base || '',
           customInstructions: row.custom_instructions || '',
+          // Escalation (all channels)
+          escalationEnabled: row.escalation_enabled || false,
+          escalationTriggers: row.escalation_triggers || '',
+          escalationMessage: row.escalation_message || '',
+          // Follow-up (email channel)
+          followupEnabled: row.followup_enabled || false,
+          followupDelayDays: row.followup_delay_days || 3,
+          followupMaxCount: row.followup_max_count || 2,
           // Channel-specific settings
           ...(row.channel === 'facebook' && {
             autoRespondMessages: row.auto_respond_messages || false,
@@ -148,7 +156,13 @@ export async function POST(request) {
           response_tone: settings.responseTone || 'Professional',
           response_length: settings.responseLength || 'Short',
           knowledge_base: settings.knowledgeBase || '',
-          custom_instructions: settings.customInstructions || ''
+          custom_instructions: settings.customInstructions || '',
+          escalation_enabled: settings.escalationEnabled || false,
+          escalation_triggers: settings.escalationTriggers || '',
+          escalation_message: settings.escalationMessage || '',
+          followup_enabled: settings.followupEnabled || false,
+          followup_delay_days: settings.followupDelayDays || 3,
+          followup_max_count: settings.followupMaxCount || 2,
         };
         
         // Add channel-specific fields
@@ -193,13 +207,16 @@ export async function POST(request) {
             auto_respond_messages, auto_respond_comments, auto_respond_dms,
             enable_auto_responses, hot_lead_detection, response_delay,
             proactive_engagement, collect_contact_info,
+            escalation_enabled, escalation_triggers, escalation_message,
+            followup_enabled, followup_delay_days, followup_max_count,
             created_at, updated_at
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+            $18, $19, $20, $21, $22, $23,
             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
           ) RETURNING *
         `;
-        
+
         values = [
           customer.id,
           channel,
@@ -221,7 +238,15 @@ export async function POST(request) {
           channel === 'text' ? (settings.responseDelay || '') : '',
           // Chatbot settings
           channel === 'chatbot' ? (settings.proactiveEngagement || false) : false,
-          channel === 'chatbot' ? (settings.collectContactInfo || false) : false
+          channel === 'chatbot' ? (settings.collectContactInfo || false) : false,
+          // Escalation (all channels)
+          settings.escalationEnabled || false,
+          settings.escalationTriggers || '',
+          settings.escalationMessage || '',
+          // Follow-up (email channel)
+          settings.followupEnabled || false,
+          settings.followupDelayDays || 3,
+          settings.followupMaxCount || 2,
         ];
       }
 
@@ -325,30 +350,53 @@ async function ensureChannelSettingsTableExists(client) {
         response_length VARCHAR(50),
         knowledge_base TEXT,
         custom_instructions TEXT,
-        
+
         -- Facebook specific
         auto_respond_messages BOOLEAN DEFAULT false,
         auto_respond_comments BOOLEAN DEFAULT false,
-        
+
         -- Instagram specific
         auto_respond_dms BOOLEAN DEFAULT false,
-        
+
         -- Text/SMS specific
         enable_auto_responses BOOLEAN DEFAULT false,
         hot_lead_detection BOOLEAN DEFAULT false,
         response_delay VARCHAR(50),
-        
+
         -- Chatbot specific
         proactive_engagement BOOLEAN DEFAULT false,
         collect_contact_info BOOLEAN DEFAULT false,
-        
+
+        -- Escalation (all channels)
+        escalation_enabled BOOLEAN DEFAULT false,
+        escalation_triggers TEXT,
+        escalation_message TEXT,
+
+        -- Automated follow-ups (email channel)
+        followup_enabled BOOLEAN DEFAULT false,
+        followup_delay_days INTEGER DEFAULT 3,
+        followup_max_count INTEGER DEFAULT 2,
+
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        
+
         UNIQUE(customer_id, channel)
       )
     `);
-    
+
+    // Add new columns to existing tables (safe no-ops if already present)
+    const alterations = [
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS escalation_enabled BOOLEAN DEFAULT false`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS escalation_triggers TEXT`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS escalation_message TEXT`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS followup_enabled BOOLEAN DEFAULT false`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS followup_delay_days INTEGER DEFAULT 3`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS followup_max_count INTEGER DEFAULT 2`,
+    ];
+    for (const sql of alterations) {
+      try { await client.query(sql); } catch (_) {}
+    }
+
     console.log('✅ Ensured ai_channel_settings table exists');
   } catch (error) {
     if (!error.message.includes('already exists')) {

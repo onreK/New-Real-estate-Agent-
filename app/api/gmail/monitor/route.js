@@ -655,6 +655,15 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
 
     console.log(`✅ Processed ${processedCount} emails, filtered ${filteredCount}, created/updated ${leadsCreated} leads`);
 
+    // Run follow-up check after processing new emails
+    let followupsSent = 0;
+    if (dbConnectionId) {
+      followupsSent = await checkForFollowUps(gmail, connection, dbConnectionId);
+      if (followupsSent > 0) {
+        console.log(`📨 Sent ${followupsSent} automated follow-up(s)`);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Found ${messages.length} emails, processed ${processedCount}, filtered ${filteredCount}, leads: ${leadsCreated}`,
@@ -665,6 +674,7 @@ async function checkForNewEmails(gmail, connection, dbConnectionId) {
       totalFiltered: filteredCount,
       blacklistedCount: blacklistedCount,
       leadsCreatedOrUpdated: leadsCreated,
+      followupsSent: followupsSent,
       processingTime: Date.now() - startTime
     });
     
@@ -1081,6 +1091,148 @@ ${businessName}`;
       error: 'Failed to generate response',
       details: error.message
     }, { status: 500 });
+  }
+}
+
+// ─── AUTOMATED FOLLOW-UPS ────────────────────────────────────────────────────
+// Finds threads where the AI's last reply went unanswered for N days and
+// sends a friendly re-engagement email. Called during the email check cycle.
+
+async function checkForFollowUps(gmail, connection, dbConnectionId) {
+  try {
+    // Ensure follow-up tracking columns exist (safe no-op after first run)
+    await query(`
+      ALTER TABLE gmail_conversations
+        ADD COLUMN IF NOT EXISTS followup_count INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS last_followup_at TIMESTAMP
+    `).catch(() => {});
+
+    // Load this customer's follow-up settings
+    const settingsResult = await query(`
+      SELECT acs.followup_enabled, acs.followup_delay_days, acs.followup_max_count,
+             c.id as customer_id
+      FROM gmail_connections gc
+      JOIN customers c ON gc.user_id = c.clerk_user_id
+      LEFT JOIN ai_channel_settings acs ON c.id = acs.customer_id AND acs.channel = 'email'
+      WHERE gc.id = $1
+      LIMIT 1
+    `, [dbConnectionId]);
+
+    const settings = settingsResult.rows[0];
+    if (!settings?.followup_enabled) return 0;
+
+    const delayDays = settings.followup_delay_days || 3;
+    const maxCount  = settings.followup_max_count  || 2;
+
+    // Find threads where:
+    // - Last AI reply was sent >= delayDays ago
+    // - Customer has NOT replied since then
+    // - We haven't exceeded max follow-ups
+    const threadsResult = await query(`
+      SELECT
+        gc.id, gc.thread_id, gc.customer_email, gc.customer_name, gc.subject,
+        gc.followup_count, gc.last_ai_response_at,
+        gm.message_id_header as last_msg_id_header
+      FROM gmail_conversations gc
+      LEFT JOIN gmail_messages gm ON gm.conversation_id = gc.id
+        AND gm.sender_type = 'ai'
+        AND gm.sent_at = gc.last_ai_response_at
+      WHERE
+        gc.gmail_connection_id = $1
+        AND gc.status = 'active'
+        AND gc.last_ai_response_at IS NOT NULL
+        AND gc.last_ai_response_at < NOW() - ($2 || ' days')::INTERVAL
+        AND (gc.followup_count IS NULL OR gc.followup_count < $3)
+        AND (
+          gc.last_followup_at IS NULL
+          OR gc.last_followup_at < NOW() - ($2 || ' days')::INTERVAL
+        )
+        AND (
+          gc.last_customer_message_at IS NULL
+          OR gc.last_customer_message_at < gc.last_ai_response_at
+        )
+      ORDER BY gc.last_ai_response_at ASC
+      LIMIT 5
+    `, [dbConnectionId, delayDays, maxCount]);
+
+    let followupsSent = 0;
+
+    for (const thread of threadsResult.rows) {
+      try {
+        // Load thread history so the AI knows what was discussed
+        const historyResult = await query(`
+          SELECT sender_type, body_text, sent_at
+          FROM gmail_messages
+          WHERE conversation_id = $1 AND body_text IS NOT NULL
+          ORDER BY sent_at ASC LIMIT 10
+        `, [thread.id]);
+
+        const conversationHistory = historyResult.rows.map(row => ({
+          role: row.sender_type === 'ai' ? 'assistant' : 'user',
+          content: row.body_text.substring(0, 600)
+        }));
+
+        // Generate a warm, brief follow-up message
+        const followUpPrompt = `The customer has not replied since your last message about "${thread.subject}". Write a brief, friendly follow-up to check in and re-engage them. Keep it short — 2-3 sentences.`;
+
+        const aiResult = await generateGmailResponse(
+          connection.email,
+          followUpPrompt,
+          thread.subject,
+          conversationHistory,
+          connection.user_id,
+          thread.customer_email
+        );
+
+        if (!aiResult.success) continue;
+
+        // Send via Gmail API in the same thread
+        const replySubject = thread.subject?.startsWith('Re:') ? thread.subject : `Re: ${thread.subject}`;
+        const rawMessage = [
+          `From: ${connection.email}`,
+          `To: ${thread.customer_email}`,
+          `Subject: ${replySubject}`,
+          ...(thread.last_msg_id_header ? [`In-Reply-To: ${thread.last_msg_id_header}`, `References: ${thread.last_msg_id_header}`] : []),
+          'Content-Type: text/plain; charset="UTF-8"',
+          '',
+          aiResult.response
+        ].join('\r\n');
+
+        const encoded = Buffer.from(rawMessage)
+          .toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+
+        await withTimeout(
+          gmail.users.messages.send({
+            userId: 'me',
+            requestBody: { raw: encoded, threadId: thread.thread_id }
+          }),
+          10000,
+          'Follow-up send'
+        );
+
+        // Update tracking counters
+        await query(`
+          UPDATE gmail_conversations
+          SET followup_count  = COALESCE(followup_count, 0) + 1,
+              last_followup_at = CURRENT_TIMESTAMP,
+              updated_at       = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [thread.id]);
+
+        console.log(`📨 Follow-up sent to ${thread.customer_email} (thread: ${thread.thread_id})`);
+        followupsSent++;
+      } catch (threadErr) {
+        console.error(`❌ Follow-up failed for thread ${thread.thread_id}:`, threadErr.message);
+      }
+    }
+
+    return followupsSent;
+  } catch (err) {
+    console.error('❌ Follow-up check error:', err.message);
+    return 0;
   }
 }
 

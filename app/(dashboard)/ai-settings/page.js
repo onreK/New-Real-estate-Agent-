@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   Mail, Users, Star, Phone, MessageCircle,
   RefreshCw, Sliders, Shield, Bot, Cpu, Save,
-  CheckCircle, AlertCircle
+  CheckCircle, AlertCircle, AlertTriangle, Clock
 } from 'lucide-react';
 
 const TABS = [
@@ -23,6 +23,12 @@ const DEFAULT_CHANNEL = {
   responseLength: 'Short',
   knowledgeBase: '',
   customInstructions: '',
+  escalationEnabled: false,
+  escalationTriggers: '',
+  escalationMessage: '',
+  followupEnabled: false,
+  followupDelayDays: 3,
+  followupMaxCount: 2,
 };
 
 const inputClass = "w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500 text-sm";
@@ -115,6 +121,38 @@ function SharedFields({ channel, ch, update, accentColor = 'text-violet-400' }) 
           <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-40 resize-none`} />
         </Section>
       </div>
+
+      {/* Escalation Handling */}
+      <Section icon={AlertTriangle} iconColor="text-amber-400" title="Escalation Handling">
+        <p className="text-xs text-gray-500 mb-4">When the AI detects a situation it cannot handle (angry customers, legal questions, explicit requests for a human), it will step aside and send your custom message instead.</p>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm text-gray-300 font-medium">Enable escalation</span>
+          <Toggle checked={ch.escalationEnabled || false} onChange={e => update(channel, 'escalationEnabled', e.target.checked)} />
+        </div>
+        {ch.escalationEnabled && (
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1.5">Trigger keywords <span className="text-gray-600">(comma-separated)</span></label>
+              <input
+                placeholder="e.g. speak to human, lawsuit, refund, furious, manager"
+                value={ch.escalationTriggers || ''}
+                onChange={e => update(channel, 'escalationTriggers', e.target.value)}
+                className={inputClass}
+              />
+              <p className="text-xs text-gray-600 mt-1">Leave blank to let the AI decide on its own — it's already instructed to flag situations it can't handle.</p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1.5">Escalation message</label>
+              <textarea
+                placeholder="e.g. Thank you for reaching out. A member of our team will contact you personally within 24 hours to assist you directly."
+                value={ch.escalationMessage || ''}
+                onChange={e => update(channel, 'escalationMessage', e.target.value)}
+                className={`${inputClass} h-24 resize-none`}
+              />
+            </div>
+          </div>
+        )}
+      </Section>
     </>
   );
 }
@@ -237,6 +275,55 @@ export default function AISettingsPage() {
         {activeTab === 'email' && (
           <>
             <SharedFields channel="email" ch={ch} update={update} accentColor="text-blue-400" />
+
+            {/* Automated Follow-ups — email only */}
+            <Section icon={Clock} iconColor="text-blue-400" title="Automated Follow-ups">
+              <p className="text-xs text-gray-500 mb-4">If a lead goes silent after the AI's last reply, automatically send a friendly follow-up to re-engage them.</p>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm text-gray-300 font-medium">Enable follow-ups</span>
+                <Toggle checked={ch.followupEnabled || false} onChange={e => update('email', 'followupEnabled', e.target.checked)} />
+              </div>
+              {ch.followupEnabled && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-2">Send follow-up after</label>
+                    <div className="flex gap-2">
+                      {[2, 3, 5, 7].map(days => (
+                        <button
+                          key={days}
+                          onClick={() => update('email', 'followupDelayDays', days)}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            (ch.followupDelayDays || 3) === days
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
+                          }`}
+                        >
+                          {days}d
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-2">Max follow-ups per lead</label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3].map(n => (
+                        <button
+                          key={n}
+                          onClick={() => update('email', 'followupMaxCount', n)}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            (ch.followupMaxCount || 2) === n
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
+                          }`}
+                        >
+                          {n}×
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Section>
           </>
         )}
 
