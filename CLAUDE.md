@@ -233,6 +233,12 @@ BizzyBot gives businesses an AI agent that:
 - Added "Added [date]" subtitle under Last Activity column — stacks in same cell, no extra column width
 - Updated sort dropdown: added "Sort by Date Added", removed "Sort by Stage" (covered by Stage filter), renamed "Sort by Recent" → "Sort by Last Active"
 
+**Next priorities:**
+- [ ] Add "Last Active" toggle to date filter row (discussed, not built — lets users filter leads by when they last engaged vs when they were added)
+- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
+
 ---
 
 ### Session — 2026-05-21 (continued)
