@@ -23,6 +23,8 @@ import {
   AlertCircle,
   CheckCircle,
   Trash2,
+  ArrowUp,
+  ArrowDown,
   DollarSign
 } from 'lucide-react';
 
@@ -39,7 +41,10 @@ export default function LeadsPage() {
   const [channelStats, setChannelStats] = useState({});
   const [stageUpdates, setStageUpdates] = useState({});
   const [stageFilter, setStageFilter] = useState('all');
-  
+  const [dateFilter, setDateFilter] = useState('all');
+  const [sortDir, setSortDir] = useState('desc');
+  const [channelFilter, setChannelFilter] = useState('all');
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [leadsPerPage] = useState(10); // Show 10 leads per page
@@ -59,12 +64,12 @@ export default function LeadsPage() {
 
   useEffect(() => {
     filterAndSortLeads();
-  }, [leads, searchTerm, temperatureFilter, stageFilter, sortBy, stageUpdates]);
+  }, [leads, searchTerm, temperatureFilter, stageFilter, sortBy, stageUpdates, dateFilter, sortDir, channelFilter]);
 
   useEffect(() => {
     // Reset to first page when filters change
     setCurrentPage(1);
-  }, [searchTerm, temperatureFilter, stageFilter, sortBy]);
+  }, [searchTerm, temperatureFilter, stageFilter, sortBy, dateFilter, channelFilter]);
 
   const fetchLeads = async () => {
     try {
@@ -146,9 +151,9 @@ export default function LeadsPage() {
   const filterAndSortLeads = () => {
     let filtered = [...leads];
 
-    // Apply search filter
+    // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(lead => 
+      filtered = filtered.filter(lead =>
         lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.phone?.includes(searchTerm) ||
         lead.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -156,12 +161,12 @@ export default function LeadsPage() {
       );
     }
 
-    // Apply temperature filter
+    // Temperature filter
     if (temperatureFilter !== 'all') {
       filtered = filtered.filter(lead => lead.temperature === temperatureFilter);
     }
 
-    // Apply stage filter
+    // Stage filter
     if (stageFilter !== 'all') {
       filtered = filtered.filter(lead => {
         const leadStage = stageUpdates[lead.id] ?? lead.status ?? 'new';
@@ -169,23 +174,43 @@ export default function LeadsPage() {
       });
     }
 
-    // Apply sorting
+    // Channel filter
+    if (channelFilter !== 'all') {
+      filtered = filtered.filter(lead => lead.primary_channel === channelFilter);
+    }
+
+    // Date filter — by when the lead was first created
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const cutoff = {
+        today: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+        '7d':  new Date(now - 7  * 24 * 60 * 60 * 1000),
+        '30d': new Date(now - 30 * 24 * 60 * 60 * 1000),
+        '90d': new Date(now - 90 * 24 * 60 * 60 * 1000),
+      }[dateFilter];
+      filtered = filtered.filter(lead =>
+        new Date(lead.created_at || lead.last_interaction) >= cutoff
+      );
+    }
+
+    // Sorting with direction
+    const dir = sortDir === 'asc' ? 1 : -1;
     switch (sortBy) {
       case 'score':
-        filtered.sort((a, b) => b.score - a.score);
+        filtered.sort((a, b) => dir * (b.score - a.score));
         break;
       case 'recent':
-        filtered.sort((a, b) => new Date(b.last_interaction) - new Date(a.last_interaction));
+        filtered.sort((a, b) => dir * (new Date(b.last_interaction) - new Date(a.last_interaction)));
         break;
       case 'value':
-        filtered.sort((a, b) => b.potential_value - a.potential_value);
+        filtered.sort((a, b) => dir * (b.potential_value - a.potential_value));
         break;
       case 'stage': {
         const stageOrder = { new: 0, contacted: 1, qualified: 2, converted: 3, lost: 4 };
         filtered.sort((a, b) => {
           const aStage = stageUpdates[a.id] ?? a.status ?? 'new';
           const bStage = stageUpdates[b.id] ?? b.status ?? 'new';
-          return (stageOrder[aStage] ?? 0) - (stageOrder[bStage] ?? 0);
+          return dir * ((stageOrder[bStage] ?? 0) - (stageOrder[aStage] ?? 0));
         });
         break;
       }
@@ -435,10 +460,12 @@ export default function LeadsPage() {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-[#161B22] border border-gray-800 rounded-xl p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="bg-[#161B22] border border-gray-800 rounded-xl p-6 mb-6 space-y-4">
+
+          {/* Row 1: Search + Temperature + Channel + Stage + Sort + Export */}
+          <div className="flex flex-col lg:flex-row gap-3 flex-wrap">
             {/* Search */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <input
@@ -453,50 +480,40 @@ export default function LeadsPage() {
 
             {/* Temperature Filter */}
             <div className="flex gap-2">
-              <button
-                onClick={() => setTemperatureFilter('all')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  temperatureFilter === 'all' 
-                    ? 'bg-purple-600 hover:bg-purple-700 text-white' 
-                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setTemperatureFilter('hot')}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
-                  temperatureFilter === 'hot' 
-                    ? 'bg-red-600 hover:bg-red-700 text-white' 
-                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Flame className="w-4 h-4" />
-                Hot
-              </button>
-              <button
-                onClick={() => setTemperatureFilter('warm')}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
-                  temperatureFilter === 'warm' 
-                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Thermometer className="w-4 h-4" />
-                Warm
-              </button>
-              <button
-                onClick={() => setTemperatureFilter('cold')}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
-                  temperatureFilter === 'cold' 
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                    : 'bg-[#161B22] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Snowflake className="w-4 h-4" />
-                Cold
-              </button>
+              {[
+                { val: 'all',  label: 'All',  active: 'bg-purple-600 text-white', icon: null },
+                { val: 'hot',  label: 'Hot',  active: 'bg-red-600 text-white',    icon: <Flame className="w-4 h-4" /> },
+                { val: 'warm', label: 'Warm', active: 'bg-orange-600 text-white', icon: <Thermometer className="w-4 h-4" /> },
+                { val: 'cold', label: 'Cold', active: 'bg-blue-600 text-white',   icon: <Snowflake className="w-4 h-4" /> },
+              ].map(({ val, label, active, icon }) => (
+                <button
+                  key={val}
+                  onClick={() => setTemperatureFilter(val)}
+                  className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1 ${
+                    temperatureFilter === val
+                      ? active
+                      : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {icon}{label}
+                </button>
+              ))}
             </div>
+
+            {/* Channel Filter */}
+            <select
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value)}
+              className="px-4 py-2 bg-[#0D1117] border border-gray-800 text-white rounded-lg focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22] [&>option]:text-white"
+              style={{ colorScheme: 'dark' }}
+            >
+              <option value="all">All Channels</option>
+              <option value="email">Email</option>
+              <option value="sms">SMS</option>
+              <option value="facebook">Facebook</option>
+              <option value="instagram">Instagram</option>
+              <option value="chat">Web Chat</option>
+            </select>
 
             {/* Stage Filter */}
             <select
@@ -505,26 +522,35 @@ export default function LeadsPage() {
               className="px-4 py-2 bg-[#0D1117] border border-gray-800 text-white rounded-lg focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22] [&>option]:text-white"
               style={{ colorScheme: 'dark' }}
             >
-              <option value="all" className="bg-gray-800 text-white">All Stages</option>
-              <option value="new" className="bg-gray-800 text-white">New</option>
-              <option value="contacted" className="bg-gray-800 text-white">Contacted</option>
-              <option value="qualified" className="bg-gray-800 text-white">Qualified</option>
-              <option value="converted" className="bg-gray-800 text-white">Converted</option>
-              <option value="lost" className="bg-gray-800 text-white">Lost</option>
+              <option value="all">All Stages</option>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="qualified">Qualified</option>
+              <option value="converted">Converted</option>
+              <option value="lost">Lost</option>
             </select>
 
-            {/* Sort Options */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 bg-[#0D1117] border border-gray-800 text-white rounded-lg focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22] [&>option]:text-white"
-              style={{ colorScheme: 'dark' }}
-            >
-              <option value="recent" className="bg-gray-800 text-white">Sort by Recent</option>
-              <option value="score" className="bg-gray-800 text-white">Sort by Score</option>
-              <option value="value" className="bg-gray-800 text-white">Sort by Value</option>
-              <option value="stage" className="bg-gray-800 text-white">Sort by Stage</option>
-            </select>
+            {/* Sort + Direction Toggle */}
+            <div className="flex items-center gap-1">
+              <select
+                value={sortBy}
+                onChange={(e) => { setSortBy(e.target.value); setSortDir('desc'); }}
+                className="px-4 py-2 bg-[#0D1117] border border-gray-800 text-white rounded-lg focus:outline-none focus:border-violet-500 [&>option]:bg-[#161B22] [&>option]:text-white"
+                style={{ colorScheme: 'dark' }}
+              >
+                <option value="recent">Sort by Recent</option>
+                <option value="score">Sort by Score</option>
+                <option value="value">Sort by Value</option>
+                <option value="stage">Sort by Stage</option>
+              </select>
+              <button
+                onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+                title={sortDir === 'desc' ? 'Descending — click to reverse' : 'Ascending — click to reverse'}
+                className="p-2 bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600 rounded-lg transition-colors"
+              >
+                {sortDir === 'desc' ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+              </button>
+            </div>
 
             {/* Export Button */}
             <button
@@ -534,6 +560,32 @@ export default function LeadsPage() {
               <Download className="w-4 h-4" />
               Export CSV
             </button>
+          </div>
+
+          {/* Row 2: Date Filter */}
+          <div className="flex items-center gap-3 pt-3 border-t border-gray-800/60">
+            <span className="text-xs text-gray-500 flex-shrink-0">Date added:</span>
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { val: 'all',   label: 'All time' },
+                { val: 'today', label: 'Today' },
+                { val: '7d',    label: '7 Days' },
+                { val: '30d',   label: '30 Days' },
+                { val: '90d',   label: '90 Days' },
+              ].map(({ val, label }) => (
+                <button
+                  key={val}
+                  onClick={() => setDateFilter(val)}
+                  className={`px-3 py-1 rounded-lg text-xs transition-colors ${
+                    dateFilter === val
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
