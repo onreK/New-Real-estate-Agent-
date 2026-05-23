@@ -1,5 +1,6 @@
 // ConnectionsTab.js - Dark theme component for the Connections tab
 import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -19,6 +20,8 @@ import {
 } from 'lucide-react';
 
 export default function ConnectionsTab() {
+  const { user } = useUser();
+
   // Connection states
   const [gmailConnection, setGmailConnection] = useState({ connected: false, email: '' });
   const [domainConnection, setDomainConnection] = useState({ configured: false });
@@ -62,8 +65,8 @@ export default function ConnectionsTab() {
   const connectGmail = async () => {
     setLoadingGmail(true);
     try {
-      // Redirect to Gmail OAuth
-      window.location.href = '/api/auth/google';
+      // Redirect to Gmail OAuth — include userId so it's stored correctly
+      window.location.href = `/api/auth/google?userId=${user?.id || ''}`;
     } catch (error) {
       console.error('Error connecting Gmail:', error);
       setMessage({ type: 'error', text: 'Error connecting to Gmail. Please try again.' });

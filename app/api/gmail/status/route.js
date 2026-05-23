@@ -1,121 +1,48 @@
-// app/api/gmail/status/route.js
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/database.js';
 
-export async function GET(request) {
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
   try {
-    console.log('📧 Checking Gmail connection status...');
+    const { userId } = auth();
 
     let connection = null;
-    
-    // Method 1: Try to get connection from database first
-    try {
-      const dbResult = await query(`
-        SELECT * FROM gmail_connections 
-        WHERE status = 'connected' 
-        ORDER BY updated_at DESC 
-        LIMIT 1
-      `);
-      
-      if (dbResult.rows.length > 0) {
-        const dbConnection = dbResult.rows[0];
-        connection = {
-          id: dbConnection.id,
-          email: dbConnection.gmail_email,
-          status: dbConnection.status,
-          connectedAt: dbConnection.created_at,
-          source: 'database'
-        };
-        console.log('✅ Found Gmail connection in database:', connection.email);
-      }
-    } catch (dbError) {
-      console.log('⚠️ Database lookup failed, checking memory:', dbError.message);
-    }
 
-    // Method 2: Fallback to memory storage
-    if (!connection && global.gmailConnections) {
-      console.log('🔍 Checking memory storage for Gmail connections...');
-      console.log('Memory connections available:', global.gmailConnections.size);
-      
-      const memoryConnections = Array.from(global.gmailConnections.values());
-      if (memoryConnections.length > 0) {
-        const memoryConnection = memoryConnections[0]; // Get first connection
-        connection = {
-          email: memoryConnection.email,
-          status: memoryConnection.status || 'connected',
-          connectedAt: memoryConnection.connectedAt,
-          source: 'memory'
-        };
-        console.log('✅ Found Gmail connection in memory:', connection.email);
-      }
-    }
-
-    // Method 3: Check for test connection (kernojunk@gmail.com)
-    if (!connection) {
-      console.log('🔍 Checking for test Gmail connection...');
-      // Since your test shows kernojunk@gmail.com is connected, let's detect it
-      if (global.gmailConnections) {
-        // Look for any connection that might be the test account
-        const allConnections = Array.from(global.gmailConnections.entries());
-        console.log('All memory connections:', allConnections.map(([key, value]) => ({ key, email: value.email })));
-        
-        // Find kernojunk connection specifically
-        const testConnection = allConnections.find(([key, value]) => 
-          value.email === 'kernojunk@gmail.com' || 
-          value.email?.includes('kernojunk') ||
-          key.includes('kernojunk')
+    // Method 1: Look up by authenticated Clerk user ID
+    if (userId) {
+      try {
+        const dbResult = await query(
+          `SELECT * FROM gmail_connections WHERE user_id = $1 AND status = 'connected' ORDER BY updated_at DESC LIMIT 1`,
+          [userId]
         );
-        
-        if (testConnection) {
-          const [key, value] = testConnection;
-          connection = {
-            email: value.email || 'kernojunk@gmail.com',
-            status: 'connected',
-            connectedAt: value.connectedAt || new Date().toISOString(),
-            source: 'memory-test'
-          };
-          console.log('✅ Found test Gmail connection:', connection.email);
+        if (dbResult.rows.length > 0) {
+          const row = dbResult.rows[0];
+          connection = { id: row.id, email: row.gmail_email, status: row.status, connectedAt: row.created_at, source: 'database-user' };
         }
+      } catch (dbError) {
+        console.error('DB lookup by user_id failed:', dbError.message);
       }
     }
 
-    // Method 4: Last resort - assume kernojunk@gmail.com is connected based on test page
-    if (!connection) {
-      console.log('🎯 Using fallback test connection');
-      connection = {
-        email: 'kernojunk@gmail.com',
-        status: 'connected',
-        connectedAt: new Date().toISOString(),
-        source: 'fallback'
-      };
+    // Method 2: Check in-memory store by user ID
+    if (!connection && userId && global.gmailConnections) {
+      const memConn = global.gmailConnections.get(userId);
+      if (memConn) {
+        connection = { email: memConn.email, status: memConn.status || 'connected', connectedAt: memConn.connectedAt, source: 'memory' };
+      }
     }
-
-    console.log('📊 Final connection status:', connection);
 
     return NextResponse.json({
       success: true,
       connected: !!connection,
       connection: connection,
-      message: connection 
-        ? `Gmail connected: ${connection.email}` 
-        : 'No Gmail connection found',
-      debug: {
-        databaseChecked: true,
-        memoryChecked: !!global.gmailConnections,
-        memorySize: global.gmailConnections?.size || 0,
-        source: connection?.source
-      }
+      message: connection ? `Gmail connected: ${connection.email}` : 'No Gmail connection found'
     });
 
   } catch (error) {
-    console.error('❌ Error checking Gmail status:', error);
-    
-    return NextResponse.json({
-      success: false,
-      connected: false,
-      connection: null,
-      error: 'Failed to check Gmail status',
-      details: error.message
-    }, { status: 500 });
+    console.error('Error checking Gmail status:', error);
+    return NextResponse.json({ success: false, connected: false, connection: null, error: 'Failed to check Gmail status' }, { status: 500 });
   }
 }
