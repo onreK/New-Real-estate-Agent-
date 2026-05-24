@@ -72,15 +72,26 @@ function ChannelDots({ gmail, sms, facebook }) {
 function exportCSV(customers) {
   const headers = [
     'Business Name', 'Email', 'Phone', 'Plan', 'Status',
+    'Industry', 'Company Size', 'Website', 'Address', 'City', 'State', 'ZIP', 'Country',
+    'Business Description',
     'Signed Up', 'Trial Ends', 'Churned At', 'Last Active',
     'AI Interactions', 'Email Connected', 'SMS Connected', 'Stripe Customer ID',
   ];
   const rows = customers.map(c => [
     c.business_name || '',
     c.email || '',
-    c.phone || '',
+    c.contact_phone || c.phone || '',
     c.plan || '',
     c.subscription_status || (c.is_on_trial ? 'trialing' : 'free'),
+    c.industry || '',
+    c.employee_count || '',
+    c.website || '',
+    c.address || '',
+    c.city || '',
+    c.state || '',
+    c.zip_code || '',
+    c.country || '',
+    c.description || '',
     fmt(c.created_at),
     fmt(c.trial_ends_at),
     fmt(c.churned_at),

@@ -43,11 +43,15 @@ export async function GET() {
 
     const result = await query(`
       SELECT
-        id, clerk_user_id, business_name, email, phone, plan,
-        subscription_status, stripe_customer_id, stripe_subscription_id,
-        trial_ends_at, churned_at, last_active_at, created_at, updated_at
-      FROM customers
-      ORDER BY created_at DESC
+        c.id, c.clerk_user_id, c.business_name, c.email, c.phone, c.plan,
+        c.subscription_status, c.stripe_customer_id, c.stripe_subscription_id,
+        c.trial_ends_at, c.churned_at, c.last_active_at, c.created_at, c.updated_at,
+        bp.industry, bp.website, bp.address, bp.city, bp.state,
+        bp.zip_code, bp.country, bp.employee_count, bp.description,
+        COALESCE(bp.phone, c.phone) AS contact_phone
+      FROM customers c
+      LEFT JOIN business_profiles bp ON c.id = bp.customer_id
+      ORDER BY c.created_at DESC
     `);
 
     const customers = result.rows;

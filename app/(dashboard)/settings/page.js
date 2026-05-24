@@ -175,18 +175,18 @@ export default function SettingsPage() {
         const data = await response.json();
         if (data.profile) {
           setBusinessProfile({
-            companyName: data.profile.company_name || '',
+            companyName: data.profile.businessName || '',
             industry: data.profile.industry || '',
-            companySize: data.profile.company_size || '',
+            companySize: data.profile.employeeCount || '',
             website: data.profile.website || '',
-            addressLine1: data.profile.address_line1 || '',
-            addressLine2: data.profile.address_line2 || '',
+            addressLine1: data.profile.address || '',
+            addressLine2: '',
             city: data.profile.city || '',
             state: data.profile.state || '',
-            postalCode: data.profile.postal_code || '',
+            postalCode: data.profile.zipCode || '',
             country: data.profile.country || 'United States',
-            businessPhone: data.profile.business_phone || '',
-            businessEmail: data.profile.business_email || '',
+            businessPhone: data.profile.phone || '',
+            businessEmail: '',
             description: data.profile.description || ''
           });
         }
@@ -286,12 +286,24 @@ export default function SettingsPage() {
   const handleSaveBusinessProfile = async () => {
     setSaving(true);
     setMessage({ type: '', text: '' });
-    
+
     try {
       const response = await fetch('/api/customer/update-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(businessProfile)
+        body: JSON.stringify({
+          businessName: businessProfile.companyName,
+          industry: businessProfile.industry,
+          employeeCount: businessProfile.companySize,
+          website: businessProfile.website,
+          address: [businessProfile.addressLine1, businessProfile.addressLine2].filter(Boolean).join(', '),
+          city: businessProfile.city,
+          state: businessProfile.state,
+          zipCode: businessProfile.postalCode,
+          country: businessProfile.country,
+          phone: businessProfile.businessPhone,
+          description: businessProfile.description,
+        })
       });
 
       if (response.ok) {
