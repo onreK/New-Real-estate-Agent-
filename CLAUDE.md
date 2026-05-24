@@ -215,6 +215,36 @@ BizzyBot gives businesses an AI agent that:
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-24 (continued)
+**Landing page rebuild**
+
+- Replaced the old landing page (`app/page.js`) with an industry-leading design inspired by Linear/Vercel/Stripe
+- Background: `#070B14` near-black with a subtle CSS dot-grid overlay and a violet glow radial gradient behind the hero — adds depth without being distracting
+- Headline changed from generic "Your Business, Powered by AI" → outcome-driven "Every lead answered. While you sleep."
+- Added `DashboardPreview` component (defined at module scope, not inside the page component to prevent React remount bugs): a realistic mock of the actual dashboard showing lead scores, AI reply badges, hot lead chips, and an animated "monitoring 5 channels" status dot
+- Added social proof strip between hero and how-it-works: 5-star rating, "500+ businesses", three bold stats (< 60s response time, 94% lead capture, 3× meetings)
+- Replaced feature pills that broke flow with a clean "How it works" section — 3 numbered steps with gradient connector line
+- Feature section: 4 focused cards + 8-item capability checklist (automated follow-ups, lead scoring, escalation, multi-channel inbox, analytics, document link sending, Facebook/Instagram DMs, custom AI tone)
+- Testimonials section: 3 cards (Medical, Home Services, Fitness) with star ratings
+- Pricing section: $29 Starter / $69 Professional / $199 Business — matching actual plan structure; "Most popular" badge on Professional; 14-day free trial on all CTAs
+- Final CTA: glowing dark card with "Start for free. See results this week." and a single trial button
+- Footer simplified to logo + 3 links (Privacy, Terms, Demo) + copyright
+- Contact form removed — Clerk sign-up modal is the conversion point; form added friction with no clear benefit
+- SignedIn redirect redesigned to dark spinner matching overall page theme
+- All IntersectionObserver JS, formData state, and handleSubmit handler removed (unneeded complexity)
+
+**Key files changed:**
+- `app/page.js` — complete rewrite (~540 lines)
+
+**Next priorities:**
+- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
+- [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
+- [ ] Railway cron job to trigger follow-ups when dashboard isn't open
+
+---
+
 ### Session — 2026-05-24
 **Document link sending**
 
