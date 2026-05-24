@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   Mail, Users, Star, Phone, MessageCircle,
   RefreshCw, Sliders, Shield, Bot, Cpu, Save,
-  CheckCircle, AlertCircle, AlertTriangle, Clock
+  CheckCircle, AlertCircle, AlertTriangle, Clock, FileText
 } from 'lucide-react';
 
 const TABS = [
@@ -29,6 +29,8 @@ const DEFAULT_CHANNEL = {
   followupEnabled: false,
   followupDelayDays: 3,
   followupMaxCount: 2,
+  documentLink: '',
+  documentDescription: '',
 };
 
 const inputClass = "w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500 text-sm";
@@ -121,6 +123,37 @@ function SharedFields({ channel, ch, update, accentColor = 'text-violet-400' }) 
           <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-40 resize-none`} />
         </Section>
       </div>
+
+      {/* Document to Send */}
+      <Section icon={FileText} iconColor="text-emerald-400" title="Document / Form to Send Leads">
+        <p className="text-xs text-gray-500 mb-4">Paste a link to any document you need leads to complete before you begin — a waiver, intake form, service agreement, or anything else. The AI will include it automatically when a lead is qualified and ready to move forward.</p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1.5">Document name <span className="text-gray-600">(shown to the lead)</span></label>
+            <input
+              placeholder="e.g. Liability Waiver, Service Agreement, Intake Form"
+              value={ch.documentDescription || ''}
+              onChange={e => update(channel, 'documentDescription', e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1.5">Document link</label>
+            <input
+              type="url"
+              placeholder="https://docs.google.com/... or your DocuSign/PandaDoc link"
+              value={ch.documentLink || ''}
+              onChange={e => update(channel, 'documentLink', e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          {ch.documentLink && ch.documentDescription && (
+            <p className="text-xs text-emerald-500">
+              The AI will include this link when a lead is qualified and ready to proceed.
+            </p>
+          )}
+        </div>
+      </Section>
 
       {/* Escalation Handling */}
       <Section icon={AlertTriangle} iconColor="text-amber-400" title="Escalation Handling">

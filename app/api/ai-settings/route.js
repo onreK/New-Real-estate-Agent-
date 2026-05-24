@@ -54,6 +54,9 @@ export async function GET() {
           followupEnabled: row.followup_enabled || false,
           followupDelayDays: row.followup_delay_days || 3,
           followupMaxCount: row.followup_max_count || 2,
+          // Document link
+          documentLink: row.document_link || '',
+          documentDescription: row.document_description || '',
           // Channel-specific settings
           ...(row.channel === 'facebook' && {
             autoRespondMessages: row.auto_respond_messages || false,
@@ -163,6 +166,8 @@ export async function POST(request) {
           followup_enabled: settings.followupEnabled || false,
           followup_delay_days: settings.followupDelayDays || 3,
           followup_max_count: settings.followupMaxCount || 2,
+          document_link: settings.documentLink || '',
+          document_description: settings.documentDescription || '',
         };
         
         // Add channel-specific fields
@@ -209,10 +214,11 @@ export async function POST(request) {
             proactive_engagement, collect_contact_info,
             escalation_enabled, escalation_triggers, escalation_message,
             followup_enabled, followup_delay_days, followup_max_count,
+            document_link, document_description,
             created_at, updated_at
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-            $18, $19, $20, $21, $22, $23,
+            $18, $19, $20, $21, $22, $23, $24, $25,
             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
           ) RETURNING *
         `;
@@ -247,6 +253,9 @@ export async function POST(request) {
           settings.followupEnabled || false,
           settings.followupDelayDays || 3,
           settings.followupMaxCount || 2,
+          // Document link
+          settings.documentLink || '',
+          settings.documentDescription || '',
         ];
       }
 
@@ -392,6 +401,8 @@ async function ensureChannelSettingsTableExists(client) {
       `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS followup_enabled BOOLEAN DEFAULT false`,
       `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS followup_delay_days INTEGER DEFAULT 3`,
       `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS followup_max_count INTEGER DEFAULT 2`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS document_link TEXT`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS document_description TEXT`,
     ];
     for (const sql of alterations) {
       try { await client.query(sql); } catch (_) {}
