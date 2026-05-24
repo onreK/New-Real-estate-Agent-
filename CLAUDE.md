@@ -215,6 +215,52 @@ BizzyBot gives businesses an AI agent that:
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-24 (continued x2)
+**Admin command center — trial tracking, churn tracking, CSV export**
+
+**Stripe webhook (`app/api/stripe/webhook/route.js`):**
+- All four billing events now write to the `customers` DB table in addition to Clerk metadata
+- `checkout.session.completed` → writes `plan`, `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `trial_ends_at`
+- `customer.subscription.updated` → updates `subscription_status` and `trial_ends_at` by `stripe_subscription_id` (fast indexed lookup, no full user list scan)
+- `customer.subscription.deleted` → sets `subscription_status = 'canceled'`, `churned_at = NOW()`, `plan = 'free'`
+- `invoice.payment_failed` → sets `subscription_status = 'past_due'`
+- Fixed `getUserList()` calls — added `limit: 500` (was silently returning only 10 users before)
+- Also updated plan detection to check `STRIPE_PROFESSIONAL_PRICE_ID` / `STRIPE_BUSINESS_PRICE_ID` env vars
+
+**Admin customers API (`app/api/admin/customers/route.js`):**
+- `ensureColumns()` adds 5 new columns on first load: `subscription_status`, `trial_ends_at`, `churned_at`, `last_active_at`, `phone`
+- Hardcoded `kernopay@gmail.com` as admin fallback (alongside `ADMIN_EMAIL` env var)
+- Returns enriched customer rows: `trial_days_left`, `is_on_trial`, `is_paid`, `is_churned`, `is_past_due`, `mrr_contribution`
+- `last_active_at` computed from latest message across `gmail_messages` + `messages` tables if DB column is empty
+- Channel connections: `has_gmail`, `has_sms`, `has_facebook`
+- Returns `summary` block: `mrr`, `arr`, `trial`, `paid`, `churned`, `past_due`, `expiring_soon`, `trial_conversion_rate`
+
+**Admin dashboard page (`app/admin/dashboard/page.js`) — full rebuild:**
+- 7-stat KPI row: MRR, ARR, paid count, trial count, churned count, past due, trial conversion %
+- Plan MRR breakdown cards with correct prices ($29/$69/$199 — was wrong at $49/$149/$499)
+- 5 tabs: All / Trial / Paid / Churned / Past Due — with live counts
+- Search bar: filter by name, email, or phone number
+- Table columns: Business, Email, Phone, Plan, Status, Trial/Joined, Last Active, AI Uses, Channels
+- Trial countdown badge — shows days remaining, turns red at 3 days or less with ⚠ warning
+- Churn date shown in Churned tab rows
+- Channel connection dots (Email / SMS / Facebook) — green = connected, gray = not
+- "Export CSV" button — downloads full customer list with all fields for due diligence / company sale
+- Footer note: "Export CSV contains all customer data needed for due diligence"
+
+**Key files changed:**
+- `app/api/stripe/webhook/route.js`
+- `app/api/admin/customers/route.js`
+- `app/admin/dashboard/page.js`
+
+**Next priorities:**
+- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
+- [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
+- [ ] Railway cron job to trigger follow-ups when dashboard isn't open
+
+---
+
 ### Session — 2026-05-24 (continued)
 **Landing page rebuild**
 
