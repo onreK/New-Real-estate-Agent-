@@ -14,9 +14,22 @@ async function isAdmin(userId) {
   try {
     const res = await query('SELECT email FROM customers WHERE clerk_user_id = $1 LIMIT 1', [userId]);
     const email = res.rows[0]?.email || '';
-    return email === process.env.ADMIN_EMAIL || email.includes('@bizzybotai.com');
+    return email === process.env.ADMIN_EMAIL || email === 'kernopay@gmail.com' || email.includes('@bizzybotai.com');
   } catch (_) {
     return false;
+  }
+}
+
+async function ensureColumns() {
+  const cols = [
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50)`,
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`,
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS churned_at TIMESTAMP`,
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP`,
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`,
+  ];
+  for (const sql of cols) {
+    try { await query(sql); } catch (_) {}
   }
 }
 
@@ -26,61 +39,126 @@ export async function GET() {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (!(await isAdmin(userId))) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
-    // Simple, safe query — no joins on tables that may not exist
+    await ensureColumns();
+
     const result = await query(`
       SELECT
-        id,
-        business_name,
-        email,
-        plan,
-        created_at,
-        stripe_customer_id,
-        clerk_user_id
+        id, clerk_user_id, business_name, name, email, phone, plan,
+        subscription_status, stripe_customer_id, stripe_subscription_id,
+        trial_ends_at, churned_at, last_active_at, created_at, updated_at
       FROM customers
       ORDER BY created_at DESC
     `);
 
     const customers = result.rows;
+    const ids = customers.map(c => c.id).filter(Boolean);
+    const clerkIds = customers.map(c => c.clerk_user_id).filter(Boolean);
 
-    // Separately check which customers have AI configs (table may not exist)
-    let aiConfigUsers = new Set();
-    try {
-      const aiRes = await query(`SELECT DISTINCT user_id FROM ai_configs WHERE user_id IS NOT NULL`);
-      aiConfigUsers = new Set(aiRes.rows.map(r => r.user_id));
-    } catch (_) {
-      // ai_configs table may not exist yet — that's fine
-    }
-
-    // Separately check which customers have Gmail connected (table may not exist)
-    let gmailUsers = new Set();
-    try {
-      const gmailRes = await query(`SELECT DISTINCT user_id FROM gmail_connections WHERE status = 'connected'`);
-      gmailUsers = new Set(gmailRes.rows.map(r => r.user_id));
-    } catch (_) {
-      // gmail_connections table may not exist yet — that's fine
-    }
-
-    // Separately get AI interaction counts (table may not exist)
+    // AI interaction counts
     let interactionMap = {};
     try {
-      const intRes = await query(`
-        SELECT customer_id, COUNT(*) as count
+      const r = await query(`
+        SELECT customer_id, COUNT(*) AS count
         FROM ai_analytics_events
+        WHERE customer_id = ANY($1::int[])
         GROUP BY customer_id
-      `);
-      intRes.rows.forEach(r => { interactionMap[r.customer_id] = parseInt(r.count); });
-    } catch (_) {
-      // ai_analytics_events table may not exist yet — that's fine
-    }
+      `, [ids]);
+      r.rows.forEach(row => { interactionMap[row.customer_id] = parseInt(row.count); });
+    } catch (_) {}
 
-    const enriched = customers.map(c => ({
-      ...c,
-      has_ai_config: aiConfigUsers.has(c.clerk_user_id),
-      has_gmail: gmailUsers.has(c.clerk_user_id),
-      ai_interactions: interactionMap[c.id] || 0,
-    }));
+    // Channel connections
+    let gmailSet = new Set(), twilioSet = new Set(), facebookSet = new Set();
+    try {
+      const r = await query(`SELECT DISTINCT user_id FROM gmail_connections WHERE status = 'connected' AND user_id = ANY($1::text[])`, [clerkIds]);
+      r.rows.forEach(row => gmailSet.add(row.user_id));
+    } catch (_) {}
+    try {
+      const r = await query(`SELECT DISTINCT clerk_user_id FROM twilio_numbers WHERE clerk_user_id = ANY($1::text[])`, [clerkIds]);
+      r.rows.forEach(row => twilioSet.add(row.clerk_user_id));
+    } catch (_) {}
+    try {
+      const r = await query(`SELECT DISTINCT user_id FROM facebook_connections WHERE status = 'connected' AND user_id = ANY($1::text[])`, [clerkIds]);
+      r.rows.forEach(row => facebookSet.add(row.user_id));
+    } catch (_) {}
 
-    return NextResponse.json({ success: true, customers: enriched });
+    // Last activity: latest message across gmail + sms per customer
+    let lastActivityMap = {};
+    try {
+      const r = await query(`
+        SELECT gc.user_id, MAX(gm.sent_at) AS last_at
+        FROM gmail_messages gm
+        JOIN gmail_conversations gc ON gm.conversation_id = gc.id
+        WHERE gc.user_id = ANY($1::text[])
+        GROUP BY gc.user_id
+      `, [clerkIds]);
+      r.rows.forEach(row => { lastActivityMap[row.user_id] = row.last_at; });
+    } catch (_) {}
+    try {
+      const r = await query(`
+        SELECT user_id, MAX(created_at) AS last_at
+        FROM messages
+        WHERE user_id = ANY($1::text[])
+        GROUP BY user_id
+      `, [clerkIds]);
+      r.rows.forEach(row => {
+        const existing = lastActivityMap[row.user_id];
+        if (!existing || new Date(row.last_at) > new Date(existing)) lastActivityMap[row.user_id] = row.last_at;
+      });
+    } catch (_) {}
+
+    const now = new Date();
+    const PLAN_MRR = { starter: 29, professional: 69, business: 199 };
+
+    const enriched = customers.map(c => {
+      const trialEnds = c.trial_ends_at
+        ? new Date(c.trial_ends_at)
+        : new Date(new Date(c.created_at).getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      const trialDaysLeft = Math.ceil((trialEnds - now) / (1000 * 60 * 60 * 24));
+      const isOnTrial = !c.subscription_status || c.subscription_status === 'trialing';
+      const isPaid = c.subscription_status === 'active';
+      const isChurned = c.subscription_status === 'canceled' || !!c.churned_at;
+      const isPastDue = c.subscription_status === 'past_due';
+
+      return {
+        ...c,
+        trial_ends_at: trialEnds.toISOString(),
+        trial_days_left: trialDaysLeft,
+        is_on_trial: isOnTrial && !isChurned,
+        is_paid: isPaid,
+        is_churned: isChurned,
+        is_past_due: isPastDue,
+        last_active_at: lastActivityMap[c.clerk_user_id] || c.last_active_at || c.updated_at,
+        ai_interactions: interactionMap[c.id] || 0,
+        has_gmail: gmailSet.has(c.clerk_user_id),
+        has_sms: twilioSet.has(c.clerk_user_id),
+        has_facebook: facebookSet.has(c.clerk_user_id),
+        mrr_contribution: isPaid ? (PLAN_MRR[c.plan] || 0) : 0,
+      };
+    });
+
+    const paid = enriched.filter(c => c.is_paid);
+    const trials = enriched.filter(c => c.is_on_trial);
+    const churned = enriched.filter(c => c.is_churned);
+    const mrr = paid.reduce((sum, c) => sum + c.mrr_contribution, 0);
+
+    return NextResponse.json({
+      success: true,
+      customers: enriched,
+      summary: {
+        total: enriched.length,
+        paid: paid.length,
+        trial: trials.length,
+        churned: churned.length,
+        past_due: enriched.filter(c => c.is_past_due).length,
+        mrr,
+        arr: mrr * 12,
+        expiring_soon: trials.filter(c => c.trial_days_left >= 0 && c.trial_days_left <= 3).length,
+        trial_conversion_rate: (paid.length + churned.length) > 0
+          ? Math.round((paid.length / (paid.length + churned.length)) * 100)
+          : 0,
+      },
+    });
   } catch (error) {
     console.error('❌ Admin customers error:', error);
     return NextResponse.json({ error: 'Failed to load customers', details: error.message }, { status: 500 });
