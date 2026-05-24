@@ -29,8 +29,7 @@ const DEFAULT_CHANNEL = {
   followupEnabled: false,
   followupDelayDays: 3,
   followupMaxCount: 2,
-  documentLink: '',
-  documentDescription: '',
+  documents: [],
 };
 
 const inputClass = "w-full px-4 py-2 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500 text-sm";
@@ -124,33 +123,53 @@ function SharedFields({ channel, ch, update, accentColor = 'text-violet-400' }) 
         </Section>
       </div>
 
-      {/* Document to Send */}
-      <Section icon={FileText} iconColor="text-emerald-400" title="Document / Form to Send Leads">
-        <p className="text-xs text-gray-500 mb-4">Paste a link to any document you need leads to complete before you begin — a waiver, intake form, service agreement, or anything else. The AI will include it automatically when a lead is qualified and ready to move forward.</p>
+      {/* Documents to Send */}
+      <Section icon={FileText} iconColor="text-emerald-400" title="Documents / Forms to Send Leads">
+        <p className="text-xs text-gray-500 mb-4">Add any documents leads need to complete before you begin — waivers, intake forms, service agreements, etc. The AI includes them naturally once a lead is ready to move forward.</p>
         <div className="space-y-3">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1.5">Document name <span className="text-gray-600">(shown to the lead)</span></label>
-            <input
-              placeholder="e.g. Liability Waiver, Service Agreement, Intake Form"
-              value={ch.documentDescription || ''}
-              onChange={e => update(channel, 'documentDescription', e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1.5">Document link</label>
-            <input
-              type="url"
-              placeholder="https://docs.google.com/... or your DocuSign/PandaDoc link"
-              value={ch.documentLink || ''}
-              onChange={e => update(channel, 'documentLink', e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          {ch.documentLink && ch.documentDescription && (
-            <p className="text-xs text-emerald-500">
-              The AI will include this link when a lead is qualified and ready to proceed.
-            </p>
+          {(ch.documents || []).map((doc, i) => (
+            <div key={i} className="flex gap-2 items-start">
+              <div className="flex-1 space-y-2">
+                <input
+                  placeholder="Document name (e.g. Liability Waiver)"
+                  value={doc.description || ''}
+                  onChange={e => {
+                    const next = [...(ch.documents || [])];
+                    next[i] = { ...next[i], description: e.target.value };
+                    update(channel, 'documents', next);
+                  }}
+                  className={inputClass}
+                />
+                <input
+                  type="url"
+                  placeholder="https://docs.google.com/... or DocuSign/PandaDoc link"
+                  value={doc.link || ''}
+                  onChange={e => {
+                    const next = [...(ch.documents || [])];
+                    next[i] = { ...next[i], link: e.target.value };
+                    update(channel, 'documents', next);
+                  }}
+                  className={inputClass}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  const next = (ch.documents || []).filter((_, idx) => idx !== i);
+                  update(channel, 'documents', next);
+                }}
+                className="mt-1 text-gray-600 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0"
+                title="Remove"
+              >×</button>
+            </div>
+          ))}
+          <button
+            onClick={() => update(channel, 'documents', [...(ch.documents || []), { description: '', link: '' }])}
+            className="flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+          >
+            <span className="text-lg leading-none">+</span> Add document
+          </button>
+          {(ch.documents || []).some(d => d.link && d.description) && (
+            <p className="text-xs text-emerald-500">AI will include these links when a lead is ready to proceed.</p>
           )}
         </div>
       </Section>

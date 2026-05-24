@@ -54,9 +54,16 @@ export async function GET() {
           followupEnabled: row.followup_enabled || false,
           followupDelayDays: row.followup_delay_days || 3,
           followupMaxCount: row.followup_max_count || 2,
-          // Document link
-          documentLink: row.document_link || '',
-          documentDescription: row.document_description || '',
+          // Documents array (falls back to old single-field if migrating)
+          documents: (() => {
+            if (row.documents && Array.isArray(row.documents) && row.documents.length > 0) {
+              return row.documents;
+            }
+            if (row.document_link) {
+              return [{ description: row.document_description || '', link: row.document_link }];
+            }
+            return [];
+          })(),
           // Channel-specific settings
           ...(row.channel === 'facebook' && {
             autoRespondMessages: row.auto_respond_messages || false,
@@ -168,6 +175,7 @@ export async function POST(request) {
           followup_max_count: settings.followupMaxCount || 2,
           document_link: settings.documentLink || '',
           document_description: settings.documentDescription || '',
+          documents: JSON.stringify(settings.documents || []),
         };
         
         // Add channel-specific fields
@@ -214,11 +222,11 @@ export async function POST(request) {
             proactive_engagement, collect_contact_info,
             escalation_enabled, escalation_triggers, escalation_message,
             followup_enabled, followup_delay_days, followup_max_count,
-            document_link, document_description,
+            document_link, document_description, documents,
             created_at, updated_at
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-            $18, $19, $20, $21, $22, $23, $24, $25,
+            $18, $19, $20, $21, $22, $23, $24, $25, $26,
             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
           ) RETURNING *
         `;
@@ -253,9 +261,10 @@ export async function POST(request) {
           settings.followupEnabled || false,
           settings.followupDelayDays || 3,
           settings.followupMaxCount || 2,
-          // Document link
+          // Document link (legacy single fields kept for compat)
           settings.documentLink || '',
           settings.documentDescription || '',
+          JSON.stringify(settings.documents || []),
         ];
       }
 
@@ -403,6 +412,7 @@ async function ensureChannelSettingsTableExists(client) {
       `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS followup_max_count INTEGER DEFAULT 2`,
       `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS document_link TEXT`,
       `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS document_description TEXT`,
+      `ALTER TABLE ai_channel_settings ADD COLUMN IF NOT EXISTS documents JSONB DEFAULT '[]'`,
     ];
     for (const sql of alterations) {
       try { await client.query(sql); } catch (_) {}
