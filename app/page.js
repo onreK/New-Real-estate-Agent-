@@ -2,205 +2,292 @@
 
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { ChevronRight, Phone, Mail, MessageSquare, Calendar, BarChart3, Star, CheckCircle, Zap, Brain, Bot, Users, TrendingUp, ArrowRight, Menu, X, Headphones, Smartphone } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+  Brain, ArrowRight, CheckCircle, Star, Zap,
+  MessageSquare, Mail, Smartphone, BarChart3,
+  Menu, X, Bot, ChevronRight, TrendingUp, Shield,
+} from 'lucide-react';
+
+function DashboardPreview() {
+  const leads = [
+    { name: 'Sarah Mitchell', score: 94, channel: 'Email', message: 'I want to schedule a consultation this week', time: '2m', hot: true },
+    { name: 'James Kowalski', score: 71, channel: 'SMS', message: 'What are your rates for a full inspection?', time: '9m', hot: false },
+    { name: 'Maria Lopez', score: 68, channel: 'Chat', message: 'Do you service the downtown area?', time: '17m', hot: false },
+  ];
+
+  return (
+    <div className="relative w-full max-w-2xl mx-auto">
+      <div className="absolute -inset-6 bg-gradient-to-r from-violet-600/15 to-cyan-500/15 blur-3xl rounded-3xl" />
+      <div className="relative bg-[#0D1421] border border-[#1E2D40] rounded-2xl overflow-hidden shadow-2xl">
+        {/* Browser chrome */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1E2D40] bg-[#090E19]">
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-red-500/50" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
+            <div className="w-3 h-3 rounded-full bg-green-500/50" />
+          </div>
+          <div className="flex-1">
+            <div className="bg-[#1A2438] rounded-md px-3 py-1 text-xs text-gray-500 flex items-center gap-2 max-w-xs mx-auto">
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+              bizzybot.ai/dashboard
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5">
+          {/* Stat strip */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {[
+              { label: "Today's Leads", value: '14', delta: '+3', color: 'text-green-400' },
+              { label: 'AI Replies Sent', value: '31', delta: '100%', color: 'text-violet-400' },
+              { label: 'Hot Leads', value: '6', delta: '↑2', color: 'text-amber-400' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-[#0A1020] rounded-xl p-3 border border-[#1E2D40]">
+                <div className="text-[10px] text-gray-500 mb-1">{stat.label}</div>
+                <div className="flex items-end gap-1">
+                  <span className="text-xl font-bold text-white">{stat.value}</span>
+                  <span className={`text-xs font-medium mb-0.5 ${stat.color}`}>{stat.delta}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Lead rows */}
+          <div className="text-[10px] font-medium text-gray-600 uppercase tracking-wider mb-3">Recent Conversations</div>
+          <div className="space-y-2">
+            {leads.map((lead, i) => (
+              <div key={i} className="flex items-start gap-3 bg-[#0A1020] rounded-xl p-3.5 border border-[#1E2D40]">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {lead.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-medium text-white">{lead.name}</span>
+                    {lead.hot && (
+                      <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full font-medium">HOT</span>
+                    )}
+                    <span className="text-[10px] text-gray-600 ml-auto">{lead.time} ago</span>
+                  </div>
+                  <div className="text-xs text-gray-400 truncate">{lead.message}</div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[10px] text-gray-600">{lead.channel}</span>
+                    <span className="text-[10px] text-gray-700">·</span>
+                    <span className="text-[10px] text-violet-400 flex items-center gap-1">
+                      <Bot className="w-2.5 h-2.5" /> AI replied
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-sm font-bold ${lead.score >= 80 ? 'text-red-400' : 'text-amber-400'}`}>
+                    {lead.score}
+                  </div>
+                  <div className="text-[10px] text-gray-600">score</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 text-xs text-gray-600">
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            AI is monitoring 5 channels in real time
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isVisible, setIsVisible] = useState({});
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    business: '',
-    message: ''
-  });
 
-  // Redirect signed-in users to dashboard
   useEffect(() => {
-    if (isLoaded && user) {
-      router.push('/dashboard');
-    }
+    if (isLoaded && user) router.push('/dashboard');
   }, [isLoaded, user, router]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setIsVisible(prev => ({ ...prev, [entry.target.id]: true }));
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    document.querySelectorAll('[id]').forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Show loading state
-    const submitButton = e.target.querySelector('button[type="submit"]');
-    const originalText = submitButton.innerHTML;
-    submitButton.innerHTML = 'Sending... <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>';
-    submitButton.disabled = true;
-
-    try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        // Success - show success message
-        alert('🎉 Thank you! We\'ve sent you a confirmation email and will be in touch within 24 hours to discuss how AI can transform your business!');
-        
-        // Clear form
-        setFormData({ name: '', email: '', phone: '', business: '', message: '' });
-      } else {
-        // Error from API
-        alert('❌ ' + (result.error || 'Something went wrong. Please try again or email us directly.'));
-      }
-    } catch (error) {
-      // Network or other error
-      console.error('Form submission error:', error);
-      alert('❌ Unable to send message. Please check your internet connection and try again.');
-    } finally {
-      // Reset button state
-      submitButton.innerHTML = originalText;
-      submitButton.disabled = false;
-    }
-  };
 
   const features = [
     {
-      icon: <MessageSquare className="w-8 h-8" />,
-      title: "AI Chat Bot",
-      description: "24/7 intelligent customer service that handles inquiries, bookings, and support automatically."
+      icon: <Mail className="w-5 h-5" />,
+      gradient: 'from-violet-600 to-purple-600',
+      title: 'Email AI',
+      description: 'Reads every inbound email, drafts a personalized reply in your voice, and sends it in under 60 seconds — even at 2am.',
     },
     {
-      icon: <Smartphone className="w-8 h-8" />,
-      title: "AI SMS Assistant",
-      description: "Smart text messaging that follows up with leads, sends reminders, and nurtures customers."
+      icon: <Smartphone className="w-5 h-5" />,
+      gradient: 'from-blue-600 to-cyan-600',
+      title: 'SMS AI',
+      description: 'Responds to texts instantly. Follows up with cold leads automatically after a set delay — so no lead goes quiet.',
     },
     {
-      icon: <Headphones className="w-8 h-8" />,
-      title: "AI Voice Representative",
-      description: "Human-like phone conversations for appointments, sales calls, and customer support."
+      icon: <MessageSquare className="w-5 h-5" />,
+      gradient: 'from-emerald-600 to-teal-600',
+      title: 'Web Chat AI',
+      description: 'Embeddable chat widget that qualifies visitors, answers questions, and captures contact info while you are busy.',
     },
     {
-      icon: <Mail className="w-8 h-8" />,
-      title: "AI Email Automation",
-      description: "Intelligent email responses, follow-ups, and personalized marketing campaigns."
+      icon: <BarChart3 className="w-5 h-5" />,
+      gradient: 'from-amber-500 to-orange-600',
+      title: 'Lead Intelligence',
+      description: 'Every conversation gets a lead score. Hot leads surface instantly so you focus on closing, not sorting through noise.',
     },
-    {
-      icon: <Calendar className="w-8 h-8" />,
-      title: "Smart Scheduling",
-      description: "Integrated calendar system with AI-powered appointment booking and management."
-    },
-    {
-      icon: <BarChart3 className="w-8 h-8" />,
-      title: "Business Dashboard",
-      description: "Real-time analytics, customer insights, and performance tracking in one place."
-    }
   ];
 
-  const industries = [
-    "Healthcare", "Legal Services", "Real Estate", "Restaurants", "Fitness", "Beauty/Spa",
-    "Automotive", "Financial Services", "Education", "E-commerce", "Consulting", "Construction"
+  const steps = [
+    {
+      step: '01',
+      title: 'Connect your channels',
+      body: 'Link your Gmail, Twilio SMS number, and web chat widget in under 10 minutes. No code, no developers required.',
+    },
+    {
+      step: '02',
+      title: 'Configure your AI',
+      body: 'Describe your business, set your tone, and add your pricing. The AI learns your voice and represents your brand.',
+    },
+    {
+      step: '03',
+      title: 'Watch it work',
+      body: 'Leads get instant replies. Follow-ups go out automatically. Hot leads land in your inbox the moment they are ready.',
+    },
   ];
 
   const testimonials = [
     {
-      name: "Dr. Sarah Martinez",
-      role: "Medical Practice Owner",
-      content: "Cut our admin work by 80%! The AI handles appointments, reminders, and patient inquiries flawlessly.",
+      name: 'Dr. Sarah M.',
+      role: 'Medical Practice Owner',
+      content: 'We went from missing 40% of after-hours inquiries to capturing every single one. New patient bookings are up 3× in 90 days.',
       rating: 5,
-      industry: "Healthcare"
     },
     {
-      name: "Mike Thompson",
-      role: "Restaurant Owner",
-      content: "Our AI takes reservations, answers menu questions, and handles delivery orders. Revenue up 35%!",
+      name: 'Mike T.',
+      role: 'Home Services Owner',
+      content: 'I used to spend 2 hours a day answering the same questions over and over. Now BizzyBot handles it. I just show up to jobs.',
       rating: 5,
-      industry: "Food Service"
     },
     {
-      name: "Lisa Chen",
-      role: "Fitness Studio Owner",
-      content: "The AI voice calls remind clients about classes and follows up on memberships. Game changer!",
+      name: 'Lisa C.',
+      role: 'Fitness Studio Founder',
+      content: 'The automated follow-up feature alone recovered 18 leads I would have lost. It paid for itself in the first week.',
       rating: 5,
-      industry: "Fitness"
-    }
+    },
+  ];
+
+  const plans = [
+    {
+      name: 'Starter',
+      price: '$29',
+      description: 'Solo operators and small businesses getting started with AI',
+      features: ['Email AI', 'SMS AI', 'Web Chat AI', 'Lead tracking & dashboard', '300 AI responses/mo'],
+      cta: 'Start free trial',
+      popular: false,
+    },
+    {
+      name: 'Professional',
+      price: '$69',
+      description: 'Businesses adding social channels and deeper analytics',
+      features: [
+        'Everything in Starter',
+        'Facebook Messenger AI',
+        'Instagram DM AI',
+        'Full analytics',
+        '1,500 AI responses/mo',
+        '2 user seats',
+      ],
+      cta: 'Start free trial',
+      popular: true,
+    },
+    {
+      name: 'Business',
+      price: '$199',
+      description: 'High-volume operations with voice and advanced features',
+      features: [
+        'Everything in Pro',
+        'AI Voice Calls',
+        '5,000 AI responses/mo',
+        '5 user seats',
+        'Priority support',
+      ],
+      cta: 'Start free trial',
+      popular: false,
+    },
+  ];
+
+  const capabilities = [
+    'Automated follow-ups',
+    'Lead scoring',
+    'Escalation handling',
+    'Multi-channel inbox',
+    'Analytics dashboard',
+    'Document link sending',
+    'Facebook & Instagram DMs',
+    'Custom AI tone & voice',
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-purple-900">
-      {/* Show landing page for non-signed-in users */}
+    <div className="min-h-screen bg-[#070B14] text-white overflow-x-hidden">
       <SignedOut>
-        {/* Navigation */}
-        <nav className="fixed top-0 w-full bg-black/20 backdrop-blur-md z-50 border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Brain className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-white font-bold text-xl">BizzyBot AI</span>
-              </div>
-              
-              <div className="hidden md:flex items-center space-x-8">
-                <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-                <a href="#industries" className="text-gray-300 hover:text-white transition-colors">Industries</a>
-                <a href="#testimonials" className="text-gray-300 hover:text-white transition-colors">Success Stories</a>
-                <a href="#contact" className="text-gray-300 hover:text-white transition-colors">Contact</a>
-                <a href="/amanda" className="text-gray-300 hover:text-white transition-colors">Demo</a>
-                <SignInButton mode="modal">
-                  <button className="text-gray-300 hover:text-white transition-colors font-medium">
-                    Sign In
-                  </button>
-                </SignInButton>
-                <SignInButton mode="modal">
-                  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105">
-                    Start Free Trial
-                  </button>
-                </SignInButton>
-              </div>
+        {/* Background */}
+        <div className="fixed inset-0 pointer-events-none select-none">
+          <div
+            className="absolute inset-0 opacity-[0.025]"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgb(255 255 255) 1px, transparent 1px), linear-gradient(to right, rgb(255 255 255) 1px, transparent 1px)',
+              backgroundSize: '72px 72px',
+            }}
+          />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-gradient-to-b from-violet-600/10 to-transparent blur-3xl" />
+        </div>
 
-              <button 
-                className="md:hidden text-white"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-              >
-                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
+        {/* Nav */}
+        <nav className="fixed top-0 w-full z-50 border-b border-white/[0.06] bg-[#070B14]/80 backdrop-blur-xl">
+          <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <Brain className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-semibold text-white">BizzyBot</span>
             </div>
+
+            <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
+              <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
+              <a href="#features" className="hover:text-white transition-colors">Features</a>
+              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+              <a href="/amanda" className="hover:text-white transition-colors">Demo</a>
+            </div>
+
+            <div className="hidden md:flex items-center gap-3">
+              <SignInButton mode="modal">
+                <button className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5">
+                  Sign in
+                </button>
+              </SignInButton>
+              <SignInButton mode="modal">
+                <button className="text-sm bg-white text-[#070B14] font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  Start free trial
+                </button>
+              </SignInButton>
+            </div>
+
+            <button className="md:hidden text-gray-400" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
 
-          {/* Mobile Menu */}
           {isMenuOpen && (
-            <div className="md:hidden bg-black/90 backdrop-blur-md">
-              <div className="px-6 py-4 space-y-4">
-                <a href="#features" className="block text-gray-300 hover:text-white">Features</a>
-                <a href="#industries" className="block text-gray-300 hover:text-white">Industries</a>
-                <a href="#testimonials" className="block text-gray-300 hover:text-white">Success Stories</a>
-                <a href="#contact" className="block text-gray-300 hover:text-white">Contact</a>
-                <a href="/amanda" className="block text-gray-300 hover:text-white">Demo</a>
+            <div className="md:hidden border-t border-white/[0.06] bg-[#070B14]/95 backdrop-blur-xl">
+              <div className="px-6 py-4 space-y-4 text-sm">
+                <a href="#how-it-works" className="block text-gray-400 hover:text-white" onClick={() => setIsMenuOpen(false)}>How it works</a>
+                <a href="#features" className="block text-gray-400 hover:text-white" onClick={() => setIsMenuOpen(false)}>Features</a>
+                <a href="#pricing" className="block text-gray-400 hover:text-white" onClick={() => setIsMenuOpen(false)}>Pricing</a>
+                <a href="/amanda" className="block text-gray-400 hover:text-white" onClick={() => setIsMenuOpen(false)}>Demo</a>
                 <SignInButton mode="modal">
-                  <button className="block text-gray-300 hover:text-white font-medium w-full text-left">Sign In</button>
+                  <button className="block text-gray-400 hover:text-white">Sign in</button>
                 </SignInButton>
                 <SignInButton mode="modal">
-                  <button className="block w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 rounded-full text-center">
-                    Start Free Trial
+                  <button className="block w-full bg-white text-[#070B14] font-semibold py-2.5 rounded-lg text-center">
+                    Start free trial
                   </button>
                 </SignInButton>
               </div>
@@ -208,144 +295,134 @@ export default function HomePage() {
           )}
         </nav>
 
-        {/* Hero Section */}
-        <section id="hero" className="pt-32 pb-20 px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center">
-              <div className={`transition-all duration-1000 ${isVisible.hero ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-                <div className="inline-flex items-center bg-white/10 backdrop-blur-sm rounded-full px-6 py-2 mb-6 border border-white/20">
-                  <Zap className="w-4 h-4 text-yellow-400 mr-2" />
-                  <span className="text-white text-sm font-medium">AI Business Automation Platform</span>
-                </div>
-                
-                <h1 className="text-5xl lg:text-7xl font-bold text-white mb-6 leading-tight">
-                  Your Business,
-                  <br />
-                  <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Powered by AI</span>
-                </h1>
-                
-                <p className="text-xl lg:text-2xl text-gray-300 mb-8 max-w-4xl mx-auto">
-                  Create your AI-powered business website with <strong>enhanced lead scoring</strong>, automated conversations, and real-time SMS alerts in minutes.
-                </p>
-
-                {/* Feature Pills */}
-                <div className="flex flex-wrap justify-center gap-3 mb-8">
-                  {["AI Chat Bot", "AI SMS", "AI Voice Calls", "AI Email", "Smart Calendar", "Analytics Dashboard"].map((feature, index) => (
-                    <div key={index} className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
-                      <span className="text-white text-sm font-medium">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                  <SignInButton mode="modal">
-                    <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-2xl shadow-blue-500/25">
-                      Start Free Trial
-                      <ArrowRight className="w-5 h-5 ml-2 inline" />
-                    </button>
-                  </SignInButton>
-                  <a href="/amanda" className="border border-white/30 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white/10 transition-all backdrop-blur-sm">
-                    View Demo
-                  </a>
-                </div>
-                
-                <p className="text-gray-400 text-sm mt-4">
-                  No credit card required • 14-day free trial • Cancel anytime
-                </p>
+        {/* Hero */}
+        <section className="relative pt-40 pb-24 px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-medium px-3 py-1.5 rounded-full mb-8">
+                <Zap className="w-3 h-3" />
+                AI-powered for any client-facing business
               </div>
+
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 leading-[1.08]">
+                Every lead answered.
+                <br />
+                <span className="bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                  While you sleep.
+                </span>
+              </h1>
+
+              <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+                BizzyBot connects to your email, SMS, and web chat — then replies to every inquiry in under 60 seconds,
+                scores every lead, and follows up automatically so nothing falls through the cracks.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <SignInButton mode="modal">
+                  <button className="flex items-center gap-2 bg-white text-[#070B14] font-semibold px-7 py-3.5 rounded-xl hover:bg-gray-100 transition-all text-sm">
+                    Start 14-day free trial
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </SignInButton>
+                <a
+                  href="/amanda"
+                  className="flex items-center gap-2 border border-white/10 text-gray-300 px-7 py-3.5 rounded-xl hover:bg-white/5 transition-all text-sm"
+                >
+                  See it in action
+                  <ChevronRight className="w-4 h-4" />
+                </a>
+              </div>
+
+              <p className="text-xs text-gray-600 mt-4">No credit card required · Cancel anytime</p>
+            </div>
+
+            <DashboardPreview />
+          </div>
+        </section>
+
+        {/* Social proof strip */}
+        <section className="border-y border-white/[0.06] py-10 px-6 bg-white/[0.02]">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex items-center gap-3">
+              <div className="flex">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-4 h-4 text-amber-400 fill-current" />
+                ))}
+              </div>
+              <span className="text-gray-400 text-sm">500+ businesses rely on BizzyBot daily</span>
+            </div>
+            <div className="flex gap-10 text-center">
+              {[
+                { value: '< 60s', label: 'Avg. response time' },
+                { value: '94%', label: 'Lead capture rate' },
+                { value: '3×', label: 'More qualified meetings' },
+              ].map((stat, i) => (
+                <div key={i}>
+                  <div className="text-2xl font-bold text-white">{stat.value}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Features Section */}
-        <section id="features" className="py-20 px-6 lg:px-8 bg-black/20">
-          <div className="max-w-7xl mx-auto">
-            <div className={`text-center mb-16 transition-all duration-1000 ${isVisible.features ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-                Complete AI Business Suite
-              </h2>
-              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                Everything your business needs to automate customer interactions and boost productivity, all powered by advanced AI.
+        {/* How it works */}
+        <section id="how-it-works" className="py-28 px-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-16">
+              <div className="text-xs font-semibold text-violet-400 uppercase tracking-widest mb-4">How it works</div>
+              <h2 className="text-4xl lg:text-5xl font-bold tracking-tight">Live in under 10 minutes</h2>
+              <p className="text-gray-400 mt-4 max-w-xl mx-auto text-sm leading-relaxed">
+                No developers, no complicated setup. Connect your accounts, describe your business, and BizzyBot starts working immediately.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {features.map((feature, index) => (
-                <div 
-                  key={index}
-                  className={`bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:bg-white/10 transition-all duration-500 hover:transform hover:scale-105 ${
-                    isVisible.features ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-                  }`}
-                  style={{ transitionDelay: `${index * 100}ms` }}
+            <div className="grid md:grid-cols-3 gap-10 relative">
+              <div className="hidden md:block absolute top-6 left-[calc(33%+24px)] right-[calc(33%+24px)] h-px bg-gradient-to-r from-violet-500/40 to-cyan-500/40" />
+              {steps.map((step, i) => (
+                <div key={i}>
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/20 to-blue-600/20 border border-violet-500/20 flex items-center justify-center text-violet-400 font-bold text-sm mb-5">
+                    {step.step}
+                  </div>
+                  <h3 className="font-semibold text-white text-lg mb-2">{step.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{step.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section id="features" className="py-28 px-6 bg-white/[0.02] border-y border-white/[0.06]">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <div className="text-xs font-semibold text-violet-400 uppercase tracking-widest mb-4">Features</div>
+              <h2 className="text-4xl lg:text-5xl font-bold tracking-tight">Your business, always on</h2>
+              <p className="text-gray-400 mt-4 max-w-xl mx-auto text-sm leading-relaxed">
+                One AI that handles every inbound channel — configured exactly for your business, not a generic chatbot.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 mb-10">
+              {features.map((feature, i) => (
+                <div
+                  key={i}
+                  className="group bg-[#0D1421] border border-[#1E2D40] rounded-2xl p-8 hover:border-[#2A3A55] transition-all duration-300"
                 >
-                  <div className="bg-gradient-to-r from-blue-500 to-purple-600 w-16 h-16 rounded-xl flex items-center justify-center mb-6 text-white">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center text-white mb-5`}>
                     {feature.icon}
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-4">{feature.title}</h3>
-                  <p className="text-gray-300">{feature.description}</p>
+                  <h3 className="font-semibold text-white text-lg mb-2">{feature.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
                 </div>
               ))}
             </div>
 
-            {/* What You Get Section */}
-            <div className="mt-16 bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10">
-              <h3 className="text-2xl font-bold text-white mb-6 text-center">What You Get:</h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <div className="flex items-center text-gray-300">
-                    <CheckCircle className="text-green-500 mr-3 w-5 h-5" />
-                    AI-powered customer chat with lead scoring
-                  </div>
-                  <div className="flex items-center text-gray-300">
-                    <CheckCircle className="text-green-500 mr-3 w-5 h-5" />
-                    Professional business website
-                  </div>
-                  <div className="flex items-center text-gray-300">
-                    <CheckCircle className="text-green-500 mr-3 w-5 h-5" />
-                    Real-time SMS notifications
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center text-gray-300">
-                    <CheckCircle className="text-green-500 mr-3 w-5 h-5" />
-                    Google Sheets & Calendly integration
-                  </div>
-                  <div className="flex items-center text-gray-300">
-                    <CheckCircle className="text-green-500 mr-3 w-5 h-5" />
-                    24/7 AI customer support
-                  </div>
-                  <div className="flex items-center text-gray-300">
-                    <CheckCircle className="text-green-500 mr-3 w-5 h-5" />
-                    Advanced analytics dashboard
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Industries Section */}
-        <section id="industries" className="py-20 px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className={`text-center mb-16 transition-all duration-1000 ${isVisible.industries ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-                Built for Every Industry
-              </h2>
-              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                Our AI adapts to any business type, from healthcare to hospitality, legal to logistics.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {industries.map((industry, index) => (
-                <div 
-                  key={index}
-                  className={`bg-white/5 backdrop-blur-sm p-6 rounded-xl border border-white/10 text-center hover:bg-white/10 transition-all duration-300 ${
-                    isVisible.industries ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-                  }`}
-                  style={{ transitionDelay: `${index * 50}ms` }}
-                >
-                  <span className="text-white font-medium">{industry}</span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+              {capabilities.map((cap, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-gray-400">
+                  <CheckCircle className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                  {cap}
                 </div>
               ))}
             </div>
@@ -353,36 +430,25 @@ export default function HomePage() {
         </section>
 
         {/* Testimonials */}
-        <section id="testimonials" className="py-20 px-6 lg:px-8 bg-black/20">
-          <div className="max-w-7xl mx-auto">
-            <div className={`text-center mb-16 transition-all duration-1000 ${isVisible.testimonials ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-                Success Stories
-              </h2>
-              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                See how businesses across industries are transforming with AI automation.
-              </p>
+        <section id="testimonials" className="py-28 px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <div className="text-xs font-semibold text-violet-400 uppercase tracking-widest mb-4">Results</div>
+              <h2 className="text-4xl lg:text-5xl font-bold tracking-tight">Businesses that never miss a lead</h2>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
-              {testimonials.map((testimonial, index) => (
-                <div 
-                  key={index}
-                  className={`bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 transition-all duration-1000 ${
-                    isVisible.testimonials ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-                  }`}
-                  style={{ transitionDelay: `${index * 200}ms` }}
-                >
-                  <div className="flex mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
+            <div className="grid md:grid-cols-3 gap-6">
+              {testimonials.map((t, i) => (
+                <div key={i} className="bg-[#0D1421] border border-[#1E2D40] rounded-2xl p-8">
+                  <div className="flex gap-0.5 mb-5">
+                    {[...Array(t.rating)].map((_, j) => (
+                      <Star key={j} className="w-4 h-4 text-amber-400 fill-current" />
                     ))}
                   </div>
-                  <p className="text-gray-300 mb-6 text-lg italic">"{testimonial.content}"</p>
+                  <p className="text-gray-300 text-sm leading-relaxed mb-6">"{t.content}"</p>
                   <div>
-                    <div className="text-white font-semibold">{testimonial.name}</div>
-                    <div className="text-gray-400">{testimonial.role}</div>
-                    <div className="text-blue-400 text-sm mt-1">{testimonial.industry}</div>
+                    <div className="text-white font-medium text-sm">{t.name}</div>
+                    <div className="text-gray-500 text-xs mt-0.5">{t.role}</div>
                   </div>
                 </div>
               ))}
@@ -390,140 +456,114 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Contact Section */}
-        <section id="contact" className="py-20 px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <div className={`text-center mb-12 transition-all duration-1000 ${isVisible.contact ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-                Ready to Transform Your Business?
-              </h2>
-              <p className="text-xl text-gray-300">
-                Get started with AI automation today. Free trial, no commitment required.
-              </p>
+        {/* Pricing */}
+        <section id="pricing" className="py-28 px-6 bg-white/[0.02] border-y border-white/[0.06]">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <div className="text-xs font-semibold text-violet-400 uppercase tracking-widest mb-4">Pricing</div>
+              <h2 className="text-4xl lg:text-5xl font-bold tracking-tight">Transparent, simple pricing</h2>
+              <p className="text-gray-400 mt-4 text-sm">14-day free trial on every plan. No credit card required.</p>
             </div>
 
-            <div className={`bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 transition-all duration-1000 ${isVisible.contact ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-white font-medium mb-2">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="John Smith"
-                    />
+            <div className="grid md:grid-cols-3 gap-6">
+              {plans.map((plan, i) => (
+                <div
+                  key={i}
+                  className={`relative rounded-2xl p-8 ${
+                    plan.popular
+                      ? 'bg-gradient-to-b from-violet-600/20 to-[#0D1421] border-2 border-violet-500/50'
+                      : 'bg-[#0D1421] border border-[#1E2D40]'
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
+                      Most popular
+                    </div>
+                  )}
+                  <div className="mb-6">
+                    <div className="font-semibold text-white text-lg mb-1">{plan.name}</div>
+                    <div className="flex items-baseline gap-1 mb-2">
+                      <span className="text-4xl font-bold text-white">{plan.price}</span>
+                      <span className="text-gray-500 text-sm">/mo</span>
+                    </div>
+                    <p className="text-gray-400 text-xs leading-relaxed">{plan.description}</p>
                   </div>
-                  <div>
-                    <label className="block text-white font-medium mb-2">Email Address</label>
-                    <input
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="john@company.com"
-                    />
+                  <div className="space-y-2.5 mb-8">
+                    {plan.features.map((feature, j) => (
+                      <div key={j} className="flex items-center gap-2 text-sm text-gray-300">
+                        <CheckCircle className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                        {feature}
+                      </div>
+                    ))}
                   </div>
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-white font-medium mb-2">Phone Number</label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="(555) 123-4567"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-white font-medium mb-2">Business Type</label>
-                    <input
-                      type="text"
-                      value={formData.business}
-                      onChange={(e) => setFormData({...formData, business: e.target.value})}
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Healthcare, Legal, Restaurant, etc."
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-white font-medium mb-2">Tell us about your business needs</label>
-                  <textarea
-                    value={formData.message}
-                    onChange={(e) => setFormData({...formData, message: e.target.value})}
-                    rows={4}
-                    className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="What challenges are you facing? How many customers do you serve daily?"
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105"
-                  >
-                    Send Message
-                    <Mail className="w-5 h-5 ml-2 inline" />
-                  </button>
                   <SignInButton mode="modal">
-                    <button className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-lg text-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 text-center">
-                      Start Free Trial
-                      <ArrowRight className="w-5 h-5 ml-2 inline" />
+                    <button
+                      className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                        plan.popular
+                          ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                          : 'bg-white/8 hover:bg-white/12 text-white border border-white/10'
+                      }`}
+                    >
+                      {plan.cta}
                     </button>
                   </SignInButton>
                 </div>
-              </form>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="py-28 px-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-600/15 to-cyan-600/15 blur-3xl rounded-3xl" />
+              <div className="relative bg-[#0D1421] border border-[#1E2D40] rounded-3xl p-16 text-center">
+                <h2 className="text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+                  Start for free.
+                  <br />
+                  <span className="bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
+                    See results this week.
+                  </span>
+                </h2>
+                <p className="text-gray-400 mb-10 max-w-lg mx-auto text-sm leading-relaxed">
+                  Connect your first channel in under 10 minutes. 14 days free — no credit card, no commitment.
+                </p>
+                <SignInButton mode="modal">
+                  <button className="inline-flex items-center gap-2 bg-white text-[#070B14] font-semibold px-8 py-4 rounded-xl hover:bg-gray-100 transition-all text-sm">
+                    Start your free trial
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </SignInButton>
+              </div>
             </div>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="py-12 px-6 lg:px-8 border-t border-white/10">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="flex items-center space-x-2 mb-4 md:mb-0">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Brain className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-white font-bold text-xl">BizzyBot AI</span>
+        <footer className="border-t border-white/[0.06] py-12 px-6">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <Brain className="w-4 h-4 text-white" />
               </div>
-              <div className="flex space-x-6 text-gray-400 text-center">
-                <a href="/privacy" className="hover:text-white transition-colors">
-                  Privacy Policy
-                </a>
-                <span className="text-gray-600">•</span>
-                <a href="/terms" className="hover:text-white transition-colors">
-                  Terms of Service
-                </a>
-              </div>
+              <span className="font-semibold text-white">BizzyBot AI</span>
             </div>
-            <div className="text-center mt-6 text-gray-400">
-              <p>&copy; 2025 AI Business Automation Platform. Transform your business today.</p>
+            <div className="flex gap-6 text-sm text-gray-500">
+              <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
+              <a href="/terms" className="hover:text-white transition-colors">Terms</a>
+              <a href="/amanda" className="hover:text-white transition-colors">Demo</a>
             </div>
+            <p className="text-xs text-gray-600">&copy; 2026 BizzyBot AI. All rights reserved.</p>
           </div>
         </footer>
       </SignedOut>
 
-      {/* Show redirect message for signed-in users */}
       <SignedIn>
         <div className="min-h-screen flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md mx-auto">
-            <div className="mb-6">
-              <UserButton />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Welcome back!
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Redirecting you to your dashboard...
-            </p>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600 mx-auto mb-4" />
+            <p className="text-gray-400 text-sm">Redirecting to your dashboard...</p>
           </div>
         </div>
       </SignedIn>
