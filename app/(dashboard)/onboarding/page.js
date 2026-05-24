@@ -1,343 +1,281 @@
-// app/(dashboard)/onboarding/page.js
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Bot, Building2, MessageSquare, BookOpen, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+
+const TOTAL_STEPS = 4;
+
+const INDUSTRIES = [
+  'Real Estate', 'Healthcare', 'Legal Services', 'Financial Services',
+  'Home Services', 'Retail / E-commerce', 'Fitness & Wellness', 'Restaurants & Food',
+  'Education', 'Marketing & Agency', 'SaaS / Technology', 'Consulting', 'Other'
+];
+
+const TONES = [
+  { value: 'Professional', label: 'Professional', desc: 'Polished and business-like' },
+  { value: 'Friendly',     label: 'Friendly',     desc: 'Warm and approachable' },
+  { value: 'Formal',       label: 'Formal',       desc: 'Authoritative and precise' },
+  { value: 'Casual',       label: 'Casual',       desc: 'Relaxed and conversational' },
+];
+
+const LENGTHS = [
+  { value: 'Short',  label: 'Short',  desc: '1–3 sentences' },
+  { value: 'Medium', label: 'Medium', desc: '2–5 sentences' },
+  { value: 'Long',   label: 'Long',   desc: 'Detailed & thorough' },
+];
+
+const STEP_META = [
+  { icon: Building2, label: 'Your Business' },
+  { icon: MessageSquare, label: 'What You Do' },
+  { icon: Bot, label: 'AI Personality' },
+  { icon: BookOpen, label: "AI's Knowledge" },
+];
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
+  const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
     businessName: '',
     industry: '',
-    businessType: '',
-    aiFeatures: [],
     businessDescription: '',
-    targetAudience: ''
+    tone: 'Professional',
+    responseLength: 'Medium',
+    knowledgeBase: '',
   });
 
-  // Ensure a customer record exists the moment the user lands here
   useEffect(() => {
     fetch('/api/create-customer', { method: 'POST' }).catch(() => {});
   }, []);
 
-  const industries = [
-    'Real Estate', 'Healthcare', 'Legal Services', 'Financial Services',
-    'E-commerce', 'SaaS/Technology', 'Education', 'Consulting',
-    'Marketing Agency', 'Restaurant/Food', 'Fitness/Wellness', 'Other'
-  ];
+  const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-  const businessTypes = [
-    { 
-      id: 'ai-only', 
-      name: 'AI Assistant Only', 
-      description: 'Get started with AI chatbot and voice agent',
-      features: ['AI Chatbot', 'Voice Agent', 'Lead Management', 'Analytics'],
-      popular: true
-    }
-  ];
-
-  const aiFeatures = [
-    { id: 'chatbot', name: 'AI Chatbot', description: 'Intelligent chat for your website' },
-    { id: 'voice', name: 'AI Voice Agent', description: 'Phone-based AI assistant' },
-    { id: 'lead-scoring', name: 'Lead Scoring', description: 'AI-powered lead qualification' },
-    { id: 'automation', name: 'Smart Automation', description: 'Automated follow-ups and nurturing' },
-    { id: 'analytics', name: 'AI Analytics', description: 'Intelligent insights and reporting' },
-    { id: 'integration', name: 'CRM Integration', description: 'Connect with existing tools' }
-  ];
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const isValid = () => {
+    if (step === 1) return form.businessName.trim().length > 0 && form.industry.length > 0;
+    if (step === 2) return form.businessDescription.trim().length > 0;
+    if (step === 3) return form.tone.length > 0 && form.responseLength.length > 0;
+    if (step === 4) return true; // knowledge base is optional
+    return false;
   };
 
-  const handleFeatureToggle = (featureId) => {
-    setFormData(prev => ({
-      ...prev,
-      aiFeatures: prev.aiFeatures.includes(featureId)
-        ? prev.aiFeatures.filter(id => id !== featureId)
-        : [...prev.aiFeatures, featureId]
-    }));
-  };
-
-  const nextStep = () => {
-    if (currentStep < 5) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const completeOnboarding = async () => {
+  const complete = async () => {
+    setSaving(true);
     try {
-      const response = await fetch('/api/onboarding/complete', {
+      await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessName: formData.businessName,
-          businessDescription: formData.businessDescription,
-          targetAudience: formData.targetAudience,
-          industry: formData.industry,
-        }),
+        body: JSON.stringify(form),
       });
-
-      if (response.ok) {
-        router.push('/dashboard');
-      } else {
-        console.error('Failed to save onboarding data');
-        // Still send them to the dashboard — they can configure settings later
-        router.push('/dashboard');
-      }
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      router.push('/dashboard');
-    }
+    } catch (_) {}
+    router.push('/dashboard');
   };
 
-  const isStepValid = () => {
-    switch (currentStep) {
-      case 1: return formData.businessName.trim().length > 0;
-      case 2: return formData.industry.length > 0;
-      case 3: return formData.businessType.length > 0;
-      case 4: return formData.aiFeatures.length > 0;
-      case 5: return formData.businessDescription.trim().length > 0;
-      default: return false;
-    }
-  };
+  const inputClass = "w-full px-4 py-3 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500 text-sm";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome to Your AI Customer Engagement Platform
-          </h1>
-          <p className="text-gray-600">
-            Let's set up your AI-powered business automation in just a few steps
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#0D1117] flex flex-col items-center justify-center py-12 px-4">
 
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Step {currentStep} of 5</span>
-            <span className="text-sm text-gray-500">{Math.round((currentStep / 5) * 100)}% Complete</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / 5) * 100}%` }}
-            ></div>
-          </div>
+      {/* Logo / title */}
+      <div className="text-center mb-8">
+        <div className="w-12 h-12 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <Bot className="w-6 h-6 text-violet-400" />
         </div>
+        <h1 className="text-2xl font-bold text-white">Welcome to BizzyBot</h1>
+        <p className="text-sm text-gray-500 mt-1">Let's get your AI set up in 4 quick steps</p>
+      </div>
 
-        {/* Step Content */}
-        <div className="bg-white rounded-lg shadow-sm p-8">
-          {/* Step 1: Business Name */}
-          {currentStep === 1 && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">What's your business name?</h2>
-              <p className="text-gray-600 mb-6">This will be used across your AI assistant and dashboard.</p>
-              <input
-                type="text"
-                placeholder="Enter your business name"
-                value={formData.businessName}
-                onChange={(e) => handleInputChange('businessName', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
-                autoFocus
-              />
+      {/* Step indicator */}
+      <div className="flex items-center gap-2 mb-8">
+        {STEP_META.map((s, i) => {
+          const num = i + 1;
+          const done = num < step;
+          const active = num === step;
+          return (
+            <div key={num} className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
+                done   ? 'bg-violet-600 text-white' :
+                active ? 'bg-violet-500/20 border border-violet-500 text-violet-400' :
+                         'bg-gray-800 text-gray-600'
+              }`}>
+                {done ? <Check className="w-4 h-4" /> : num}
+              </div>
+              <span className={`text-xs hidden sm:block ${active ? 'text-white' : 'text-gray-600'}`}>{s.label}</span>
+              {i < STEP_META.length - 1 && <div className="w-6 h-px bg-gray-800" />}
             </div>
-          )}
+          );
+        })}
+      </div>
 
-          {/* Step 2: Industry */}
-          {currentStep === 2 && (
+      {/* Card */}
+      <div className="w-full max-w-lg bg-[#161B22] border border-gray-800 rounded-2xl p-8">
+
+        {/* Step 1 — Business name + industry */}
+        {step === 1 && (
+          <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">What industry are you in?</h2>
-              <p className="text-gray-600 mb-6">This helps us customize your AI assistant's knowledge.</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {industries.map((industry) => (
+              <h2 className="text-xl font-bold text-white mb-1">What's your business called?</h2>
+              <p className="text-sm text-gray-500">Your AI will introduce itself on behalf of this name.</p>
+            </div>
+            <input
+              autoFocus
+              placeholder="e.g. Sunrise Plumbing, Dr. Kim Dental, Atlas Marketing"
+              value={form.businessName}
+              onChange={e => set('businessName', e.target.value)}
+              className={inputClass}
+            />
+            <div>
+              <label className="text-sm text-gray-400 block mb-3">What industry are you in?</label>
+              <div className="grid grid-cols-2 gap-2">
+                {INDUSTRIES.map(ind => (
                   <button
-                    key={industry}
-                    onClick={() => handleInputChange('industry', industry)}
-                    className={`p-3 text-left border rounded-lg transition-colors ${
-                      formData.industry === industry
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 hover:border-blue-300'
+                    key={ind}
+                    onClick={() => set('industry', ind)}
+                    className={`px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${
+                      form.industry === ind
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
+                    }`}
+                  >{ind}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2 — Business description */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-white mb-1">What does your business do?</h2>
+              <p className="text-sm text-gray-500">This is the single most important thing you can give your AI. The more detail you add, the better it represents you.</p>
+            </div>
+            <textarea
+              autoFocus
+              rows={6}
+              placeholder={`Describe your services, what makes you different, and who you serve.\n\nExample: "We're a family-run plumbing company serving the Denver metro area. We specialise in emergency repairs, water heater installation, and drain cleaning. Same-day service available. Licensed and insured. We've been in business for 12 years."`}
+              value={form.businessDescription}
+              onChange={e => set('businessDescription', e.target.value)}
+              className={`${inputClass} resize-none`}
+            />
+          </div>
+        )}
+
+        {/* Step 3 — Tone + response length */}
+        {step === 3 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-white mb-1">How should your AI speak?</h2>
+              <p className="text-sm text-gray-500">You can change this any time in AI Settings.</p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-2">Tone</label>
+              <div className="grid grid-cols-2 gap-2">
+                {TONES.map(t => (
+                  <button
+                    key={t.value}
+                    onClick={() => set('tone', t.value)}
+                    className={`p-3 rounded-lg text-left transition-colors ${
+                      form.tone === t.value
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
                     }`}
                   >
-                    {industry}
+                    <div className="font-medium text-sm">{t.label}</div>
+                    <div className="text-xs opacity-70 mt-0.5">{t.desc}</div>
                   </button>
                 ))}
               </div>
             </div>
-          )}
-
-          {/* Step 3: Business Type (AI Only) */}
-          {currentStep === 3 && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Choose Your AI Solution</h2>
-              <p className="text-gray-600 mb-6">Start with our comprehensive AI customer engagement platform.</p>
-              <div className="space-y-4">
-                {businessTypes.map((type) => (
-                  <div
-                    key={type.id}
-                    onClick={() => handleInputChange('businessType', type.id)}
-                    className={`relative p-6 border rounded-lg cursor-pointer transition-all ${
-                      formData.businessType === type.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-300 hover:border-blue-300'
+              <label className="text-xs text-gray-500 block mb-2">Response length</label>
+              <div className="grid grid-cols-3 gap-2">
+                {LENGTHS.map(l => (
+                  <button
+                    key={l.value}
+                    onClick={() => set('responseLength', l.value)}
+                    className={`p-3 rounded-lg text-left transition-colors ${
+                      form.responseLength === l.value
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'
                     }`}
                   >
-                    {type.popular && (
-                      <span className="absolute top-4 right-4 bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
-                        Recommended
-                      </span>
-                    )}
-                    <div className="flex items-start">
-                      <div className={`mt-1 w-4 h-4 rounded-full border-2 mr-4 ${
-                        formData.businessType === type.id ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-                      }`}>
-                        {formData.businessType === type.id && (
-                          <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{type.name}</h3>
-                        <p className="text-gray-600 mb-3">{type.description}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {type.features.map((feature) => (
-                            <span key={feature} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
-                              {feature}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    <div className="font-medium text-sm">{l.label}</div>
+                    <div className="text-xs opacity-70 mt-0.5">{l.desc}</div>
+                  </button>
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Step 4: AI Features */}
-          {currentStep === 4 && (
+        {/* Step 4 — Knowledge base */}
+        {step === 4 && (
+          <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Select Your AI Features</h2>
-              <p className="text-gray-600 mb-6">Choose the AI capabilities you want to enable (you can add more later).</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {aiFeatures.map((feature) => (
-                  <div
-                    key={feature.id}
-                    onClick={() => handleFeatureToggle(feature.id)}
-                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                      formData.aiFeatures.includes(feature.id)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-300 hover:border-blue-300'
-                    }`}
-                  >
-                    <div className="flex items-start">
-                      <div className={`mt-1 w-5 h-5 rounded border-2 mr-3 flex items-center justify-center ${
-                        formData.aiFeatures.includes(feature.id) 
-                          ? 'bg-blue-500 border-blue-500' 
-                          : 'border-gray-300'
-                      }`}>
-                        {formData.aiFeatures.includes(feature.id) && (
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{feature.name}</h3>
-                        <p className="text-sm text-gray-600">{feature.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-xl font-bold text-white mb-1">Give your AI its knowledge</h2>
+              <p className="text-sm text-gray-500">Paste in your FAQs, pricing, service areas, hours, policies — anything leads commonly ask about. Your AI will use this to answer questions accurately. <span className="text-gray-600">(Optional — you can add this later in AI Settings)</span></p>
             </div>
-          )}
+            <textarea
+              rows={8}
+              placeholder={`Example:\n\nPricing: Drain cleaning starts at $149. Emergency call-out fee: $75.\nService area: Denver, Aurora, Lakewood, Englewood.\nHours: Mon–Sat 7am–8pm. Emergency line 24/7.\nResponse time: We aim to arrive within 2 hours for emergencies.\nPayment: Cash, card, and financing available.\n\nFAQ: Do you offer free estimates? Yes, for non-emergency jobs.`}
+              value={form.knowledgeBase}
+              onChange={e => set('knowledgeBase', e.target.value)}
+              className={`${inputClass} resize-none`}
+            />
+          </div>
+        )}
 
-          {/* Step 5: Business Description */}
-          {currentStep === 5 && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Tell us about your business</h2>
-              <p className="text-gray-600 mb-6">This helps train your AI assistant to better represent your business.</p>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Description
-                  </label>
-                  <textarea
-                    rows={4}
-                    placeholder="Describe what your business does, your services, and what makes you unique..."
-                    value={formData.businessDescription}
-                    onChange={(e) => handleInputChange('businessDescription', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Target Audience (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Who are your ideal customers?"
-                    value={formData.targetAudience}
-                    onChange={(e) => handleInputChange('targetAudience', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Navigation */}
+        <div className="flex items-center justify-between mt-8">
+          <button
+            onClick={() => setStep(s => s - 1)}
+            disabled={step === 1}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              step === 1 ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
 
-          {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
+          {step < TOTAL_STEPS ? (
             <button
-              onClick={prevStep}
-              disabled={currentStep === 1}
-              className={`px-6 py-2 rounded-lg font-medium ${
-                currentStep === 1
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-600 hover:text-gray-800'
+              onClick={() => setStep(s => s + 1)}
+              disabled={!isValid()}
+              className={`flex items-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                isValid()
+                  ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
               }`}
             >
-              Previous
+              Continue <ChevronRight className="w-4 h-4" />
             </button>
-            
-            {currentStep === 5 ? (
-              <button
-                onClick={completeOnboarding}
-                disabled={!isStepValid()}
-                className={`px-8 py-2 rounded-lg font-medium transition-colors ${
-                  isStepValid()
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                Complete Setup
-              </button>
-            ) : (
-              <button
-                onClick={nextStep}
-                disabled={!isStepValid()}
-                className={`px-8 py-2 rounded-lg font-medium transition-colors ${
-                  isStepValid()
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                Next
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              onClick={complete}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-60"
+            >
+              {saving ? 'Setting up…' : 'Launch my AI'} <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
+
+        {/* Skip on step 4 */}
+        {step === 4 && (
+          <p className="text-center mt-4">
+            <button
+              onClick={complete}
+              className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              Skip for now — I'll add this later
+            </button>
+          </p>
+        )}
       </div>
+
+      {/* Step counter */}
+      <p className="text-xs text-gray-700 mt-6">Step {step} of {TOTAL_STEPS}</p>
     </div>
   );
 }

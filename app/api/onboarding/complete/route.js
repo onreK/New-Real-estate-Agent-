@@ -4,6 +4,8 @@ import { query } from '@/lib/database.js';
 
 export const dynamic = 'force-dynamic';
 
+const CHANNELS = ['email', 'text', 'chatbot', 'facebook', 'instagram'];
+
 export async function POST(request) {
   try {
     const { userId } = auth();
@@ -11,35 +13,34 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { businessName, businessDescription, targetAudience, industry } = await request.json();
+    const {
+      businessName,
+      industry,
+      businessDescription,
+      tone = 'Professional',
+      responseLength = 'Medium',
+      knowledgeBase = '',
+    } = await request.json();
 
     if (!businessName?.trim()) {
       return NextResponse.json({ error: 'Business name is required' }, { status: 400 });
     }
 
-    // 1. Update the customer's business name in the customers table
-    await query(
-      `UPDATE customers SET business_name = $1, updated_at = NOW() WHERE clerk_user_id = $2`,
+    // 1. Update the customer record
+    const customerResult = await query(
+      `UPDATE customers SET business_name = $1, updated_at = NOW()
+       WHERE clerk_user_id = $2 RETURNING id`,
       [businessName.trim(), userId]
     );
+    const customerId = customerResult.rows[0]?.id;
 
-    // Build the initial AI knowledge base from what the user entered
-    const industryLine = industry ? `Industry: ${industry}\n` : '';
-    const audienceLine = targetAudience ? `Target audience: ${targetAudience}\n` : '';
-    const knowledgeBase = `${businessDescription}\n\n${industryLine}${audienceLine}`.trim();
-
-    // 2. Seed ai_configs so the AI is ready to go from day one
-    const existing = await query(
-      `SELECT id FROM ai_configs WHERE user_id = $1`,
-      [userId]
-    );
-
+    // 2. Seed ai_configs (legacy — kept for compatibility)
+    const existing = await query(`SELECT id FROM ai_configs WHERE user_id = $1`, [userId]);
     if (existing.rows.length > 0) {
-      // Only fill in blanks — don't overwrite if the user already configured their AI
       await query(
         `UPDATE ai_configs
-         SET business_name = COALESCE(NULLIF(business_name, ''), NULLIF(business_name, 'My Business'), $1),
-             business_info  = CASE WHEN business_info IS NULL OR business_info = '' THEN $2 ELSE business_info END,
+         SET business_name  = COALESCE(NULLIF(business_name, ''), NULLIF(business_name, 'My Business'), $1),
+             business_info  = CASE WHEN business_info  IS NULL OR business_info  = '' THEN $2 ELSE business_info  END,
              knowledge_base = CASE WHEN knowledge_base IS NULL OR knowledge_base = '' THEN $3 ELSE knowledge_base END,
              updated_at = NOW()
          WHERE user_id = $4`,
@@ -49,9 +50,41 @@ export async function POST(request) {
       await query(
         `INSERT INTO ai_configs
            (user_id, business_name, personality, business_info, model, creativity, response_length, knowledge_base)
-         VALUES ($1, $2, 'professional', $3, 'gpt-4o-mini', 0.7, 500, $4)`,
-        [userId, businessName.trim(), businessDescription || '', knowledgeBase]
+         VALUES ($1, $2, $3, $4, 'gpt-4o-mini', 0.7, 500, $5)`,
+        [userId, businessName.trim(), tone.toLowerCase(), businessDescription || '', knowledgeBase]
       );
+    }
+
+    // 3. Seed ai_channel_settings for ALL channels so the AI is configured from day one.
+    //    Only fills in blanks — never overwrites settings the customer already configured.
+    if (customerId) {
+      for (const channel of CHANNELS) {
+        await query(
+          `INSERT INTO ai_channel_settings
+             (customer_id, channel, business_name, industry, business_description,
+              response_tone, response_length, knowledge_base,
+              created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+           ON CONFLICT (customer_id, channel) DO UPDATE SET
+             business_name        = CASE WHEN ai_channel_settings.business_name        = '' OR ai_channel_settings.business_name        IS NULL THEN EXCLUDED.business_name        ELSE ai_channel_settings.business_name        END,
+             industry             = CASE WHEN ai_channel_settings.industry             = '' OR ai_channel_settings.industry             IS NULL THEN EXCLUDED.industry             ELSE ai_channel_settings.industry             END,
+             business_description = CASE WHEN ai_channel_settings.business_description = '' OR ai_channel_settings.business_description IS NULL THEN EXCLUDED.business_description ELSE ai_channel_settings.business_description END,
+             response_tone        = CASE WHEN ai_channel_settings.response_tone        = '' OR ai_channel_settings.response_tone        IS NULL THEN EXCLUDED.response_tone        ELSE ai_channel_settings.response_tone        END,
+             response_length      = CASE WHEN ai_channel_settings.response_length      = '' OR ai_channel_settings.response_length      IS NULL THEN EXCLUDED.response_length      ELSE ai_channel_settings.response_length      END,
+             knowledge_base       = CASE WHEN ai_channel_settings.knowledge_base       = '' OR ai_channel_settings.knowledge_base       IS NULL THEN EXCLUDED.knowledge_base       ELSE ai_channel_settings.knowledge_base       END,
+             updated_at           = NOW()`,
+          [
+            customerId,
+            channel,
+            businessName.trim(),
+            industry || '',
+            businessDescription || '',
+            tone,
+            responseLength,
+            knowledgeBase,
+          ]
+        );
+      }
     }
 
     return NextResponse.json({ success: true });
