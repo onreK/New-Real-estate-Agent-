@@ -71,13 +71,12 @@ function ChannelDots({ gmail, sms, facebook }) {
 
 function exportCSV(customers) {
   const headers = [
-    'Business Name', 'Contact Name', 'Email', 'Phone', 'Plan', 'Status',
+    'Business Name', 'Email', 'Phone', 'Plan', 'Status',
     'Signed Up', 'Trial Ends', 'Churned At', 'Last Active',
     'AI Interactions', 'Email Connected', 'SMS Connected', 'Stripe Customer ID',
   ];
   const rows = customers.map(c => [
     c.business_name || '',
-    c.name || '',
     c.email || '',
     c.phone || '',
     c.plan || '',
@@ -326,9 +325,6 @@ export default function AdminDashboard() {
                       <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
                         <td className="px-6 py-4">
                           <div className="font-medium text-white text-sm">{c.business_name || '—'}</div>
-                          {c.name && c.name !== c.business_name && (
-                            <div className="text-xs text-gray-600 mt-0.5">{c.name}</div>
-                          )}
                         </td>
                         <td className="px-6 py-4 text-gray-400 text-xs">{c.email || '—'}</td>
                         <td className="px-6 py-4 text-gray-400 text-xs">{c.phone || '—'}</td>

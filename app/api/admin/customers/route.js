@@ -43,7 +43,7 @@ export async function GET() {
 
     const result = await query(`
       SELECT
-        id, clerk_user_id, business_name, name, email, phone, plan,
+        id, clerk_user_id, business_name, email, phone, plan,
         subscription_status, stripe_customer_id, stripe_subscription_id,
         trial_ends_at, churned_at, last_active_at, created_at, updated_at
       FROM customers
