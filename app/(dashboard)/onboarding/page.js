@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bot, Building2, MessageSquare, BookOpen, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { Bot, Building2, MessageSquare, BookOpen, ChevronRight, ChevronLeft, Check, Zap, Star, Shield, Clock } from 'lucide-react';
 
 const TOTAL_STEPS = 4;
 
@@ -28,9 +28,34 @@ const LENGTHS = [
 const STEP_META = [
   { icon: Building2, label: 'Your Business' },
   { icon: MessageSquare, label: 'What You Do' },
-  { icon: Bot, label: 'AI Personality' },
-  { icon: BookOpen, label: "AI's Knowledge" },
+  { icon: Bot,          label: 'AI Personality' },
+  { icon: BookOpen,     label: "AI's Knowledge" },
 ];
+
+// Small badge that shows what a field unlocks
+function ImpactBadge({ icon: Icon, text }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full">
+      <Icon className="w-3 h-3" />{text}
+    </span>
+  );
+}
+
+// Contrast box showing generic vs custom AI example
+function BeforeAfter({ bad, good }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 mt-4">
+      <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+        <p className="text-xs text-red-400 font-medium mb-1.5">Without detail</p>
+        <p className="text-xs text-gray-500 leading-relaxed italic">"{bad}"</p>
+      </div>
+      <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3">
+        <p className="text-xs text-emerald-400 font-medium mb-1.5">With your detail</p>
+        <p className="text-xs text-gray-300 leading-relaxed italic">"{good}"</p>
+      </div>
+    </div>
+  );
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -55,7 +80,7 @@ export default function OnboardingPage() {
     if (step === 1) return form.businessName.trim().length > 0 && form.industry.length > 0;
     if (step === 2) return form.businessDescription.trim().length > 0;
     if (step === 3) return form.tone.length > 0 && form.responseLength.length > 0;
-    if (step === 4) return true; // knowledge base is optional
+    if (step === 4) return true;
     return false;
   };
 
@@ -81,8 +106,8 @@ export default function OnboardingPage() {
         <div className="w-12 h-12 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center justify-center mx-auto mb-3">
           <Bot className="w-6 h-6 text-violet-400" />
         </div>
-        <h1 className="text-2xl font-bold text-white">Welcome to BizzyBot</h1>
-        <p className="text-sm text-gray-500 mt-1">Let's get your AI set up in 4 quick steps</p>
+        <h1 className="text-2xl font-bold text-white">Let's build your AI</h1>
+        <p className="text-sm text-gray-500 mt-1">4 steps. The more you share, the smarter it gets.</p>
       </div>
 
       {/* Step indicator */}
@@ -108,15 +133,22 @@ export default function OnboardingPage() {
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-lg bg-[#161B22] border border-gray-800 rounded-2xl p-8">
+      <div className="w-full max-w-xl bg-[#161B22] border border-gray-800 rounded-2xl p-8">
 
-        {/* Step 1 — Business name + industry */}
+        {/* ── STEP 1: Business name + industry ── */}
         {step === 1 && (
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-white mb-1">What's your business called?</h2>
-              <p className="text-sm text-gray-500">Your AI will introduce itself on behalf of this name.</p>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Your AI will introduce itself using this name on every channel — email, SMS, chat, and social. To your customers, it will feel like a real member of your team.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <ImpactBadge icon={Zap} text="Used in every AI reply" />
+                <ImpactBadge icon={Shield} text="Your brand, not ours" />
+              </div>
             </div>
+
             <input
               autoFocus
               placeholder="e.g. Sunrise Plumbing, Dr. Kim Dental, Atlas Marketing"
@@ -124,8 +156,10 @@ export default function OnboardingPage() {
               onChange={e => set('businessName', e.target.value)}
               className={inputClass}
             />
+
             <div>
-              <label className="text-sm text-gray-400 block mb-3">What industry are you in?</label>
+              <label className="text-sm text-gray-400 block mb-1">What industry are you in?</label>
+              <p className="text-xs text-gray-600 mb-3">This helps your AI understand the context of every conversation — so it never gives a response that sounds out of place for your type of business.</p>
               <div className="grid grid-cols-2 gap-2">
                 {INDUSTRIES.map(ind => (
                   <button
@@ -143,33 +177,57 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 2 — Business description */}
+        {/* ── STEP 2: Business description ── */}
         {step === 2 && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
-              <h2 className="text-xl font-bold text-white mb-1">What does your business do?</h2>
-              <p className="text-sm text-gray-500">This is the single most important thing you can give your AI. The more detail you add, the better it represents you.</p>
+              <h2 className="text-xl font-bold text-white mb-1">Describe your business</h2>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                This is the single most impactful thing you'll do in this setup. Your AI reads this before every response — it's how it knows what you offer, what makes you different, and how to talk about your business confidently.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <ImpactBadge icon={Star} text="Most impactful step" />
+                <ImpactBadge icon={Zap} text="Read before every reply" />
+              </div>
             </div>
+
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
+              <p className="text-xs text-amber-400 font-medium mb-1">Don't just write "plumbing company."</p>
+              <p className="text-xs text-gray-500 leading-relaxed">Include your services, location, what makes you different, how long you've been in business, and anything customers commonly ask. The more specific you are, the more your AI sounds like <em>you</em> — not a generic bot.</p>
+            </div>
+
             <textarea
               autoFocus
               rows={6}
-              placeholder={`Describe your services, what makes you different, and who you serve.\n\nExample: "We're a family-run plumbing company serving the Denver metro area. We specialise in emergency repairs, water heater installation, and drain cleaning. Same-day service available. Licensed and insured. We've been in business for 12 years."`}
+              placeholder={`Example: "We're a family-run plumbing company serving the Denver metro area. We specialise in emergency repairs, water heater installation, and drain cleaning. Same-day service is available 7 days a week. Licensed, bonded, and insured. We've been in business for 12 years and have over 400 five-star reviews."`}
               value={form.businessDescription}
               onChange={e => set('businessDescription', e.target.value)}
               className={`${inputClass} resize-none`}
             />
+
+            <BeforeAfter
+              bad="Thanks for reaching out! We'd love to help with your plumbing needs."
+              good={`Thanks for reaching out! We serve the Denver metro area and offer same-day emergency repairs. We've been family-run for 12 years with 400+ five-star reviews. What issue are you dealing with?`}
+            />
           </div>
         )}
 
-        {/* Step 3 — Tone + response length */}
+        {/* ── STEP 3: Tone + response length ── */}
         {step === 3 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-white mb-1">How should your AI speak?</h2>
-              <p className="text-sm text-gray-500">You can change this any time in AI Settings.</p>
+              <h2 className="text-xl font-bold text-white mb-1">How should your AI sound?</h2>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                A plumber and a law firm should sound completely different. These settings make your AI match your brand voice — so every response feels like it came from your business, not off a template.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <ImpactBadge icon={Shield} text="Applied to every channel" />
+                <ImpactBadge icon={Zap} text="Change any time in settings" />
+              </div>
             </div>
+
             <div>
-              <label className="text-xs text-gray-500 block mb-2">Tone</label>
+              <label className="text-xs text-gray-500 block mb-2 uppercase tracking-wide">Tone of voice</label>
               <div className="grid grid-cols-2 gap-2">
                 {TONES.map(t => (
                   <button
@@ -187,8 +245,10 @@ export default function OnboardingPage() {
                 ))}
               </div>
             </div>
+
             <div>
-              <label className="text-xs text-gray-500 block mb-2">Response length</label>
+              <label className="text-xs text-gray-500 block mb-1 uppercase tracking-wide">Response length</label>
+              <p className="text-xs text-gray-600 mb-2">SMS conversations work better short. Email and chat can go longer. You can set this per-channel later — this is your default.</p>
               <div className="grid grid-cols-3 gap-2">
                 {LENGTHS.map(l => (
                   <button
@@ -209,19 +269,44 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 4 — Knowledge base */}
+        {/* ── STEP 4: Knowledge base ── */}
         {step === 4 && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
               <h2 className="text-xl font-bold text-white mb-1">Give your AI its knowledge</h2>
-              <p className="text-sm text-gray-500">Paste in your FAQs, pricing, service areas, hours, policies — anything leads commonly ask about. Your AI will use this to answer questions accurately. <span className="text-gray-600">(Optional — you can add this later in AI Settings)</span></p>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                This is your AI's brain. Without this, it will give vague, generic answers. With this, it can quote your actual pricing, explain your process, handle common objections, and answer the questions your leads ask every single day — correctly, every time.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <ImpactBadge icon={Star} text="Highest quality answers" />
+                <ImpactBadge icon={Clock} text="Saves hours of back-and-forth" />
+                <ImpactBadge icon={Shield} text="Never guesses at your pricing" />
+              </div>
             </div>
+
+            <div className="bg-violet-500/5 border border-violet-500/20 rounded-lg p-3 space-y-1">
+              <p className="text-xs text-violet-300 font-medium">What to include:</p>
+              <ul className="text-xs text-gray-500 space-y-0.5 list-disc list-inside">
+                <li>Your pricing or starting rates</li>
+                <li>Services you offer (and don't offer)</li>
+                <li>Your service area or location</li>
+                <li>Hours, turnaround times, response time</li>
+                <li>Your most common FAQs</li>
+                <li>What happens after someone contacts you</li>
+              </ul>
+            </div>
+
             <textarea
               rows={8}
-              placeholder={`Example:\n\nPricing: Drain cleaning starts at $149. Emergency call-out fee: $75.\nService area: Denver, Aurora, Lakewood, Englewood.\nHours: Mon–Sat 7am–8pm. Emergency line 24/7.\nResponse time: We aim to arrive within 2 hours for emergencies.\nPayment: Cash, card, and financing available.\n\nFAQ: Do you offer free estimates? Yes, for non-emergency jobs.`}
+              placeholder={`Example:\n\nPricing: Drain cleaning from $149. Water heater install from $850. Emergency call-out: $75 fee.\nService area: Denver, Aurora, Lakewood, Englewood, Littleton.\nHours: Mon–Sat 7am–8pm. 24/7 emergency line.\nResponse time: 2-hour arrival for emergencies, next-day for standard jobs.\nPayment: Cash, all major cards, and financing available.\n\nFAQ: Do you offer free estimates? Yes, for non-emergency work.\nFAQ: Are you licensed? Yes — licensed, bonded, and insured in Colorado.`}
               value={form.knowledgeBase}
               onChange={e => set('knowledgeBase', e.target.value)}
               className={`${inputClass} resize-none`}
+            />
+
+            <BeforeAfter
+              bad="Our pricing varies depending on the job. Please contact us for a quote."
+              good="Drain cleaning starts at $149. Emergency call-out is $75. We can usually give you an exact quote over the phone — want me to help with that?"
             />
           </div>
         )}
@@ -256,7 +341,7 @@ export default function OnboardingPage() {
               disabled={saving}
               className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-60"
             >
-              {saving ? 'Setting up…' : 'Launch my AI'} <ChevronRight className="w-4 h-4" />
+              {saving ? 'Setting up your AI…' : 'Launch my AI'} <ChevronRight className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -268,13 +353,12 @@ export default function OnboardingPage() {
               onClick={complete}
               className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
             >
-              Skip for now — I'll add this later
+              Skip for now — I'll add this in AI Settings later
             </button>
           </p>
         )}
       </div>
 
-      {/* Step counter */}
       <p className="text-xs text-gray-700 mt-6">Step {step} of {TOTAL_STEPS}</p>
     </div>
   );
