@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bot, Building2, MessageSquare, BookOpen, ChevronRight, ChevronLeft, Check, Zap, Star, Shield, Clock } from 'lucide-react';
+import { Bot, Building2, MessageSquare, BookOpen, ChevronRight, ChevronLeft, Check, Zap, Star, Shield, Clock, Phone, Globe } from 'lucide-react';
 
 const TOTAL_STEPS = 4;
 
@@ -64,6 +64,8 @@ export default function OnboardingPage() {
   const [form, setForm] = useState({
     businessName: '',
     industry: '',
+    phone: '',
+    website: '',
     businessDescription: '',
     tone: 'Professional',
     responseLength: 'Medium',
@@ -156,6 +158,34 @@ export default function OnboardingPage() {
               onChange={e => set('businessName', e.target.value)}
               className={inputClass}
             />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5 flex items-center gap-1.5">
+                  <Phone className="w-3 h-3" /> Business phone <span className="text-gray-700">(optional)</span>
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. (555) 123-4567"
+                  value={form.phone}
+                  onChange={e => set('phone', e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5 flex items-center gap-1.5">
+                  <Globe className="w-3 h-3" /> Website <span className="text-gray-700">(optional)</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="e.g. https://yoursite.com"
+                  value={form.website}
+                  onChange={e => set('website', e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 -mt-2">Your AI will share these when leads ask — and they'll be saved to your account profile.</p>
 
             <div>
               <label className="text-sm text-gray-400 block mb-1">What industry are you in?</label>

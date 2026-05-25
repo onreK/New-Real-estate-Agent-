@@ -20,11 +20,21 @@ export async function POST(request) {
       tone = 'Professional',
       responseLength = 'Medium',
       knowledgeBase = '',
+      phone = '',
+      website = '',
     } = await request.json();
 
     if (!businessName?.trim()) {
       return NextResponse.json({ error: 'Business name is required' }, { status: 400 });
     }
+
+    // Build enriched knowledge base — append phone/website so the AI can share them naturally
+    const contactLines = [];
+    if (phone?.trim()) contactLines.push(`Business phone: ${phone.trim()}`);
+    if (website?.trim()) contactLines.push(`Website: ${website.trim()}`);
+    const enrichedKnowledgeBase = contactLines.length > 0
+      ? [knowledgeBase, ...contactLines].filter(Boolean).join('\n')
+      : knowledgeBase;
 
     // 1. Update the customer record
     const customerResult = await query(
@@ -44,15 +54,50 @@ export async function POST(request) {
              knowledge_base = CASE WHEN knowledge_base IS NULL OR knowledge_base = '' THEN $3 ELSE knowledge_base END,
              updated_at = NOW()
          WHERE user_id = $4`,
-        [businessName.trim(), businessDescription || '', knowledgeBase, userId]
+        [businessName.trim(), businessDescription || '', enrichedKnowledgeBase, userId]
       );
     } else {
       await query(
         `INSERT INTO ai_configs
            (user_id, business_name, personality, business_info, model, creativity, response_length, knowledge_base)
          VALUES ($1, $2, $3, $4, 'gpt-4o-mini', 0.7, 500, $5)`,
-        [userId, businessName.trim(), tone.toLowerCase(), businessDescription || '', knowledgeBase]
+        [userId, businessName.trim(), tone.toLowerCase(), businessDescription || '', enrichedKnowledgeBase]
       );
+    }
+
+    // 2b. Save to business_profiles so it appears in the customer's Settings → Business Profile tab
+    if (customerId) {
+      await query(`
+        CREATE TABLE IF NOT EXISTS business_profiles (
+          id SERIAL PRIMARY KEY,
+          customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+          industry VARCHAR(100),
+          website VARCHAR(255),
+          phone VARCHAR(50),
+          address VARCHAR(255),
+          city VARCHAR(100),
+          state VARCHAR(50),
+          zip_code VARCHAR(20),
+          country VARCHAR(100),
+          timezone VARCHAR(50),
+          employee_count VARCHAR(20),
+          description TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(customer_id)
+        )
+      `).catch(() => {});
+
+      await query(`
+        INSERT INTO business_profiles (customer_id, industry, phone, website, description, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        ON CONFLICT (customer_id) DO UPDATE SET
+          industry    = CASE WHEN business_profiles.industry    IS NULL OR business_profiles.industry    = '' THEN EXCLUDED.industry    ELSE business_profiles.industry    END,
+          phone       = CASE WHEN business_profiles.phone       IS NULL OR business_profiles.phone       = '' THEN EXCLUDED.phone       ELSE business_profiles.phone       END,
+          website     = CASE WHEN business_profiles.website     IS NULL OR business_profiles.website     = '' THEN EXCLUDED.website     ELSE business_profiles.website     END,
+          description = CASE WHEN business_profiles.description IS NULL OR business_profiles.description = '' THEN EXCLUDED.description ELSE business_profiles.description END,
+          updated_at  = NOW()
+      `, [customerId, industry || '', phone?.trim() || '', website?.trim() || '', businessDescription || '']).catch(() => {});
     }
 
     // 3. Seed ai_channel_settings for ALL channels so the AI is configured from day one.
@@ -81,7 +126,7 @@ export async function POST(request) {
             businessDescription || '',
             tone,
             responseLength,
-            knowledgeBase,
+            enrichedKnowledgeBase,
           ]
         );
       }
