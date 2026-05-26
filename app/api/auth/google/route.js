@@ -12,10 +12,13 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 // Gmail API scopes we need
+// Note: gmail.modify (mark as read / archive) intentionally excluded —
+// it's a restricted scope requiring a $15k+ security audit.
+// All modify calls in the app are cosmetic (inbox housekeeping only)
+// and are wrapped in try/catch so they fail gracefully without it.
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile'
 ];
