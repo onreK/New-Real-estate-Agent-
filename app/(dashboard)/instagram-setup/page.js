@@ -162,11 +162,13 @@ export default function InstagramSetupPage() {
               </div>
             </div>
 
-            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-              <p className="text-sm text-yellow-300">
-                <AlertCircle className="w-4 h-4 inline mr-1" />
-                Subscribe to <strong>messages</strong> and <strong>messaging_postbacks</strong> webhook fields
-              </p>
+            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg space-y-1">
+              <p className="text-sm text-yellow-300 font-medium">Subscribe to these webhook fields:</p>
+              <ul className="text-sm text-yellow-200 space-y-0.5 pl-2">
+                <li>• <strong>messages</strong> — for private DMs</li>
+                <li>• <strong>comments</strong> — for post comment replies</li>
+                <li>• <strong>messaging_postbacks</strong> — for button interactions</li>
+              </ul>
             </div>
           </div>
         )}

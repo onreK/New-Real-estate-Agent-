@@ -71,7 +71,7 @@ export async function GET() {
     } catch (_) {}
 
     // Channel connections
-    let gmailSet = new Set(), twilioSet = new Set(), facebookSet = new Set();
+    let gmailSet = new Set(), twilioSet = new Set(), facebookSet = new Set(), instagramSet = new Set();
     try {
       const r = await query(`SELECT DISTINCT user_id FROM gmail_connections WHERE status = 'connected' AND user_id = ANY($1::text[])`, [clerkIds]);
       r.rows.forEach(row => gmailSet.add(row.user_id));
@@ -83,6 +83,10 @@ export async function GET() {
     try {
       const r = await query(`SELECT DISTINCT user_id FROM facebook_connections WHERE status = 'connected' AND user_id = ANY($1::text[])`, [clerkIds]);
       r.rows.forEach(row => facebookSet.add(row.user_id));
+    } catch (_) {}
+    try {
+      const r = await query(`SELECT DISTINCT user_id FROM instagram_connections WHERE status = 'connected' AND user_id = ANY($1::text[])`, [clerkIds]);
+      r.rows.forEach(row => instagramSet.add(row.user_id));
     } catch (_) {}
 
     // Last activity: latest message across gmail + sms per customer
@@ -137,6 +141,7 @@ export async function GET() {
         has_gmail: gmailSet.has(c.clerk_user_id),
         has_sms: twilioSet.has(c.clerk_user_id),
         has_facebook: facebookSet.has(c.clerk_user_id),
+        has_instagram: instagramSet.has(c.clerk_user_id),
         mrr_contribution: isPaid ? (PLAN_MRR[c.plan] || 0) : 0,
       };
     });

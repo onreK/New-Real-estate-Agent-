@@ -1,210 +1,192 @@
-// app/api/instagram/webhook/route.js
-import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import OpenAI from 'openai';
-import { getInstagramConfigByPageId } from '../../../../lib/instagram-config.js';
+import { query } from '@/lib/database.js';
+import { generateInstagramResponse } from '@/lib/ai-service.js';
 
-// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-// Initialize OpenAI
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-}) : null;
+// ─── Signature verification ───────────────────────────────────────────────────
 
-// Webhook verification for Instagram
-export async function GET(request) {
+function verifySignature(payload, signature) {
+  const secret = process.env.INSTAGRAM_APP_SECRET || process.env.FACEBOOK_APP_SECRET;
+  if (!secret || !signature) return true;
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
   try {
-    const { searchParams } = new URL(request.url);
-    const mode = searchParams.get('hub.mode');
-    const token = searchParams.get('hub.verify_token');
-    const challenge = searchParams.get('hub.challenge');
-
-    console.log('📸 Instagram webhook verification:', { mode, token });
-
-    if (mode === 'subscribe' && token === 'verify_bizzy_bot_ai') {
-      console.log('✅ Instagram webhook verified');
-      return new Response(challenge, { status: 200 });
-    } else {
-      console.log('❌ Instagram webhook verification failed');
-      return new Response('Forbidden', { status: 403 });
-    }
-  } catch (error) {
-    console.error('❌ Instagram webhook verification error:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
   }
 }
 
-// Handle Instagram webhook messages
+// ─── DB helpers ───────────────────────────────────────────────────────────────
+
+async function getConnectionByPageId(pageId) {
+  try {
+    const result = await query(`
+      SELECT ic.user_id, ic.page_id, ic.access_token,
+             COALESCE(acs.auto_respond_dms, true)      AS auto_respond_dms,
+             COALESCE(acs.auto_respond_comments, false) AS auto_respond_comments
+      FROM instagram_connections ic
+      LEFT JOIN customers c ON c.clerk_user_id = ic.user_id
+      LEFT JOIN ai_channel_settings acs
+        ON acs.customer_id = c.id AND acs.channel = 'instagram'
+      WHERE ic.page_id = $1 AND ic.status = 'connected'
+      LIMIT 1
+    `, [pageId]);
+    return result.rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Graph API helpers ────────────────────────────────────────────────────────
+
+async function sendDM(recipientId, text, accessToken) {
+  const token = accessToken || process.env.INSTAGRAM_ACCESS_TOKEN;
+  if (!token) return;
+  const res = await fetch('https://graph.facebook.com/v21.0/me/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      recipient: { id: recipientId },
+      message: { text },
+      messaging_type: 'RESPONSE',
+    }),
+  });
+  if (!res.ok) console.error('❌ Instagram DM send error:', await res.json());
+}
+
+async function replyToComment(commentId, username, text, accessToken) {
+  const token = accessToken || process.env.INSTAGRAM_ACCESS_TOKEN;
+  if (!token) return;
+  // Instagram replies must start with @username to be threaded correctly
+  const message = username ? `@${username} ${text}` : text;
+  const res = await fetch(`https://graph.facebook.com/v21.0/${commentId}/replies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) console.error('❌ Instagram comment reply error:', await res.json());
+}
+
+// ─── Webhook verification (GET) ───────────────────────────────────────────────
+
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+
+  const verifyToken = process.env.INSTAGRAM_VERIFY_TOKEN || process.env.FACEBOOK_VERIFY_TOKEN || 'verify_bizzy_bot_ai';
+
+  if (mode === 'subscribe' && token === verifyToken) {
+    console.log('✅ Instagram webhook verified');
+    return new Response(challenge, { status: 200 });
+  }
+  console.error('❌ Instagram webhook verification failed — token mismatch');
+  return new Response('Forbidden', { status: 403 });
+}
+
+// ─── Webhook event handler (POST) ────────────────────────────────────────────
+
 export async function POST(request) {
   try {
-    console.log('📸 Instagram webhook received');
-
-    // Get the body as text for signature verification
     const body = await request.text();
-    
-    // Verify webhook signature if Instagram app secret is configured
-    if (process.env.INSTAGRAM_APP_SECRET) {
-      const signature = request.headers.get('x-hub-signature-256');
-      if (!verifySignature(body, signature)) {
-        console.log('❌ Invalid Instagram webhook signature');
-        return new Response('Unauthorized', { status: 401 });
-      }
-    } else {
-      console.log('⚠️ Instagram app secret not configured, skipping signature verification');
+    const signature = request.headers.get('x-hub-signature-256');
+    if (!verifySignature(body, signature)) {
+      console.error('❌ Instagram webhook signature mismatch');
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    const webhookData = JSON.parse(body);
-    console.log('📸 Instagram webhook data received');
+    const data = JSON.parse(body);
+    if (data.object !== 'instagram') return new Response('OK', { status: 200 });
 
-    // Process Instagram messages
-    if (webhookData.object === 'instagram') {
-      for (const entry of webhookData.entry) {
-        if (entry.messaging) {
-          for (const messagingEvent of entry.messaging) {
-            await processInstagramMessage(messagingEvent);
+    for (const entry of data.entry || []) {
+      const pageId = entry.id;
+      const connection = await getConnectionByPageId(pageId);
+
+      // Private DMs
+      for (const event of entry.messaging || []) {
+        if (event.message?.text && !event.message.is_echo) {
+          if (connection?.auto_respond_dms !== false) {
+            await handleDM(event, connection).catch(err =>
+              console.error('❌ handleDM error:', err)
+            );
+          }
+        }
+      }
+
+      // Post comments
+      for (const change of entry.changes || []) {
+        if (change.field === 'comments') {
+          if (connection?.auto_respond_comments) {
+            await handleComment(change.value, pageId, connection).catch(err =>
+              console.error('❌ handleComment error:', err)
+            );
           }
         }
       }
     }
 
     return new Response('OK', { status: 200 });
-
   } catch (error) {
     console.error('❌ Instagram webhook error:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    return new Response('OK', { status: 200 }); // always 200 — Meta retries on non-200
   }
 }
 
-async function processInstagramMessage(messagingEvent) {
-  try {
-    const { sender, recipient, message } = messagingEvent;
-    
-    if (!message || !message.text) {
-      console.log('📸 Ignoring non-text Instagram message');
-      return;
-    }
+// ─── Handlers ─────────────────────────────────────────────────────────────────
 
-    console.log('📸 Processing Instagram message:', {
-      from: sender.id,
-      to: recipient.id,
-      text: message.text
-    });
+async function handleDM(event, connection) {
+  const senderId = event.sender.id;
+  const pageId = event.recipient.id;
+  const messageText = event.message.text;
 
-    // Find configuration for this Instagram page
-    const pageConfig = getInstagramConfigByPageId(recipient.id);
-    
-    if (!pageConfig) {
-      console.log('❌ No configuration found for Instagram page:', recipient.id);
-      return;
-    }
+  console.log('📸 Instagram DM from:', senderId, '→', messageText.substring(0, 80));
 
-    // Generate AI response
-    const aiResponse = await generateInstagramResponse(message.text, pageConfig);
-    
-    if (!aiResponse) {
-      console.log('❌ Failed to generate Instagram AI response');
-      return;
-    }
+  const aiResult = await generateInstagramResponse(
+    pageId,
+    messageText,
+    [],
+    connection?.user_id || null
+  );
 
-    // Send response back to Instagram
-    const sendResult = await sendInstagramMessage(sender.id, aiResponse, pageConfig.accessToken);
-    
-    if (sendResult) {
-      console.log('✅ Instagram message processed successfully');
-    } else {
-      console.log('❌ Failed to send Instagram response');
-    }
+  const reply = aiResult?.success
+    ? aiResult.response
+    : "Thanks for your message! We'll get back to you shortly.";
 
-  } catch (error) {
-    console.error('❌ Error processing Instagram message:', error);
-  }
+  await sendDM(senderId, reply, connection?.access_token);
+  console.log('✅ Instagram DM reply sent');
 }
 
-async function generateInstagramResponse(messageText, config) {
-  if (!openai) {
-    return "Thanks for your message! We'll get back to you soon.";
-  }
+async function handleComment(value, pageId, connection) {
+  const commentId = value.id;
+  const messageText = value.text;
+  const username = value.from?.username || '';
+  const senderId = value.from?.id;
 
-  try {
-    const systemPrompt = `You are an AI assistant for ${config.businessName} responding to Instagram direct messages.
+  // Don't reply to our own comments
+  if (senderId === pageId) return;
+  if (!messageText?.trim()) return;
 
-Personality: ${config.personality}
-Business: ${config.businessName}
+  console.log('💬 Instagram comment from @', username, '→', messageText.substring(0, 80));
 
-Guidelines:
-- Keep responses under 160 characters for Instagram
-- Be ${config.personality} and helpful
-- Focus on ${config.businessName}
-- Encourage engagement and provide value
-- For complex inquiries, offer to connect them with a human representative
+  const contextMessage = username
+    ? `[Comment on Instagram post from @${username}]: ${messageText}`
+    : messageText;
 
-Instagram Message: "${messageText}"`;
+  const aiResult = await generateInstagramResponse(
+    pageId,
+    contextMessage,
+    [],
+    connection?.user_id || null
+  );
 
-    const completion = await openai.chat.completions.create({
-      model: config.aiModel || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: messageText }
-      ],
-      max_tokens: 150,
-      temperature: 0.7
-    });
+  const reply = aiResult?.success ? aiResult.response : null;
+  if (!reply) return;
 
-    return completion.choices[0].message.content.trim();
-
-  } catch (error) {
-    console.error('❌ Instagram AI response error:', error);
-    return "Thanks for your message! I'm experiencing some technical difficulties right now, but someone will get back to you soon.";
-  }
-}
-
-async function sendInstagramMessage(recipientId, message, accessToken) {
-  try {
-    const response = await fetch(`https://graph.facebook.com/v18.0/me/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
-      },
-      body: JSON.stringify({
-        recipient: { id: recipientId },
-        message: { text: message }
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('❌ Failed to send Instagram message:', errorData);
-      return false;
-    }
-
-    console.log('✅ Instagram message sent successfully');
-    return true;
-
-  } catch (error) {
-    console.error('❌ Error sending Instagram message:', error);
-    return false;
-  }
-}
-
-function verifySignature(body, signature) {
-  if (!signature || !process.env.INSTAGRAM_APP_SECRET) {
-    return false;
-  }
-
-  try {
-    const expectedSignature = 'sha256=' + crypto
-      .createHmac('sha256', process.env.INSTAGRAM_APP_SECRET)
-      .update(body)
-      .digest('hex');
-
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
-  } catch (error) {
-    console.error('❌ Signature verification error:', error);
-    return false;
-  }
+  await replyToComment(commentId, username, reply, connection?.access_token);
+  console.log('✅ Instagram comment reply sent');
 }

@@ -1,260 +1,189 @@
-// app/api/facebook/webhook/route.js - UPDATED TO USE CENTRALIZED AI SERVICE
-import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-// 🎯 IMPORT THE CENTRALIZED AI SERVICE - FIXED IMPORT PATH
-import { generateFacebookResponse } from '../../../../lib/ai-service.js';
+import { query } from '@/lib/database.js';
+import { generateFacebookResponse } from '@/lib/ai-service.js';
 
-// In-memory storage for conversations and customer configs (use database in production)
-const conversations = new Map();
-const customerConfigs = new Map();
+export const dynamic = 'force-dynamic';
 
-// Verify webhook signature (unchanged)
+// ─── Signature verification ───────────────────────────────────────────────────
+
 function verifySignature(payload, signature) {
-  if (!process.env.FACEBOOK_APP_SECRET || !signature) {
-    return true; // Skip verification in development if secret not set
-  }
-  
-  const expectedSignature = crypto
-    .createHmac('sha256', process.env.FACEBOOK_APP_SECRET)
+  const secret = process.env.FACEBOOK_APP_SECRET;
+  if (!secret || !signature) return true; // skip in dev if secret not set
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', secret)
     .update(payload)
     .digest('hex');
-  
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(`sha256=${expectedSignature}`)
-  );
-}
-
-// Send message via Facebook Messenger (unchanged)
-async function sendFacebookMessage(recipientId, messageText) {
-  if (!process.env.FACEBOOK_PAGE_ACCESS_TOKEN) {
-    console.log('📨 Demo mode - would send:', messageText);
-    return { message_id: 'demo_' + Date.now() };
-  }
-
   try {
-    const response = await fetch(`https://graph.facebook.com/v18.0/me/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.FACEBOOK_PAGE_ACCESS_TOKEN}`
-      },
-      body: JSON.stringify({
-        recipient: { id: recipientId },
-        message: { text: messageText },
-        messaging_type: 'RESPONSE'
-      })
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      console.error('❌ Facebook Send Error:', result);
-      throw new Error(result.error?.message || 'Failed to send message');
-    }
-
-    return result;
-  } catch (error) {
-    console.error('❌ Facebook Message Send Failed:', error);
-    throw error;
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
   }
 }
 
-// GET endpoint for webhook verification (unchanged)
+// ─── DB helpers ───────────────────────────────────────────────────────────────
+
+async function getConnectionByPageId(pageId) {
+  try {
+    const result = await query(`
+      SELECT fc.user_id, fc.page_id, fc.page_access_token,
+             COALESCE(acs.auto_respond_comments, false) AS auto_respond_comments
+      FROM facebook_connections fc
+      LEFT JOIN customers c ON c.clerk_user_id = fc.user_id
+      LEFT JOIN ai_channel_settings acs
+        ON acs.customer_id = c.id AND acs.channel = 'facebook'
+      WHERE fc.page_id = $1 AND fc.status = 'connected'
+      LIMIT 1
+    `, [pageId]);
+    return result.rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Graph API helpers ────────────────────────────────────────────────────────
+
+async function sendDM(recipientId, text, accessToken) {
+  const token = accessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  if (!token) return;
+  const res = await fetch('https://graph.facebook.com/v21.0/me/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      recipient: { id: recipientId },
+      message: { text },
+      messaging_type: 'RESPONSE',
+    }),
+  });
+  if (!res.ok) console.error('❌ Facebook DM send error:', await res.json());
+}
+
+async function replyToComment(commentId, text, accessToken) {
+  const token = accessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  if (!token) return;
+  const res = await fetch(`https://graph.facebook.com/v21.0/${commentId}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ message: text }),
+  });
+  if (!res.ok) console.error('❌ Facebook comment reply error:', await res.json());
+}
+
+// ─── Webhook verification (GET) ───────────────────────────────────────────────
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('hub.mode');
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  console.log('🔍 Facebook Webhook Verification:', { mode, token });
-
   if (mode === 'subscribe' && token === process.env.FACEBOOK_VERIFY_TOKEN) {
-    console.log('✅ Facebook webhook verified successfully');
+    console.log('✅ Facebook webhook verified');
     return new Response(challenge, { status: 200 });
-  } else {
-    console.error('❌ Facebook webhook verification failed');
-    return new Response('Forbidden', { status: 403 });
   }
+  console.error('❌ Facebook webhook verification failed — token mismatch');
+  return new Response('Forbidden', { status: 403 });
 }
 
-// POST endpoint for receiving messages - UPDATED TO USE CENTRALIZED AI
-export async function POST(request) {
-  console.log('📘 === FACEBOOK WEBHOOK WITH CENTRALIZED AI SERVICE ===');
-  
-  try {
-    const body = await request.text();
-    const signature = request.headers.get('x-hub-signature-256');
+// ─── Webhook event handler (POST) ────────────────────────────────────────────
 
-    // Verify signature
+export async function POST(request) {
+  let body;
+  try {
+    body = await request.text();
+    const signature = request.headers.get('x-hub-signature-256');
     if (!verifySignature(body, signature)) {
-      console.error('❌ Invalid webhook signature');
+      console.error('❌ Facebook webhook signature mismatch');
       return new Response('Unauthorized', { status: 401 });
     }
 
     const data = JSON.parse(body);
+    if (data.object !== 'page') return new Response('OK', { status: 200 });
 
-    // Handle webhook entry
-    if (data.object === 'page') {
-      for (const entry of data.entry) {
-        for (const webhook_event of entry.messaging) {
-          await handleMessengerEvent(webhook_event);
+    for (const entry of data.entry || []) {
+      const pageId = entry.id;
+      const connection = await getConnectionByPageId(pageId);
+
+      // Private Messenger DMs
+      for (const event of entry.messaging || []) {
+        if (event.message?.text && !event.message.is_echo) {
+          await handleDM(event, connection).catch(err =>
+            console.error('❌ handleDM error:', err)
+          );
+        }
+      }
+
+      // Page post comments (field = 'feed')
+      for (const change of entry.changes || []) {
+        if (
+          change.field === 'feed' &&
+          change.value?.item === 'comment' &&
+          !change.value?.parent_id // skip replies-to-comments to avoid chains
+        ) {
+          if (connection?.auto_respond_comments) {
+            await handleComment(change.value, pageId, connection).catch(err =>
+              console.error('❌ handleComment error:', err)
+            );
+          }
         }
       }
     }
 
     return new Response('OK', { status: 200 });
   } catch (error) {
-    console.error('❌ Facebook Webhook Error:', error);
-    return new Response('Error', { status: 500 });
+    console.error('❌ Facebook webhook error:', error);
+    return new Response('OK', { status: 200 }); // always 200 — Meta retries on non-200
   }
 }
 
-async function handleMessengerEvent(event) {
+// ─── Handlers ─────────────────────────────────────────────────────────────────
+
+async function handleDM(event, connection) {
   const senderId = event.sender.id;
-  const recipientId = event.recipient.id;
+  const pageId = event.recipient.id;
+  const messageText = event.message.text;
 
-  // Handle messages
-  if (event.message && event.message.text) {
-    const messageText = event.message.text;
-    const timestamp = event.timestamp;
+  console.log('📨 Facebook DM from:', senderId, '→', messageText.substring(0, 80));
 
-    console.log('📨 Facebook Message received:', {
-      from: senderId,
-      text: messageText.substring(0, 50) + '...',
-      timestamp: new Date(timestamp).toISOString()
-    });
+  const aiResult = await generateFacebookResponse(
+    pageId,
+    messageText,
+    [],
+    connection?.user_id || null
+  );
 
-    // Get or create conversation
-    const conversationKey = `fb_${senderId}_${recipientId}`;
-    let conversation = conversations.get(conversationKey) || {
-      id: conversationKey,
-      platform: 'facebook',
-      senderId,
-      recipientId,
-      startedAt: new Date().toISOString(),
-      lastMessageAt: new Date().toISOString(),
-      messages: []
-    };
+  const reply = aiResult?.success
+    ? aiResult.response
+    : "Thanks for your message! We'll get back to you shortly.";
 
-    // Add incoming message to conversation
-    conversation.messages.push({
-      id: Date.now().toString(),
-      text: messageText,
-      sender: 'customer',
-      timestamp: new Date(timestamp).toISOString(),
-      direction: 'inbound'
-    });
+  await sendDM(senderId, reply, connection?.page_access_token);
+  console.log('✅ Facebook DM reply sent');
+}
 
-    // Get customer configuration (default for now, will be customer-specific later)
-    const customerConfig = customerConfigs.get(recipientId) || {
-      businessName: 'Your Business Name',
-      industry: 'Your Industry',
-      personality: 'professional',
-      welcomeMessage: 'Hi! How can I help you today?'
-    };
+async function handleComment(value, pageId, connection) {
+  const commentId = value.comment_id;
+  const senderName = value.sender_name || '';
+  const messageText = value.message;
 
-    // 🎯 USE CENTRALIZED AI SERVICE FOR FACEBOOK RESPONSE
-    console.log('🧠 Using centralized AI service for Facebook...');
-    
-    // Build conversation history for context
-    const conversationHistory = conversation.messages.slice(-5).map(msg => ({
-      role: msg.sender === 'customer' ? 'user' : 'assistant',
-      content: msg.text,
-      sender_type: msg.sender === 'customer' ? 'user' : 'assistant'
-    }));
+  // Don't reply to the page's own comments
+  if (value.sender_id === pageId) return;
+  if (!messageText?.trim()) return;
 
-    let aiResult;
-    let aiResponse;
-    
-    if (conversation.messages.length === 1) {
-      // First message - use centralized service but might override with welcome message
-      aiResult = await generateFacebookResponse(
-        recipientId, // pageId
-        messageText, // user message
-        conversationHistory // conversation history
-      );
-      
-      // Use welcome message for first interaction if configured
-      if (customerConfig.welcomeMessage) {
-        aiResponse = customerConfig.welcomeMessage;
-      } else {
-        aiResponse = aiResult.success ? aiResult.response : "Hi! How can I help you today?";
-      }
-    } else {
-      // Regular message - use centralized AI service
-      aiResult = await generateFacebookResponse(
-        recipientId, // pageId
-        messageText, // user message
-        conversationHistory // conversation history
-      );
-      
-      if (aiResult.success) {
-        aiResponse = aiResult.response;
-      } else {
-        console.error('❌ Centralized AI service failed:', aiResult.error);
-        aiResponse = "I'm having a brief technical issue, but I'd be happy to help you. Please try again in a moment.";
-      }
-    }
+  console.log('💬 Facebook comment from:', senderName, '→', messageText.substring(0, 80));
 
-    console.log('✅ Centralized AI service result:', {
-      success: aiResult?.success || false,
-      hotLead: aiResult?.hotLead?.isHotLead || false,
-      score: aiResult?.hotLead?.score || 0,
-      knowledgeBaseUsed: aiResult?.metadata?.knowledgeBaseUsed || false
-    });
+  const contextMessage = senderName
+    ? `[Comment on Facebook post from "${senderName}"]: ${messageText}`
+    : messageText;
 
-    // Add AI response to conversation
-    conversation.messages.push({
-      id: (Date.now() + 1).toString(),
-      text: aiResponse,
-      sender: 'ai',
-      timestamp: new Date().toISOString(),
-      direction: 'outbound',
-      hotLeadScore: aiResult?.hotLead?.score || 0,
-      aiServiceUsed: aiResult?.success || false
-    });
+  const aiResult = await generateFacebookResponse(
+    pageId,
+    contextMessage,
+    [],
+    connection?.user_id || null
+  );
 
-    // Update conversation
-    conversation.lastMessageAt = new Date().toISOString();
-    conversations.set(conversationKey, conversation);
+  const reply = aiResult?.success ? aiResult.response : null;
+  if (!reply) return;
 
-    // Send AI response via Facebook
-    try {
-      await sendFacebookMessage(senderId, aiResponse);
-      console.log('✅ Facebook AI response sent successfully with centralized service');
-    } catch (error) {
-      console.error('❌ Failed to send Facebook response:', error);
-    }
-
-    // Log hot lead if detected by centralized service
-    if (aiResult?.hotLead?.isHotLead) {
-      console.log('🔥 HOT LEAD DETECTED on Facebook (centralized AI):', {
-        senderId,
-        score: aiResult.hotLead.score,
-        reasoning: aiResult.hotLead.reasoning,
-        message: messageText.substring(0, 100),
-        knowledgeBaseUsed: aiResult.metadata?.knowledgeBaseUsed,
-        tokensUsed: aiResult.metadata?.tokensUsed
-      });
-      
-      // TODO: Send notification to business owner
-      // You can integrate this with your existing hot lead notification system
-    }
-
-    console.log('✅ Facebook message processed successfully with centralized AI:', {
-      conversationId: conversationKey,
-      messageCount: conversation.messages.length,
-      hotLeadScore: aiResult?.hotLead?.score || 0,
-      centralizedAI: aiResult?.success || false,
-      tokensUsed: aiResult?.metadata?.tokensUsed || 0,
-      knowledgeBaseUsed: aiResult?.metadata?.knowledgeBaseUsed || false
-    });
-  }
-
-  // Handle postbacks (button clicks, etc.)
-  if (event.postback) {
-    console.log('📱 Facebook Postback received:', event.postback);
-    // Handle button clicks or quick replies here
-  }
+  await replyToComment(commentId, reply, connection?.page_access_token);
+  console.log('✅ Facebook comment reply sent');
 }

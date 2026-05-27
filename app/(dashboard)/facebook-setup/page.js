@@ -173,7 +173,7 @@ export default function FacebookSetup() {
               <li>Find the "Webhooks" section</li>
               <li>Click "Add Callback URL"</li>
               <li>Use the webhook URL and verify token below</li>
-              <li>Subscribe to: messages, messaging_postbacks, messaging_optins</li>
+              <li>Subscribe to: <strong>messages</strong>, <strong>feed</strong> (for post comments), messaging_postbacks, messaging_optins</li>
             </ol>
           </div>
 

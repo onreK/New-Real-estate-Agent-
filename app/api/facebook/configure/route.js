@@ -1,303 +1,135 @@
-// app/api/facebook/configure/route.js
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs';
-import { 
-  getCustomerByClerkId,
-  createCustomer
-} from '../../../../lib/database.js';
+import { auth } from '@clerk/nextjs/server';
+import { query } from '@/lib/database.js';
 
-// In-memory storage for customer configurations (use database in production)
-let facebookConfigs = new Map();
+export const dynamic = 'force-dynamic';
+
+async function ensureTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS facebook_connections (
+      id SERIAL PRIMARY KEY,
+      user_id VARCHAR(255) NOT NULL UNIQUE,
+      customer_id INTEGER,
+      page_id VARCHAR(255),
+      page_access_token TEXT,
+      verify_token VARCHAR(255),
+      app_secret TEXT,
+      business_name VARCHAR(255),
+      status VARCHAR(50) DEFAULT 'connected',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `).catch(() => {});
+}
+
+async function fetchPageId(pageAccessToken) {
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${pageAccessToken}`
+    );
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.id;
+  } catch (err) {
+    console.error('❌ Could not fetch Facebook page ID:', err.message);
+    return null;
+  }
+}
+
+export async function GET(request) {
+  try {
+    const { userId } = auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    await ensureTable();
+
+    const result = await query(
+      `SELECT page_id, business_name, status, created_at, updated_at,
+              page_access_token IS NOT NULL AS has_page_access_token,
+              verify_token IS NOT NULL AS has_verify_token,
+              app_secret IS NOT NULL AS has_app_secret
+       FROM facebook_connections WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (!result.rows[0]) {
+      return NextResponse.json({ configured: false });
+    }
+
+    return NextResponse.json({ configured: true, connection: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Facebook configure GET error:', error);
+    return NextResponse.json({ error: 'Failed to load configuration' }, { status: 500 });
+  }
+}
 
 export async function POST(request) {
   try {
-    const user = await currentUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { userId } = auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Get or create customer from database
-    let customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      console.log('👤 Creating customer record for Facebook user:', user.id);
-      
-      const customerData = {
-        clerk_user_id: user.id,
-        email: user.emailAddresses?.[0]?.emailAddress || '',
-        business_name: user.firstName && user.lastName ? 
-          `${user.firstName} ${user.lastName}` : 'My Business',
-        plan: 'basic'
-      };
-      
-      customer = await createCustomer(customerData);
-      console.log('✅ Created new customer for Facebook user:', customer.id);
-    }
+    await ensureTable();
 
     const { config } = await request.json();
+    if (!config) return NextResponse.json({ error: 'Configuration required' }, { status: 400 });
 
-    if (!config) {
-      return NextResponse.json({
-        success: false,
-        error: 'Configuration is required'
-      }, { status: 400 });
+    const { pageAccessToken, verifyToken, appSecret, businessName } = config;
+    if (!pageAccessToken?.trim() || !verifyToken?.trim() || !appSecret?.trim() || !businessName?.trim()) {
+      return NextResponse.json({ error: 'pageAccessToken, verifyToken, appSecret, and businessName are required' }, { status: 400 });
     }
 
-    // Validate required fields
-    const requiredFields = ['businessName', 'pageAccessToken', 'verifyToken', 'appSecret'];
-    for (const field of requiredFields) {
-      if (!config[field] || config[field].trim() === '') {
-        return NextResponse.json({
-          success: false,
-          error: `${field} is required`
-        }, { status: 400 });
-      }
+    // Auto-fetch the page ID from Facebook so we can route webhooks correctly
+    const pageId = await fetchPageId(pageAccessToken.trim());
+    if (!pageId) {
+      return NextResponse.json({ error: 'Invalid Page Access Token — could not verify with Facebook' }, { status: 400 });
     }
 
-    console.log('⚙️ Configuring Facebook Messenger AI for customer:', customer.id);
+    // Look up customer ID
+    const customerResult = await query(
+      `SELECT id FROM customers WHERE clerk_user_id = $1 LIMIT 1`,
+      [userId]
+    ).catch(() => ({ rows: [] }));
+    const customerId = customerResult.rows[0]?.id || null;
 
-    // Create configuration object
-    const facebookConfig = {
-      customerId: customer.id,
-      clerkUserId: user.id,
-      businessName: config.businessName.trim(),
-      industry: config.industry || 'General Business',
-      personality: config.personality || 'professional',
-      welcomeMessage: config.welcomeMessage || `Hi! I'm ${config.businessName}'s AI assistant. How can I help you today?`,
-      responseStyle: config.responseStyle || 'helpful',
-      enableHotLeadAlerts: config.enableHotLeadAlerts !== false,
-      
-      // Facebook credentials (in production, encrypt these)
-      pageAccessToken: config.pageAccessToken.trim(),
-      verifyToken: config.verifyToken.trim(),
-      appSecret: config.appSecret.trim(),
-      
-      // Metadata
-      configuredAt: new Date().toISOString(),
-      status: 'active',
-      platform: 'facebook_messenger'
-    };
+    await query(`
+      INSERT INTO facebook_connections
+        (user_id, customer_id, page_id, page_access_token, verify_token, app_secret, business_name, status, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'connected', NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        customer_id       = EXCLUDED.customer_id,
+        page_id           = EXCLUDED.page_id,
+        page_access_token = EXCLUDED.page_access_token,
+        verify_token      = EXCLUDED.verify_token,
+        app_secret        = EXCLUDED.app_secret,
+        business_name     = EXCLUDED.business_name,
+        status            = 'connected',
+        updated_at        = NOW()
+    `, [userId, customerId, pageId, pageAccessToken.trim(), verifyToken.trim(), appSecret.trim(), businessName.trim()]);
 
-    // Store configuration using customer ID as key
-    facebookConfigs.set(customer.id, facebookConfig);
-
-    console.log('✅ Facebook Messenger AI configured successfully:', {
-      customerId: customer.id,
-      businessName: facebookConfig.businessName,
-      personality: facebookConfig.personality,
-      hotLeadAlerts: facebookConfig.enableHotLeadAlerts
-    });
-
-    // Return success response (don't include sensitive tokens)
-    return NextResponse.json({
-      success: true,
-      config: {
-        businessName: facebookConfig.businessName,
-        industry: facebookConfig.industry,
-        personality: facebookConfig.personality,
-        welcomeMessage: facebookConfig.welcomeMessage,
-        responseStyle: facebookConfig.responseStyle,
-        enableHotLeadAlerts: facebookConfig.enableHotLeadAlerts,
-        configuredAt: facebookConfig.configuredAt,
-        status: facebookConfig.status
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Facebook Configuration Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to configure Facebook Messenger AI'
-    }, { status: 500 });
-  }
-}
-
-// GET endpoint to retrieve current configuration
-export async function GET(request) {
-  try {
-    const user = await currentUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      return NextResponse.json({
-        success: false,
-        error: 'Customer not found'
-      }, { status: 404 });
-    }
-
-    const config = facebookConfigs.get(customer.id);
-    
-    if (!config) {
-      return NextResponse.json({
-        success: false,
-        error: 'No Facebook configuration found'
-      }, { status: 404 });
-    }
-
-    // Return configuration (excluding sensitive data)
-    return NextResponse.json({
-      success: true,
-      config: {
-        businessName: config.businessName,
-        industry: config.industry,
-        personality: config.personality,
-        welcomeMessage: config.welcomeMessage,
-        responseStyle: config.responseStyle,
-        enableHotLeadAlerts: config.enableHotLeadAlerts,
-        configuredAt: config.configuredAt,
-        status: config.status,
-        hasPageAccessToken: !!config.pageAccessToken,
-        hasVerifyToken: !!config.verifyToken,
-        hasAppSecret: !!config.appSecret
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Facebook Configuration Retrieval Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to retrieve configuration'
-    }, { status: 500 });
-  }
-}
-
-// PUT endpoint to update configuration
-export async function PUT(request) {
-  try {
-    const user = await currentUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      return NextResponse.json({
-        success: false,
-        error: 'Customer not found'
-      }, { status: 404 });
-    }
-
-    const { updates } = await request.json();
-
-    if (!updates) {
-      return NextResponse.json({
-        success: false,
-        error: 'Updates are required'
-      }, { status: 400 });
-    }
-
-    const existingConfig = facebookConfigs.get(customer.id);
-    
-    if (!existingConfig) {
-      return NextResponse.json({
-        success: false,
-        error: 'No existing configuration found. Please complete initial setup first.'
-      }, { status: 404 });
-    }
-
-    console.log('🔄 Updating Facebook configuration for customer:', customer.id);
-
-    // Update configuration
-    const updatedConfig = {
-      ...existingConfig,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    facebookConfigs.set(customer.id, updatedConfig);
-
-    console.log('✅ Facebook configuration updated successfully');
+    console.log('✅ Facebook connection saved to DB for user:', userId, 'page:', pageId);
 
     return NextResponse.json({
       success: true,
-      config: {
-        businessName: updatedConfig.businessName,
-        industry: updatedConfig.industry,
-        personality: updatedConfig.personality,
-        welcomeMessage: updatedConfig.welcomeMessage,
-        responseStyle: updatedConfig.responseStyle,
-        enableHotLeadAlerts: updatedConfig.enableHotLeadAlerts,
-        updatedAt: updatedConfig.updatedAt,
-        status: updatedConfig.status
-      }
+      config: { pageId, businessName: businessName.trim(), status: 'connected' }
     });
-
   } catch (error) {
-    console.error('❌ Facebook Configuration Update Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to update configuration'
-    }, { status: 500 });
+    console.error('❌ Facebook configure POST error:', error);
+    return NextResponse.json({ error: 'Failed to save configuration', details: error.message }, { status: 500 });
   }
 }
 
-// DELETE endpoint to remove configuration
 export async function DELETE(request) {
   try {
-    const user = await currentUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { userId } = auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Get customer from database
-    const customer = await getCustomerByClerkId(user.id);
-    
-    if (!customer) {
-      return NextResponse.json({
-        success: false,
-        error: 'Customer not found'
-      }, { status: 404 });
-    }
+    await query(
+      `UPDATE facebook_connections SET status = 'disconnected', updated_at = NOW() WHERE user_id = $1`,
+      [userId]
+    ).catch(() => {});
 
-    const existed = facebookConfigs.delete(customer.id);
-    
-    if (!existed) {
-      return NextResponse.json({
-        success: false,
-        error: 'No configuration found to delete'
-      }, { status: 404 });
-    }
-
-    console.log('🗑️ Facebook configuration deleted for customer:', customer.id);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Facebook Messenger AI configuration deleted successfully'
-    });
-
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ Facebook Configuration Deletion Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to delete configuration'
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to disconnect' }, { status: 500 });
   }
-}
-
-// Helper function to get configuration by customer ID (for use in webhook)
-export function getFacebookConfig(customerId) {
-  return facebookConfigs.get(customerId);
-}
-
-// Helper function to get configuration by page ID (for webhook routing)
-export function getFacebookConfigByPageId(pageId) {
-  for (const [customerId, config] of facebookConfigs.entries()) {
-    // In a real implementation, you'd store the page ID with the config
-    // For now, return the first active config
-    if (config.status === 'active') {
-      return { customerId, config };
-    }
-  }
-  return null;
 }

@@ -1,160 +1,117 @@
-// app/api/instagram/configure/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { setInstagramConfig, getInstagramConfig } from '../../../../lib/instagram-config.js';
+import { query } from '@/lib/database.js';
 
-// Force dynamic rendering for authentication
 export const dynamic = 'force-dynamic';
 
-// Database import with fallback
-let dbAvailable = false;
-let db = {};
-
-try {
-  const database = await import('../../../../lib/database.js');
-  db = database;
-  dbAvailable = true;
-  console.log('✅ Database available for Instagram configure');
-} catch (error) {
-  console.log('⚠️ Database not available for Instagram configure:', error.message);
-  dbAvailable = false;
-}
-
-export async function POST(request) {
-  try {
-    const { userId } = auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { accessToken, pageId, businessName, welcomeMessage, personality, aiModel } = await request.json();
-
-    if (!accessToken || !pageId) {
-      return NextResponse.json({ 
-        error: 'Access token and page ID are required' 
-      }, { status: 400 });
-    }
-
-    console.log('📸 Configuring Instagram for user:', userId);
-
-    // Test the Instagram access token
-    try {
-      const testResponse = await fetch(`https://graph.facebook.com/v18.0/${pageId}?access_token=${accessToken}`);
-      
-      if (!testResponse.ok) {
-        return NextResponse.json({ 
-          error: 'Invalid access token or page ID' 
-        }, { status: 400 });
-      }
-
-      const pageInfo = await testResponse.json();
-      console.log('✅ Instagram page verified:', pageInfo.name);
-    } catch (error) {
-      console.error('❌ Instagram API test failed:', error);
-      return NextResponse.json({ 
-        error: 'Failed to verify Instagram credentials' 
-      }, { status: 400 });
-    }
-
-    // Get or create customer record
-    let customer;
-    try {
-      if (dbAvailable && db.getCustomerByClerkId) {
-        customer = await db.getCustomerByClerkId(userId);
-        
-        if (!customer && db.createCustomer) {
-          console.log('👤 Creating customer record for Instagram user:', userId);
-          
-          customer = await db.createCustomer({
-            clerk_user_id: userId,
-            email: '',
-            business_name: businessName || 'My Business',
-            plan: 'basic'
-          });
-        }
-      }
-    } catch (dbError) {
-      console.log('⚠️ Database error, proceeding without customer record:', dbError.message);
-    }
-
-    if (!customer) {
-      customer = { id: 'temp_customer', business_name: businessName || 'My Business' };
-    }
-
-    // Store Instagram configuration
-    const config = {
-      userId: userId,
-      customerId: customer.id,
-      accessToken,
-      pageId,
-      businessName: businessName || customer.business_name,
-      welcomeMessage: welcomeMessage || 'Hi! Thanks for messaging us on Instagram. How can we help you today?',
-      personality: personality || 'friendly',
-      aiModel: aiModel || 'gpt-4o-mini',
-      configuredAt: new Date().toISOString(),
-      active: true
-    };
-
-    setInstagramConfig(userId, config);
-
-    console.log('✅ Instagram configuration saved for user:', userId);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Instagram AI configured successfully!',
-      config: {
-        pageId,
-        businessName: config.businessName,
-        welcomeMessage: config.welcomeMessage,
-        personality: config.personality,
-        aiModel: config.aiModel
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Instagram configuration error:', error);
-    return NextResponse.json({
-      error: 'Failed to configure Instagram integration',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    }, { status: 500 });
-  }
+async function ensureTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS instagram_connections (
+      id SERIAL PRIMARY KEY,
+      user_id VARCHAR(255) NOT NULL UNIQUE,
+      customer_id INTEGER,
+      page_id VARCHAR(255),
+      access_token TEXT,
+      business_name VARCHAR(255),
+      status VARCHAR(50) DEFAULT 'connected',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `).catch(() => {});
 }
 
 export async function GET(request) {
   try {
     const { userId } = auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const config = getInstagramConfig(userId);
-    
-    if (!config) {
-      return NextResponse.json({ 
-        configured: false,
-        message: 'No Instagram configuration found' 
-      });
-    }
+    await ensureTable();
 
-    return NextResponse.json({
-      configured: true,
-      config: {
-        pageId: config.pageId,
-        businessName: config.businessName,
-        welcomeMessage: config.welcomeMessage,
-        personality: config.personality,
-        aiModel: config.aiModel,
-        configuredAt: config.configuredAt
-      }
-    });
+    const result = await query(
+      `SELECT page_id, business_name, status, created_at, updated_at,
+              access_token IS NOT NULL AS has_access_token
+       FROM instagram_connections WHERE user_id = $1`,
+      [userId]
+    );
 
+    if (!result.rows[0]) return NextResponse.json({ configured: false });
+
+    return NextResponse.json({ configured: true, connection: result.rows[0] });
   } catch (error) {
-    console.error('❌ Get Instagram configuration error:', error);
+    console.error('❌ Instagram configure GET error:', error);
+    return NextResponse.json({ error: 'Failed to load configuration' }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  try {
+    const { userId } = auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    await ensureTable();
+
+    const { accessToken, pageId, businessName } = await request.json();
+
+    if (!accessToken?.trim() || !pageId?.trim()) {
+      return NextResponse.json({ error: 'accessToken and pageId are required' }, { status: 400 });
+    }
+
+    // Verify the token and page ID with Meta
+    try {
+      const testRes = await fetch(
+        `https://graph.facebook.com/v21.0/${pageId.trim()}?access_token=${accessToken.trim()}`
+      );
+      const testData = await testRes.json();
+      if (testData.error) throw new Error(testData.error.message);
+    } catch (err) {
+      return NextResponse.json({ error: 'Invalid access token or page ID — could not verify with Meta' }, { status: 400 });
+    }
+
+    // Look up customer ID
+    const customerResult = await query(
+      `SELECT id FROM customers WHERE clerk_user_id = $1 LIMIT 1`,
+      [userId]
+    ).catch(() => ({ rows: [] }));
+    const customerId = customerResult.rows[0]?.id || null;
+
+    await query(`
+      INSERT INTO instagram_connections
+        (user_id, customer_id, page_id, access_token, business_name, status, updated_at)
+      VALUES ($1, $2, $3, $4, $5, 'connected', NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        customer_id  = EXCLUDED.customer_id,
+        page_id      = EXCLUDED.page_id,
+        access_token = EXCLUDED.access_token,
+        business_name = EXCLUDED.business_name,
+        status       = 'connected',
+        updated_at   = NOW()
+    `, [userId, customerId, pageId.trim(), accessToken.trim(), businessName?.trim() || '']);
+
+    console.log('✅ Instagram connection saved to DB for user:', userId, 'page:', pageId);
+
     return NextResponse.json({
-      error: 'Failed to get Instagram configuration',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    }, { status: 500 });
+      success: true,
+      message: 'Instagram AI configured successfully!',
+      config: { pageId: pageId.trim(), businessName: businessName?.trim(), status: 'connected' }
+    });
+  } catch (error) {
+    console.error('❌ Instagram configure POST error:', error);
+    return NextResponse.json({ error: 'Failed to configure Instagram integration', details: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { userId } = auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    await query(
+      `UPDATE instagram_connections SET status = 'disconnected', updated_at = NOW() WHERE user_id = $1`,
+      [userId]
+    ).catch(() => {});
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to disconnect' }, { status: 500 });
   }
 }
