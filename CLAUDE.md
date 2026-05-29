@@ -226,6 +226,47 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29 (continued x6)
+**Facebook & Instagram OAuth — one-click connect replaces manual token entry**
+
+**What was built:**
+- `app/api/auth/facebook/route.js` — initiates OAuth flow for both Facebook and Instagram (`?type=facebook` or `?type=instagram`). Requires Clerk auth. Signs state with HMAC using `FACEBOOK_APP_SECRET` before redirecting to Facebook.
+- `app/api/auth/facebook/callback/route.js` — handles Facebook's redirect back. Verifies HMAC signature on state, verifies Clerk session matches userId in state, exchanges code for long-lived token, fetches the user's Page(s), saves to `facebook_connections` or `instagram_connections` table. For Instagram: also fetches the Instagram Business Account linked to the Facebook Page.
+- Updated `app/(dashboard)/facebook-setup/page.js` — "Connect Facebook Page" button (Facebook blue). Shows connected state with page name, Reconnect + Disconnect buttons. Handles OAuth callback success/error params.
+- Updated `app/(dashboard)/instagram-setup/page.js` — "Connect Instagram" button (Instagram gradient). Shows `@username` when connected. Note explaining Instagram connects through Facebook OAuth.
+- `middleware.js` — added `/api/auth/facebook(.*)` to public routes and ignored routes.
+
+**Security fixes (flagged by automated security review, fixed immediately):**
+- State parameter was plain `userId:type` — forgeable, vulnerable to account takeover
+- Fixed: state is now HMAC-signed with `FACEBOOK_APP_SECRET` (format: `userId:type.<sha256_sig>`). Callback uses `timingSafeEqual` to verify signature before trusting any state contents.
+- Added Clerk session verification in callback — `sessionUserId` must match `userId` from state. Double lock.
+
+**Remaining manual steps to activate OAuth:**
+1. Get Facebook App ID from developers.facebook.com → your app → Settings → Basic
+2. Update `FACEBOOK_APP_ID` in Railway (currently set to placeholder `REPLACE_WITH_YOUR_APP_ID`)
+3. Add `https://bizzybotai.com/api/auth/facebook/callback` to Valid OAuth Redirect URIs in Facebook Login → Settings
+4. Submit Facebook App Review for: `pages_messaging`, `instagram_manage_messages`, `pages_read_engagement`, `pages_manage_metadata`
+   - Record a screen showing: customer connects a Page → lead sends DM → AI responds
+   - Privacy policy: bizzybotai.com/privacy ✅
+
+**Key files changed:**
+- `app/api/auth/facebook/route.js` — new file
+- `app/api/auth/facebook/callback/route.js` — new file
+- `app/(dashboard)/facebook-setup/page.js` — OAuth button UI
+- `app/(dashboard)/instagram-setup/page.js` — OAuth button UI
+- `middleware.js` — OAuth routes added as public
+
+**Next priorities:**
+- [ ] Add real `FACEBOOK_APP_ID` to Railway (replace placeholder)
+- [ ] Register callback URL in Facebook app OAuth settings
+- [ ] Submit Facebook App Review (pages_messaging, instagram_manage_messages)
+- [ ] Complete Twilio A2P Brand registration (manual — owner action)
+- [ ] After A2P approved: buy SMS number pool, test end-to-end
+- [ ] Fix Clerk app name: "Bizzybot Ai" → "BizzyBot AI" in Clerk dashboard
+- [ ] Build referral tracking — credit referrer when BIZZYFRIEND coupon used
+
+---
+
 ### Session — 2026-05-29 (continued x5)
 **Email setup page rebuild**
 
