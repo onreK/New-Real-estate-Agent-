@@ -226,6 +226,42 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29 (continued x5)
+**Email setup page rebuild**
+
+**Email setup page (`app/(dashboard)/email/setup/page.js`) — full rewrite:**
+- Was light/white theme — didn't match dark dashboard
+- Had "Gmail Integration Coming Soon!" text — Gmail was already fully built and working
+- Had a redundant Business Name field — already collected in onboarding
+- Had `alert()` popups for success/error — bad UX
+- Had "Custom Domain" option with DNS MX record setup — complex, not needed for launch
+- Had "Email processing still in development" disclaimer — false
+- Was 437 lines; now 132 lines
+
+**Now:**
+- Dark theme matching rest of dashboard
+- Gmail connect is the only option — Google OAuth button
+- Connected state shows green checkmarks + what's active (AI reading/replying, lead scoring, follow-ups)
+- OAuth callback errors/success shown as inline banners (no alert() dialogs)
+- Privacy note: "BizzyBot only reads emails from leads — never personal emails"
+- Footer links to AI Settings for customization
+
+**SMS customer dashboard** — checked and confirmed fine. It's a data view page with no redundant AI config fields.
+
+**Design rule reinforced:** Setup pages only handle the connection. No business name, AI personality, or config fields that duplicate onboarding or AI Settings.
+
+**Key files changed:**
+- `app/(dashboard)/email/setup/page.js` — full rewrite
+
+**Next priorities:**
+- [ ] Complete Twilio A2P Brand registration (manual — owner action, start today)
+- [ ] After A2P approved: buy number pool via `POST /api/admin/sms/buy-numbers`, test SMS end-to-end
+- [ ] Fix Clerk app name capitalization: "Bizzybot Ai" → "BizzyBot AI" in Clerk dashboard settings
+- [ ] Build referral tracking — credit the referrer when `BIZZYFRIEND` coupon is used
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature complete)
+
+---
+
 ### Session — 2026-05-29 (continued x4)
 **Facebook, Instagram setup pages rebuilt + AI Settings placeholder improved**
 
