@@ -226,6 +226,48 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29 (continued x3)
+**End-to-end signup flow testing + fixes**
+
+**Bugs found and fixed:**
+- **Clerk app name** was showing "Multi-Tenant Chatbot Platform" on signup modal → user renamed to "BizzyBot AI" manually in Clerk dashboard (Configure → Settings → Application name). Now shows "Bizzybot Ai" — capitalization can be refined to "BizzyBot AI" if desired.
+- **Onboarding skipped on signup** — `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` was pointing to `/dashboard`. Updated via Railway agent to `/onboarding`. New signups now land on onboarding correctly.
+- **No onboarding completion tracking** — Added `onboarding_completed BOOLEAN` column to `customers` table (auto-added via `ALTER TABLE IF NOT EXISTS`). Set to `TRUE` when `/api/onboarding/complete` is called. Dashboard now checks `/api/onboarding/status` and redirects to `/onboarding` if not completed.
+- **"AI Disconnected" badge** showed red for all new users who haven't set up channels yet — misleading since nothing is broken. Now shows yellow "AI Ready" for new users, green "AI Active" once email or web chat is connected.
+- **14-day free trial** was advertised on landing page but not configured in Stripe — added `subscription_data: { trial_period_days: 14 }` to checkout session creation in `app/api/stripe/create-checkout-session/route.js`.
+
+**Testing results — full flow verified end-to-end:**
+- ✅ Landing page loads, looks great, all CTAs work
+- ✅ "Start free trial" opens Clerk signup modal
+- ✅ Signup → email verification → onboarding (4 steps)
+- ✅ Onboarding step 1: Business name, industry, phone, website
+- ✅ Onboarding step 2: Business description
+- ✅ Onboarding step 3: AI tone + response length (defaults pre-selected)
+- ✅ Onboarding step 4: Knowledge base (optional, skip available)
+- ✅ "Launch my AI" → redirects to /dashboard
+- ✅ Dashboard loads with setup checklist, channel cards, stats, pipeline
+- ✅ AI Settings page shows all onboarding data pre-populated correctly (business name, industry, description, tone, length, phone/website in knowledge base)
+- ⚠️ Sidebar nav is visible during onboarding — user could skip onboarding by clicking any nav link. Intentional for now, not a blocker.
+- ⚠️ Bot-filled textareas don't trigger React state (Continue button stays disabled until user types a character). Normal browser behavior, doesn't affect real users.
+
+**Known minor issue:** "Welcome back, kernopay+test2" — shows email prefix as name if Clerk account has no first name set. Real users who sign up with Google or enter their name will see their name correctly.
+
+**Key files changed:**
+- `app/api/stripe/create-checkout-session/route.js` — 14-day trial added
+- `app/api/onboarding/complete/route.js` — sets onboarding_completed = TRUE
+- `app/api/onboarding/status/route.js` — new endpoint, returns whether onboarding is done
+- `app/(dashboard)/dashboard/page.js` — onboarding redirect check + AI status badge fix
+- Railway env: `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/onboarding`
+
+**Next priorities:**
+- [ ] Complete Twilio A2P Brand registration (manual — owner action, start today)
+- [ ] After A2P approved: buy number pool via `POST /api/admin/sms/buy-numbers`, test SMS end-to-end
+- [ ] Fix Clerk app name capitalization: "Bizzybot Ai" → "BizzyBot AI" in Clerk dashboard
+- [ ] Build referral tracking — credit the referrer when `BIZZYFRIEND` coupon is used
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature complete)
+
+---
+
 ### Session — 2026-05-29 (continued x2)
 **SMS number pool provisioning — GoHighLevel-style instant number assignment**
 
