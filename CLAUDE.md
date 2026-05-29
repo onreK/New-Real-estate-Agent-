@@ -126,7 +126,19 @@ BizzyBot gives businesses an AI agent that:
 | User seats | 1 | 2 | 5 |
 
 ### Stripe price IDs
-⚠️ New Stripe prices need to be created for $29, $69, $199 and IDs updated in `lib/stripe.js`
+| Plan | Price ID |
+|---|---|
+| Starter $29/mo | `price_1TcLVq01O3SsJO6lr6j8MbWK` |
+| Professional $69/mo | `price_1TcLVr01O3SsJO6lyOqWsyhT` |
+| Business $199/mo | `price_1TcLVs01O3SsJO6lUmCp5Ojl` |
+
+### Stripe coupons
+| Code | Discount | Duration |
+|---|---|---|
+| `BIZZYFOUNDER` | 50% off | 12 months — for early beta/founder customers |
+| `BIZZYFRIEND` | 20% off | 3 months — referral discount for new signups |
+
+Referral tracking (crediting the referrer) is not yet built — planned for a future session.
 
 ---
 
@@ -214,6 +226,37 @@ BizzyBot gives businesses an AI agent that:
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29 (continued)
+**Stripe setup, platform rename to BizzyBot AI**
+
+**Stripe (via Stripe MCP):**
+- Created 3 products: BizzyBot Starter, BizzyBot Professional, BizzyBot Business
+- Created 3 live recurring prices: $29/mo, $69/mo, $199/mo
+- Created `BIZZYFOUNDER` coupon — 50% off for 12 months (for beta/founder customers)
+- Created `BIZZYFRIEND` coupon — 20% off for 3 months (referral discount for new signups)
+- Updated `lib/stripe.js` with real price IDs (removed old placeholder IDs)
+- Changed "AI Voice calls (powered by ElevenLabs)" → "AI Voice calls (coming soon)" on Business plan
+- Referral tracking (crediting the referrer) planned for a future session
+
+**Platform rename:**
+- GitHub repo renamed from `New-Real-estate-Agent` to `bizzybot-ai`
+- Local git remote URL updated to `https://github.com/onreK/bizzybot-ai.git`
+- Stripe account display name changed to "BizzyBot AI" (done manually in dashboard)
+- Railway project rename to "bizzybot-ai" — do manually in Railway dashboard settings
+- CLAUDE.md updated to remove old repo name references
+
+**Key files changed:**
+- `lib/stripe.js` — new price IDs
+
+**Next priorities:**
+- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [ ] Build referral tracking into dashboard — crediting the referrer when `BIZZYFRIEND` is used
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
+- [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
+- [ ] Tighten onboarding flow — ask industry/business description/tone upfront so AI is pre-configured from day one
+
+---
+
 ### Session — 2026-05-29
 **Railway cron job — Gmail automation runs without dashboard open**
 
@@ -231,7 +274,7 @@ BizzyBot gives businesses an AI agent that:
 - `app/api/cron/run/route.js` — new file
 
 **Next priorities:**
-- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
@@ -277,7 +320,7 @@ BizzyBot gives businesses an AI agent that:
 - `app/admin/dashboard/page.js`
 
 **Next priorities:**
-- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
@@ -307,7 +350,7 @@ BizzyBot gives businesses an AI agent that:
 - `app/page.js` — complete rewrite (~540 lines)
 
 **Next priorities:**
-- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
@@ -333,7 +376,7 @@ BizzyBot gives businesses an AI agent that:
 - `lib/ai-service.js` — document fields in channelSettings extraction, config merge, and buildChannelSpecificPrompt
 
 **Next priorities:**
-- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
@@ -377,7 +420,7 @@ BizzyBot gives businesses an AI agent that:
 - `app/(dashboard)/ai-settings/page.js` — Escalation section in SharedFields (all channels), Follow-up section in email tab only
 
 **Next priorities:**
-- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
@@ -405,7 +448,7 @@ BizzyBot gives businesses an AI agent that:
 
 **Next priorities:**
 - [ ] Add "Last Active" toggle to date filter row (discussed, not built — lets users filter leads by when they last engaged vs when they were added)
-- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 
