@@ -1,7 +1,23 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { query } from '@/lib/database.js';
 
 export const dynamic = 'force-dynamic';
+
+function verifyState(signedState, secret) {
+  const lastDot = signedState.lastIndexOf('.');
+  if (lastDot === -1) return null;
+  const payload = signedState.slice(0, lastDot);
+  const receivedSig = signedState.slice(lastDot + 1);
+  const expectedSig = createHmac('sha256', secret).update(payload).digest('hex');
+  try {
+    const match = timingSafeEqual(Buffer.from(receivedSig, 'hex'), Buffer.from(expectedSig, 'hex'));
+    return match ? payload : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -10,8 +26,22 @@ export async function GET(request) {
   const errorParam = searchParams.get('error');
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com';
-  const [userId, type] = (state || ':facebook').split(':');
+  const appSecret = process.env.FACEBOOK_APP_SECRET;
+
+  // Verify HMAC signature on state before trusting any of its contents
+  const payload = appSecret && state ? verifyState(state, appSecret) : null;
+  if (!payload) {
+    return NextResponse.redirect(`${baseUrl}/dashboard?error=oauth_invalid_state`);
+  }
+
+  const [userId, type] = payload.split(':');
   const setupPage = type === 'instagram' ? '/instagram-setup' : '/facebook-setup';
+
+  // Also verify the Clerk session matches the userId in state
+  const { userId: sessionUserId } = auth();
+  if (!sessionUserId || sessionUserId !== userId) {
+    return NextResponse.redirect(`${baseUrl}/sign-in`);
+  }
 
   if (errorParam) {
     return NextResponse.redirect(`${baseUrl}${setupPage}?error=oauth_denied`);
@@ -22,7 +52,6 @@ export async function GET(request) {
 
   try {
     const appId = process.env.FACEBOOK_APP_ID;
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
     const callbackUrl = `${baseUrl}/api/auth/facebook/callback`;
 
     // 1. Exchange code for short-lived user token
