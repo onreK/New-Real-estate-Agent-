@@ -226,6 +226,41 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29 (continued x4)
+**Facebook, Instagram setup pages rebuilt + AI Settings placeholder improved**
+
+**Facebook setup page (`app/(dashboard)/facebook-setup/page.js`) — full rewrite:**
+- Was a 4-step wizard asking for Business Name, Industry, AI Personality, AI Config — all redundant with onboarding
+- Was telling customers to "add to Railway environment variables" — customers should never touch Railway
+- Now: clean 2-step flow — Step 1: enter Page Access Token + App Secret; Step 2: copy webhook URL + verify token into Facebook
+- Done state links to AI Settings for customization, not to re-enter business info here
+
+**Instagram setup page (`app/(dashboard)/instagram-setup/page.js`) — full rewrite:**
+- Was 3 steps including a redundant "AI Configuration" step (business name, personality, AI model selector)
+- Now: clean 2-step flow — Step 1: copy webhook URL + verify token; Step 2: enter Access Token + Page ID
+- Same done state pattern as Facebook
+
+**Design rule established:** Channel setup pages only handle the connection (credentials + webhook). AI behavior (tone, personality, instructions) always lives in AI Settings — never duplicated in setup flows.
+
+**AI Settings (`app/(dashboard)/ai-settings/page.js`):**
+- Custom AI Instructions placeholder was "Enter custom instructions for AI behavior..." — too generic
+- Now shows real business examples: "Never mention competitors by name. Always end with a question. If someone asks for pricing, give a range then offer a free consultation." etc.
+- Applies to all 5 channel tabs (Email, Facebook, Instagram, SMS, Chatbot) via SharedFields
+
+**Key files changed:**
+- `app/(dashboard)/facebook-setup/page.js` — complete rewrite (~450 → ~160 lines)
+- `app/(dashboard)/instagram-setup/page.js` — complete rewrite (~340 → ~170 lines)
+- `app/(dashboard)/ai-settings/page.js` — Custom AI Instructions placeholder improved
+
+**Next priorities:**
+- [ ] Complete Twilio A2P Brand registration (manual — owner action, start today)
+- [ ] After A2P approved: buy number pool via `POST /api/admin/sms/buy-numbers`, test SMS end-to-end
+- [ ] Fix Clerk app name capitalization: "Bizzybot Ai" → "BizzyBot AI" in Clerk dashboard settings
+- [ ] Check SMS setup page and Email setup page for same redundant-AI-config pattern
+- [ ] Build referral tracking — credit the referrer when `BIZZYFRIEND` coupon is used
+
+---
+
 ### Session — 2026-05-29 (continued x3)
 **End-to-end signup flow testing + fixes**
 
