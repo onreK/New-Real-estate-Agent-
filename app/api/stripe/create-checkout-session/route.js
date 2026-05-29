@@ -44,6 +44,13 @@ export async function POST(request) {
       },
       customer_email: user.emailAddresses[0]?.emailAddress,
       allow_promotion_codes: true,
+      subscription_data: {
+        trial_period_days: 14,
+        metadata: {
+          userId: userId,
+          planName: planName || 'Unknown',
+        },
+      },
     });
 
     return NextResponse.json({ sessionId: session.id });
