@@ -16,21 +16,20 @@ const customerConfigs = new Map();
 // Look up which customer owns this Twilio 'To' number
 async function resolveCustomerFromTwilioNumber(toNumber) {
   try {
-    // Match by phone column (business owner's Twilio number stored during SMS setup)
-    const result = await query(
+    // Primary: match against provisioned pool numbers
+    const poolResult = await query(
+      `SELECT clerk_user_id FROM customer_phone_numbers
+       WHERE phone_number = $1 AND status = 'active' AND clerk_user_id IS NOT NULL LIMIT 1`,
+      [toNumber]
+    );
+    if (poolResult.rows.length > 0) return poolResult.rows[0].clerk_user_id;
+
+    // Legacy fallback: match by phone column on customers table
+    const legacyResult = await query(
       'SELECT clerk_user_id FROM customers WHERE phone = $1 AND clerk_user_id IS NOT NULL LIMIT 1',
       [toNumber]
     );
-    if (result.rows.length > 0) return result.rows[0].clerk_user_id;
-
-    // Fallback: return the most recently active customer who has AI config set up
-    const fallback = await query(
-      `SELECT c.clerk_user_id FROM customers c
-       INNER JOIN ai_configs a ON a.user_id = c.clerk_user_id
-       WHERE c.clerk_user_id IS NOT NULL
-       ORDER BY a.updated_at DESC LIMIT 1`
-    );
-    if (fallback.rows.length > 0) return fallback.rows[0].clerk_user_id;
+    if (legacyResult.rows.length > 0) return legacyResult.rows[0].clerk_user_id;
 
     return null;
   } catch (err) {
@@ -229,12 +228,10 @@ export async function POST(request) {
       knowledgeBaseUsed: aiResult.metadata?.knowledgeBaseUsed || false
     });
 
-    // Return TwiML response (no actual SMS sending yet due to A2P registration)
+    // Return TwiML response — sends the AI reply back to the lead
     const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <!-- SMS Response will be sent once A2P 10DLC registration is complete -->
-  <!-- For now, response is logged and stored for testing -->
-  <!-- Powered by Centralized AI Service v2.0 -->
+  <Message>${aiResponse.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Message>
 </Response>`;
 
     return new Response(twimlResponse, {
