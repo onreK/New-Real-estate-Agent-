@@ -1,502 +1,197 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Mail, CheckCircle, AlertCircle, RefreshCw, Settings, ExternalLink } from 'lucide-react';
 
 export default function EmailSetup() {
-  const { user } = useUser();
-  const [setupMethod, setSetupMethod] = useState('custom'); // 'custom' or 'gmail'
-  const [customDomain, setCustomDomain] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [currentEmail, setCurrentEmail] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [customer, setCustomer] = useState(null);
-  const [emailSettings, setEmailSettings] = useState(null);
-
-  useEffect(() => {
-    if (user) {
-      loadCustomerData();
-      loadEmailSettings();
-    }
-  }, [user]);
-
-  const loadCustomerData = async () => {
-    try {
-      const response = await fetch('/api/customer/profile');
-      const data = await response.json();
-      if (data.success) {
-        setCustomer(data.customer);
-        setBusinessName(data.customer.business_name || '');
-      }
-    } catch (error) {
-      console.error('Error loading customer data:', error);
-    }
-  };
-
-  const loadEmailSettings = async () => {
-    try {
-      const response = await fetch('/api/customer/email-settings');
-      const data = await response.json();
-      if (data.success && data.settings) {
-        setEmailSettings(data.settings);
-        setSetupMethod(data.settings.setup_method || 'custom');
-        setCustomDomain(data.settings.custom_domain || '');
-        setCurrentEmail(data.settings.email_address || '');
-      }
-    } catch (error) {
-      console.error('Error loading email settings:', error);
-    }
-  };
-
-  const saveEmailSettings = async () => {
-    setSaving(true);
-    try {
-      const settings = {
-        setup_method: setupMethod,
-        custom_domain: setupMethod === 'custom' ? customDomain : null,
-        business_name: businessName,
-        email_address: setupMethod === 'custom' 
-          ? `${currentEmail.split('@')[0] || 'agent'}@${customDomain}`
-          : setupMethod === 'gmail'
-          ? currentEmail
-          : `agent@${customDomain}`
-      };
-
-      const response = await fetch('/api/customer/email-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setEmailSettings(data.settings);
-        alert('Email settings saved successfully!');
-      } else {
-        alert('Error saving settings: ' + data.error);
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      alert('Error saving settings');
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  const router = useRouter();
   const [gmailStatus, setGmailStatus] = useState({ connected: false, email: null });
-  const [loadingGmail, setLoadingGmail] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    checkGmailConnection();
     handleOAuthCallback();
+    checkGmailConnection();
   }, []);
 
   const handleOAuthCallback = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const error = urlParams.get('error');
-    const success = urlParams.get('success');
-    const email = urlParams.get('email');
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    const success = params.get('success');
+    const email = params.get('email');
 
     if (error) {
-      let errorMessage = 'Failed to connect Gmail';
-      switch (error) {
-        case 'oauth_denied':
-          errorMessage = 'Gmail access was denied. Please try again and grant permissions.';
-          break;
-        case 'oauth_failed':
-          errorMessage = 'Gmail connection failed. Please try again.';
-          break;
-        case 'user_not_found':
-          errorMessage = 'User account not found. Please contact support.';
-          break;
-      }
-      setMessage({ type: 'error', text: errorMessage });
+      const messages = {
+        oauth_denied: 'Gmail access was denied. Please try again and grant the requested permissions.',
+        oauth_failed: 'Gmail connection failed. Please try again.',
+        user_not_found: 'User account not found. Please contact support.'
+      };
+      setMessage({ type: 'error', text: messages[error] || 'Failed to connect Gmail.' });
     } else if (success === 'gmail_connected' && email) {
-      setMessage({ type: 'success', text: `Successfully connected Gmail account: ${decodeURIComponent(email)}` });
+      setMessage({ type: 'success', text: `Gmail connected — ${decodeURIComponent(email)}` });
       setGmailStatus({ connected: true, email: decodeURIComponent(email) });
     }
 
-    // Clear URL parameters
     if (error || success) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   };
 
   const checkGmailConnection = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/auth/google', { method: 'POST' });
-      const data = await response.json();
-      if (data.success) {
-        setGmailStatus({
-          connected: data.connected,
-          email: data.email
-        });
-      }
-    } catch (error) {
-      console.error('Error checking Gmail connection:', error);
-    }
+      const res = await fetch('/api/auth/google', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) setGmailStatus({ connected: data.connected, email: data.email });
+    } catch {}
+    setLoading(false);
   };
 
   const connectGmail = async () => {
     if (gmailStatus.connected) {
-      // Already connected, maybe show disconnect option
-      const disconnect = confirm(`Gmail is connected to ${gmailStatus.email}.\n\nWould you like to disconnect and reconnect?`);
-      if (!disconnect) return;
+      const ok = confirm(`Gmail is connected to ${gmailStatus.email}.\n\nDisconnect and reconnect a different account?`);
+      if (!ok) return;
     }
-
-    setLoadingGmail(true);
-    try {
-      // Redirect to Gmail OAuth
-      window.location.href = '/api/auth/google';
-    } catch (error) {
-      console.error('Error connecting Gmail:', error);
-      alert('Error connecting to Gmail. Please try again.');
-      setLoadingGmail(false);
-    }
+    setConnecting(true);
+    window.location.href = '/api/auth/google';
   };
 
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-64">
+        <RefreshCw className="w-6 h-6 text-gray-500 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="p-8 max-w-xl mx-auto space-y-6">
+
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">📧 Email AI Setup</h1>
-              <p className="text-sm text-gray-600">Connect your email to AI automation</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link 
-                href="/email"
-                className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-gray-700 transition-colors"
-              >
-                ← Back to Email
-              </Link>
-            </div>
-          </div>
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center">
+          <Mail className="w-5 h-5 text-red-400" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Connect Gmail</h1>
+          <p className="text-sm text-gray-500">Your AI will read and reply to emails automatically from your Gmail inbox</p>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Success/Error Messages */}
-        {message.text && (
-          <div className={`mb-6 p-4 rounded-lg border ${
-            message.type === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-800' 
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}>
-            <div className="flex items-center">
-              {message.type === 'success' ? (
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              )}
-              <span>{message.text}</span>
-              <button 
-                onClick={() => setMessage({ type: '', text: '' })}
-                className="ml-auto text-gray-500 hover:text-gray-700"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
-        {/* Setup Method Selection */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Choose Email Setup Method</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Custom Domain Option */}
-            <div 
-              onClick={() => setSetupMethod('custom')}
-              className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
-                setupMethod === 'custom' 
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 ml-3">Your Domain</h3>
-              </div>
-              <p className="text-gray-600 mb-4">Use your existing business email domain</p>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-500">Example:</p>
-                <p className="font-mono text-purple-600">agent@yourbusiness.com</p>
-              </div>
-              <div className="mt-4">
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Your brand/domain</span>
-                </div>
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Maximum professionalism</span>
-                </div>
-                <div className="flex items-center text-orange-500">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Requires DNS setup</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Gmail Integration Option */}
-            <div 
-              onClick={connectGmail}
-              className={`border-2 rounded-lg p-6 cursor-pointer transition-all relative ${
-                gmailStatus.connected
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-200 hover:border-blue-300'
-              }`}
-            >
-              <div className="absolute top-4 right-4">
-                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                  gmailStatus.connected
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {gmailStatus.connected ? 'Connected' : 'Not Connected'}
-                </span>
-              </div>
-              <div className="flex items-center mb-4">
-                <div className={`p-2 rounded-lg ${
-                  gmailStatus.connected ? 'bg-green-100' : 'bg-red-100'
-                }`}>
-                  <svg className={`w-6 h-6 ${
-                    gmailStatus.connected ? 'text-green-600' : 'text-red-600'
-                  }`} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-.904.732-1.636 1.636-1.636h3.819l6.545 4.91 6.545-4.91h3.819A1.636 1.636 0 0 1 24 5.457z"/>
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 ml-3">Connect Gmail</h3>
-              </div>
-              <p className="text-gray-600 mb-4">
-                {gmailStatus.connected 
-                  ? `Connected to your Gmail account`
-                  : 'Connect your existing Gmail account'
-                }
-              </p>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-sm text-gray-500">
-                  {gmailStatus.connected ? 'Connected Gmail:' : 'Your Gmail:'}
-                </p>
-                <p className={`font-mono ${
-                  gmailStatus.connected ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {gmailStatus.connected ? gmailStatus.email : 'youremail@gmail.com'}
-                </p>
-              </div>
-              <div className="mt-4">
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">No DNS setup required</span>
-                </div>
-                <div className="flex items-center text-green-600 mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Uses your existing email</span>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">Keep all conversations in Gmail</span>
-                </div>
-              </div>
-              
-              {loadingGmail && (
-                <div className="mt-4 text-center">
-                  <div className="text-blue-600 text-sm">Connecting to Gmail...</div>
-                </div>
-              )}
-            </div>
-          </div>
+      {/* Status message */}
+      {message.text && (
+        <div className={`flex items-start gap-3 p-4 rounded-lg border ${
+          message.type === 'success'
+            ? 'bg-green-500/10 border-green-500/20 text-green-400'
+            : 'bg-red-500/10 border-red-500/20 text-red-400'
+        }`}>
+          {message.type === 'success'
+            ? <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            : <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          }
+          <span className="text-sm">{message.text}</span>
+          <button onClick={() => setMessage({ type: '', text: '' })} className="ml-auto text-gray-500 hover:text-gray-300 text-lg leading-none">×</button>
         </div>
+      )}
 
-        {/* Configuration Form - Only for Custom Domain */}
-        {setupMethod === 'custom' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Email Configuration</h2>
-            
-            {/* Business Name */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Business Name
-              </label>
-              <input
-                type="text"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="John Smith Realty"
-              />
-            </div>
-
-            {/* Custom Domain */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Your Domain
-              </label>
-              <input
-                type="text"
-                value={customDomain}
-                onChange={(e) => setCustomDomain(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="yourbusiness.com"
-              />
-            </div>
-
-            {/* Current Email */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={currentEmail}
-                onChange={(e) => setCurrentEmail(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="agent@yourbusiness.com"
-              />
-            </div>
-
-            {/* DNS Instructions */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-medium text-yellow-800 mb-3">
-                🔧 DNS Setup Required
-              </h3>
-              <p className="text-yellow-700 mb-4">
-                To use your custom domain, you'll need to update your DNS settings:
-              </p>
-              <div className="bg-white rounded-lg p-4 font-mono text-sm">
-                <p className="text-gray-600 mb-2">Add these MX records to your domain:</p>
-                <p className="text-blue-600">MX 10 mx1.resend.com</p>
-                <p className="text-blue-600">MX 20 mx2.resend.com</p>
+      {/* Connection card */}
+      <div className={`bg-[#161B22] border rounded-2xl p-6 ${
+        gmailStatus.connected ? 'border-green-500/30' : 'border-gray-800'
+      }`}>
+        {gmailStatus.connected ? (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-400" />
               </div>
-              <p className="text-yellow-700 mt-4 text-sm">
-                Contact your domain provider (GoDaddy, Namecheap, etc.) for help with DNS changes.
-              </p>
-            </div>
-
-            {/* Email Preview */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-              <h3 className="text-lg font-medium text-blue-800 mb-3">
-                📧 Your AI Email Address
-              </h3>
-              <div className="bg-white rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-2">Customers will email:</p>
-                <p className="text-2xl font-mono text-blue-600">
-                  {customDomain 
-                    ? `${currentEmail.split('@')[0] || 'agent'}@${customDomain}`
-                    : 'agent@yourdomain.com'
-                  }
-                </p>
-                <p className="text-sm text-gray-500 mt-3">
-                  All emails to this address will get instant AI responses powered by your Resend integration!
-                </p>
+              <div>
+                <p className="font-semibold text-white">Gmail connected</p>
+                <p className="text-sm text-gray-400">{gmailStatus.email}</p>
               </div>
             </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end space-x-4">
-              <Link
-                href="/email"
-                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </Link>
+            <div className="bg-[#0D1117] border border-gray-800 rounded-lg p-4 space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                AI is reading new emails and replying automatically
+              </div>
+              <div className="flex items-center gap-2 text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                Lead scoring active on every inbound email
+              </div>
+              <div className="flex items-center gap-2 text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                Automated follow-ups running in the background
+              </div>
+            </div>
+
+            <div className="flex gap-3">
               <button
-                onClick={saveEmailSettings}
-                disabled={saving || !businessName || !customDomain || !currentEmail}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                onClick={() => router.push('/ai-settings')}
+                className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium"
               >
-                {saving ? 'Saving...' : 'Save Email Settings'}
+                <Settings className="w-4 h-4" /> Customize AI behavior
+              </button>
+              <button
+                onClick={connectGmail}
+                className="px-4 py-2.5 bg-[#0D1117] border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white rounded-lg text-sm"
+              >
+                Reconnect
               </button>
             </div>
-
-            {emailSettings && (
-              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-green-800 font-medium">Email AI is configured and ready!</p>
-                </div>
-                <p className="text-green-700 text-sm mt-1">
-                  Your customers can now email {emailSettings.email_address} and get instant AI responses.
-                </p>
-                <p className="text-green-600 text-xs mt-2">
-                  ⚠️ Note: Email processing functionality is still in development. Currently saves settings only.
-                </p>
-              </div>
-            )}
           </div>
-        )}
-
-        {/* Gmail Coming Soon Message */}
-        {setupMethod === 'gmail' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-            <div className="text-6xl mb-4">📧</div>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-4">Gmail Integration Coming Soon!</h3>
-            <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-              We're working on Gmail integration that will allow you to connect your existing Gmail account and get AI responses sent directly from your Gmail. No DNS setup required!
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-lg mx-auto">
-              <h4 className="text-lg font-semibold text-blue-900 mb-3">Planned Features:</h4>
-              <div className="text-left space-y-2">
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>Connect your existing Gmail account</span>
+        ) : (
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <h3 className="font-semibold text-white">How it works</h3>
+              <div className="space-y-2 text-sm text-gray-400">
+                <div className="flex items-start gap-2">
+                  <span className="text-violet-400 font-bold mt-0.5">1.</span>
+                  Click "Connect Gmail" below and sign in with Google
                 </div>
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>AI responses sent from your Gmail</span>
+                <div className="flex items-start gap-2">
+                  <span className="text-violet-400 font-bold mt-0.5">2.</span>
+                  Grant BizzyBot permission to read and send emails on your behalf
                 </div>
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>All conversations stay in your Gmail inbox</span>
-                </div>
-                <div className="flex items-center text-blue-800">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>No DNS or technical setup required</span>
+                <div className="flex items-start gap-2">
+                  <span className="text-violet-400 font-bold mt-0.5">3.</span>
+                  Your AI starts responding to leads immediately — using the settings from your onboarding
                 </div>
               </div>
             </div>
-            <button 
-              onClick={() => setSetupMethod('custom')}
-              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
+
+            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-300">
+              BizzyBot only reads emails from leads — it never accesses personal emails, contacts, or calendar. You can disconnect at any time.
+            </div>
+
+            <button
+              onClick={connectGmail}
+              disabled={connecting}
+              className="w-full flex items-center justify-center gap-3 py-3 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
             >
-              Try Custom Domain Setup Instead
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              {connecting ? 'Redirecting to Google...' : 'Connect Gmail'}
             </button>
           </div>
         )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between text-xs text-gray-600">
+        <span>
+          AI tone and behavior are managed in{' '}
+          <button onClick={() => router.push('/ai-settings')} className="text-violet-400 hover:underline">AI Settings</button>
+        </span>
+        <a href="https://support.google.com/accounts/answer/3466521" target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-gray-400">
+          Google permissions <ExternalLink className="w-3 h-3" />
+        </a>
       </div>
     </div>
   );
