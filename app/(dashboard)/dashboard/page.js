@@ -30,6 +30,15 @@ export default function MainDashboard() {
     analytics: { phoneRequestsToday: 0, hotLeadsMonth: 0, hotLeadsToday: 0, appointmentsScheduled: 0, totalInteractions: 0, aiEngagementRate: 0, avgResponseTime: 0, leadsCapture: 0, effectiveness: 0 }
   });
 
+  // Redirect to onboarding if not yet completed
+  useEffect(() => {
+    if (!isLoaded) return;
+    fetch('/api/onboarding/status')
+      .then(r => r.json())
+      .then(data => { if (!data.completed) router.replace('/onboarding'); })
+      .catch(() => {});
+  }, [isLoaded]);
+
   useEffect(() => {
     loadDashboardData();
     const interval = setInterval(loadDashboardData, 30000);

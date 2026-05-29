@@ -36,9 +36,10 @@ export async function POST(request) {
       ? [knowledgeBase, ...contactLines].filter(Boolean).join('\n')
       : knowledgeBase;
 
-    // 1. Update the customer record
+    // 1. Update the customer record and mark onboarding complete
+    await query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE`).catch(() => {});
     const customerResult = await query(
-      `UPDATE customers SET business_name = $1, updated_at = NOW()
+      `UPDATE customers SET business_name = $1, onboarding_completed = TRUE, updated_at = NOW()
        WHERE clerk_user_id = $2 RETURNING id`,
       [businessName.trim(), userId]
     );
