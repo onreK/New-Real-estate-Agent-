@@ -226,6 +226,51 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29 (continued x7)
+**Twilio A2P registration guide + privacy policy CTIA fix**
+
+**Privacy policy (`app/privacy/page.js`):**
+- Added Section 4.0 "SMS / Mobile Data" with CTIA-required statement: "Mobile information is never shared with third parties for marketing or promotional purposes"
+- Required by CTIA for A2P campaign approval — campaigns are rejected without this language
+
+**Twilio A2P Brand registration — fields for owner to enter:**
+- Path: Twilio Console → Messaging → Senders → A2P 10DLC → Register a Brand
+- Business Name: `Bizzy Bot Ai LLC` (must match IRS EIN records exactly)
+- EIN: `39-3108116`
+- Business Type: Private | Industry: Software
+- Address: 13322 Inge Rd, Chester, VA 23836
+- Website: https://bizzybotai.com
+- Contact: owner's name + kernopay@gmail.com + 858-900-4220
+- After submit: watch for OTP text to 858-900-4220 — must respond within 24 hours
+
+**Twilio A2P Campaign registration — fields for owner to enter (after brand approved):**
+- Path: same section → Register a Campaign
+- Use Case: Mixed
+- Description: BizzyBot AI is a multi-tenant business communication platform that enables small businesses to automatically respond to inbound leads via SMS using AI. [see full text in session transcript]
+- Sample messages include opt-out instructions ("Reply STOP to opt out, HELP for help. Msg & data rates may apply.")
+- Message Flow documents opt-in via inbound contact initiation
+- Privacy Policy: https://bizzybotai.com/privacy | Terms: https://bizzybotai.com/terms
+- Has Embedded Link: Yes | Subscriber Opt-in/Opt-out/Help: Yes
+
+**After both Brand + Campaign approved (~13-20 business days):**
+- Run `POST /api/admin/sms/buy-numbers` with `{ quantity: 20 }` to pre-buy number pool
+- Test full SMS flow end-to-end
+
+**Key files changed:**
+- `app/privacy/page.js` — CTIA SMS mobile data disclosure added
+
+**Next priorities:**
+- [ ] Owner: Submit Twilio A2P Brand registration (fields above — watch for OTP text)
+- [ ] Owner: After brand approved, submit Campaign registration (copy from session log)
+- [ ] Owner: Add real `FACEBOOK_APP_ID` to Railway (replace placeholder)
+- [ ] Owner: Register Facebook OAuth callback URL in Facebook Developer app
+- [ ] Owner: Submit Facebook App Review for pages_messaging, instagram_manage_messages
+- [ ] Owner: Fix Clerk app name "Bizzybot Ai" → "BizzyBot AI" in Clerk dashboard
+- [ ] After approvals: buy SMS number pool, test end-to-end
+- [ ] Build referral tracking — credit referrer when BIZZYFRIEND coupon used
+
+---
+
 ### Session — 2026-05-29 (continued x6)
 **Facebook & Instagram OAuth — one-click connect replaces manual token entry**
 
