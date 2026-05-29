@@ -1,6 +1,5 @@
 # BizzyBot AI — Project Bible
 
-> ⚠️ Note: The GitHub repo is named "New-Real-estate-Agent" but this platform has evolved far beyond real estate.
 > BizzyBot is a **multi-industry AI-powered business automation platform** for any client-facing business.
 
 ---
@@ -460,7 +459,7 @@ BizzyBot gives businesses an AI agent that:
 
 ## Important Notes
 
-- Repo name on GitHub (`New-Real-estate-Agent`) is misleading — platform is multi-industry
-- Local path: `C:\Users\Kerno\New-Real-estate-Agent`
+- GitHub repo: `https://github.com/onreK/bizzybot-ai`
+- Local path: `C:\Users\Kerno\New-Real-estate-Agent` (folder rename optional)
 - Always launch Claude Code from inside this folder
 - Run `git pull` at the start of each session if edits were made on GitHub directly
