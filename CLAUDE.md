@@ -215,6 +215,31 @@ BizzyBot gives businesses an AI agent that:
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29
+**Railway cron job — Gmail automation runs without dashboard open**
+
+- Created `app/api/cron/run/route.js` — protected endpoint Railway calls every hour
+- Endpoint queries all customers with `status = 'connected'` in `gmail_connections` table
+- For each customer, calls existing `/api/gmail/monitor` with `action: 'check'` — runs email polling + follow-ups
+- Protected by `CRON_SECRET` env var (Bearer token header) so only Railway can trigger it
+- Added `CRON_SECRET=bizzybot-cron-all-channels` to Railway production env vars via Railway agent
+- Created `bizzybot-cron` service on Railway with schedule `0 * * * *` (top of every hour)
+- Cron runs a `curl POST` to `https://bizzybotai.com/api/cron/run` with the Bearer token
+- SMS, Facebook, Instagram were confirmed already webhook-based — always on, no cron needed
+- Gmail was the only channel requiring polling — now fully automated
+
+**Key files changed:**
+- `app/api/cron/run/route.js` — new file
+
+**Next priorities:**
+- [ ] Create $29/$69/$199 prices in Stripe dashboard and update 3 `priceId` values in `lib/stripe.js` before going live
+- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
+- [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
+- [ ] Tighten onboarding flow — ask industry/business description/tone upfront so AI is pre-configured from day one
+
+---
+
 ### Session — 2026-05-24 (continued x2)
 **Admin command center — trial tracking, churn tracking, CSV export**
 
@@ -257,7 +282,7 @@ BizzyBot gives businesses an AI agent that:
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
-- [ ] Railway cron job to trigger follow-ups when dashboard isn't open
+- [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
 
 ---
 
@@ -287,7 +312,7 @@ BizzyBot gives businesses an AI agent that:
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
-- [ ] Railway cron job to trigger follow-ups when dashboard isn't open
+- [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
 
 ---
 
@@ -313,7 +338,7 @@ BizzyBot gives businesses an AI agent that:
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
-- [ ] Railway cron job to trigger follow-ups when dashboard isn't open
+- [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
 - [ ] Tighten onboarding flow — ask industry/business description/tone upfront so AI is pre-configured from day one
 
 ---
@@ -357,7 +382,7 @@ BizzyBot gives businesses an AI agent that:
 - [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
-- [ ] Consider Railway cron job to call follow-up endpoint so follow-ups fire even when dashboard isn't open
+- [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
 
 ---
 
