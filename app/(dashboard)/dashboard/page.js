@@ -293,8 +293,18 @@ export default function MainDashboard() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm">
-            <div className={`w-2 h-2 rounded-full ${dashboardData.webChat.aiStatus === 'connected' ? 'bg-green-400' : 'bg-red-400'}`} />
-            <span className="text-gray-400">AI {dashboardData.webChat.aiStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
+            {(() => {
+              const emailConnected = !!dashboardData.email.emailSettings?.email;
+              const anyConnected = emailConnected || dashboardData.webChat.aiStatus === 'connected';
+              if (anyConnected) return <>
+                <div className="w-2 h-2 rounded-full bg-green-400" />
+                <span className="text-gray-400">AI Active</span>
+              </>;
+              return <>
+                <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                <span className="text-gray-400">AI Ready</span>
+              </>;
+            })()}
           </div>
           <button
             onClick={loadDashboardData}
