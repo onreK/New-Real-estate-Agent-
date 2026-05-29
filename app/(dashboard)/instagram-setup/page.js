@@ -1,77 +1,76 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, Copy, ExternalLink, Instagram, ArrowRight, Settings } from 'lucide-react';
+import { CheckCircle, AlertCircle, Instagram, Settings, ExternalLink, RefreshCw } from 'lucide-react';
 
 export default function InstagramSetupPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [accessToken, setAccessToken] = useState('');
-  const [pageId, setPageId] = useState('');
-  const [copied, setCopied] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
+  const [status, setStatus] = useState({ connected: false, username: null });
+  const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
-  const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://bizzybotai.com'}/api/instagram/webhook`;
-  const verifyToken = process.env.NEXT_PUBLIC_INSTAGRAM_VERIFY_TOKEN || 'bizzybot-ig-verify';
+  useEffect(() => {
+    handleCallback();
+    checkConnection();
+  }, []);
 
-  const copy = (text, label) => {
-    navigator.clipboard.writeText(text);
-    setCopied(label);
-    setTimeout(() => setCopied(''), 2000);
+  const handleCallback = () => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+    const username = params.get('username');
+
+    if (success === 'connected') {
+      setMessage({ type: 'success', text: `Instagram connected${username ? ` — @${username}` : ''}` });
+      setStatus({ connected: true, username });
+    } else if (error) {
+      const messages = {
+        oauth_denied: 'Access was denied. Please try again and approve the requested permissions.',
+        no_pages: 'No Facebook Pages found. Instagram Business accounts must be linked to a Facebook Page.',
+        no_instagram: 'No Instagram Business account found linked to your Facebook Page. Make sure your Instagram is set to Business or Creator and connected in Meta Business Settings.',
+        oauth_failed: 'Connection failed. Please try again.',
+        not_configured: 'Instagram OAuth is not yet configured. Please contact support.'
+      };
+      setMessage({ type: 'error', text: messages[error] || 'Something went wrong.' });
+    }
+
+    if (success || error) window.history.replaceState({}, '', window.location.pathname);
   };
 
-  const inputClass = "w-full px-4 py-2.5 bg-[#0D1117] border border-gray-800 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500 transition-colors text-sm font-mono";
-
-  const handleSave = async () => {
-    if (!accessToken.trim() || !pageId.trim()) {
-      setError('Both fields are required.');
-      return;
-    }
+  const checkConnection = async () => {
     setLoading(true);
-    setError('');
     try {
-      const res = await fetch('/api/instagram/configure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, pageId })
-      });
+      const res = await fetch('/api/instagram/configure');
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save credentials');
-      setDone(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      if (data.configured) setStatus({ connected: true, username: data.config?.instagram_username || null });
+    } catch {}
+    setLoading(false);
   };
 
-  if (done) {
+  const connect = () => {
+    setConnecting(true);
+    window.location.href = '/api/auth/facebook?type=instagram';
+  };
+
+  const disconnect = async () => {
+    if (!confirm('Disconnect Instagram? Your AI will stop responding to DMs.')) return;
+    await fetch('/api/instagram/configure', { method: 'DELETE' });
+    setStatus({ connected: false, username: null });
+    setMessage({ type: 'success', text: 'Instagram disconnected.' });
+  };
+
+  if (loading) {
     return (
-      <div className="p-8 max-w-xl mx-auto">
-        <div className="bg-[#161B22] border border-gray-800 rounded-2xl p-8 text-center">
-          <div className="w-14 h-14 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="w-7 h-7 text-green-400" />
-          </div>
-          <h2 className="text-xl font-bold text-white mb-2">Instagram connected</h2>
-          <p className="text-gray-400 text-sm mb-8">Your AI is now responding to Instagram DMs. Tone, personality and behavior are controlled from AI Settings.</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button onClick={() => router.push('/ai-settings')} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium">
-              <Settings className="w-4 h-4" /> Customize AI behavior
-            </button>
-            <button onClick={() => router.push('/dashboard')} className="px-5 py-2.5 bg-[#0D1117] border border-gray-800 hover:border-gray-600 text-gray-300 rounded-lg text-sm">
-              Go to dashboard
-            </button>
-          </div>
-        </div>
+      <div className="p-8 flex items-center justify-center min-h-64">
+        <RefreshCw className="w-6 h-6 text-gray-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-6">
+    <div className="p-8 max-w-xl mx-auto space-y-6">
 
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -84,148 +83,97 @@ export default function InstagramSetupPage() {
         </div>
       </div>
 
-      {/* Step indicators */}
-      <div className="flex items-center gap-3">
-        {[1, 2].map(n => (
-          <div key={n} className="flex items-center gap-3">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
-              n < step ? 'bg-violet-600 text-white' :
-              n === step ? 'bg-violet-500/20 border border-violet-500 text-violet-400' :
-              'bg-gray-800 text-gray-600'
-            }`}>
-              {n < step ? <CheckCircle className="w-4 h-4" /> : n}
-            </div>
-            <span className={`text-sm ${n === step ? 'text-white' : 'text-gray-600'}`}>
-              {n === 1 ? 'Webhook setup' : 'Instagram credentials'}
-            </span>
-            {n < 2 && <ArrowRight className="w-4 h-4 text-gray-700" />}
-          </div>
-        ))}
-      </div>
-
-      {/* Step 1: Webhook */}
-      {step === 1 && (
-        <div className="bg-[#161B22] border border-gray-800 rounded-2xl p-6 space-y-6">
-          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <h4 className="font-semibold text-blue-400 mb-2 text-sm">Requirements</h4>
-            <ul className="text-sm text-gray-300 space-y-1">
-              <li>• Instagram Business Account (not personal)</li>
-              <li>• Facebook Page connected to your Instagram</li>
-              <li>• Meta Developer App with Instagram messaging enabled</li>
-            </ul>
-          </div>
-
-          <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-            <h4 className="font-semibold text-yellow-400 mb-2 text-sm">In your Meta Developer Console → Webhooks</h4>
-            <ol className="text-sm text-gray-300 space-y-1.5 list-decimal list-inside">
-              <li>Go to your app → Webhooks → Add Callback URL</li>
-              <li>Paste the Callback URL and Verify Token below</li>
-              <li>Subscribe to: <strong>messages</strong>, <strong>comments</strong>, messaging_postbacks</li>
-            </ol>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Callback URL</label>
-              <div className="flex gap-2">
-                <code className="flex-1 px-4 py-2.5 bg-[#0D1117] border border-gray-800 rounded-lg text-green-400 text-sm font-mono truncate">
-                  {webhookUrl}
-                </code>
-                <button onClick={() => copy(webhookUrl, 'url')} className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg flex items-center gap-2 text-sm whitespace-nowrap">
-                  <Copy className="w-4 h-4" />{copied === 'url' ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Verify Token</label>
-              <div className="flex gap-2">
-                <code className="flex-1 px-4 py-2.5 bg-[#0D1117] border border-gray-800 rounded-lg text-green-400 text-sm font-mono">
-                  {verifyToken}
-                </code>
-                <button onClick={() => copy(verifyToken, 'token')} className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg flex items-center gap-2 text-sm whitespace-nowrap">
-                  <Copy className="w-4 h-4" />{copied === 'token' ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <button onClick={() => setStep(2)} className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium text-sm">
-            I've set up the webhook — continue
-          </button>
+      {/* Message banner */}
+      {message.text && (
+        <div className={`flex items-start gap-3 p-4 rounded-lg border ${
+          message.type === 'success'
+            ? 'bg-green-500/10 border-green-500/20 text-green-400'
+            : 'bg-red-500/10 border-red-500/20 text-red-400'
+        }`}>
+          {message.type === 'success'
+            ? <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            : <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          }
+          <span className="text-sm">{message.text}</span>
+          <button onClick={() => setMessage({ type: '', text: '' })} className="ml-auto text-gray-500 hover:text-gray-300 text-lg leading-none">×</button>
         </div>
       )}
 
-      {/* Step 2: Credentials */}
-      {step === 2 && (
-        <div className="bg-[#161B22] border border-gray-800 rounded-2xl p-6 space-y-6">
-          <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <h4 className="font-semibold text-green-400 mb-2 text-sm">Where to find these</h4>
-            <ul className="text-sm text-gray-300 space-y-1">
-              <li>• <strong className="text-gray-200">Access Token:</strong> Meta Developer Console → Your App → Instagram Basic Display → Generate Token</li>
-              <li>• <strong className="text-gray-200">Page ID:</strong> Meta Business Manager → Instagram Accounts → click your account → copy Page ID</li>
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Instagram Page Access Token</label>
-              <input
-                type="password"
-                value={accessToken}
-                onChange={e => setAccessToken(e.target.value)}
-                placeholder="Enter your Instagram Page Access Token"
-                className={inputClass}
-              />
+      {/* Connection card */}
+      <div className={`bg-[#161B22] border rounded-2xl p-6 ${status.connected ? 'border-green-500/30' : 'border-gray-800'}`}>
+        {status.connected ? (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-white">Instagram connected</p>
+                {status.username && <p className="text-sm text-gray-400">@{status.username}</p>}
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Instagram Page ID</label>
-              <input
-                type="text"
-                value={pageId}
-                onChange={e => setPageId(e.target.value)}
-                placeholder="e.g. 123456789012345"
-                className={inputClass}
-              />
+            <div className="bg-[#0D1117] border border-gray-800 rounded-lg p-4 space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                AI is responding to Instagram DMs automatically
+              </div>
+              <div className="flex items-center gap-2 text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                Lead scoring active on every conversation
+              </div>
+              <div className="flex items-center gap-2 text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                Comment reply enabled on your posts
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => router.push('/ai-settings')} className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium">
+                <Settings className="w-4 h-4" /> Customize AI behavior
+              </button>
+              <button onClick={connect} disabled={connecting} className="px-4 py-2.5 bg-[#0D1117] border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white rounded-lg text-sm disabled:opacity-50">
+                Reconnect
+              </button>
+              <button onClick={disconnect} className="px-4 py-2.5 bg-[#0D1117] border border-red-900/50 hover:border-red-500/50 text-red-500 hover:text-red-400 rounded-lg text-sm">
+                Disconnect
+              </button>
             </div>
           </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="space-y-2 text-sm text-gray-400">
+              <div className="flex items-start gap-2"><span className="text-violet-400 font-bold mt-0.5">1.</span> Click "Connect Instagram" below</div>
+              <div className="flex items-start gap-2"><span className="text-violet-400 font-bold mt-0.5">2.</span> Log in to Facebook and select the Page linked to your Instagram</div>
+              <div className="flex items-start gap-2"><span className="text-violet-400 font-bold mt-0.5">3.</span> Approve the permissions — your AI starts responding to DMs immediately</div>
+            </div>
 
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+            <div className="p-4 bg-pink-500/10 border border-pink-500/20 rounded-lg text-sm text-pink-300">
+              <strong className="text-pink-200">Requirement:</strong> Your Instagram must be a Business or Creator account and connected to a Facebook Page in Meta Business Settings.
+            </div>
 
-          <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className="px-5 py-2.5 bg-[#0D1117] border border-gray-800 text-gray-400 hover:text-white rounded-lg text-sm">
-              Back
+            <button
+              onClick={connect}
+              disabled={connecting}
+              className="w-full flex items-center justify-center gap-3 py-3 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #833AB4, #FD1D1D, #F77737)', color: 'white' }}
+            >
+              <Instagram className="w-5 h-5" />
+              {connecting ? 'Redirecting to Facebook...' : 'Connect Instagram'}
             </button>
-            <button onClick={handleSave} disabled={loading} className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white rounded-lg font-medium text-sm">
-              {loading ? 'Connecting...' : 'Connect Instagram'}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Quick links */}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <button onClick={() => window.open('https://developers.facebook.com/apps/', '_blank')} className="flex items-center gap-3 p-4 bg-[#161B22] border border-gray-800 rounded-xl text-left hover:border-gray-600 transition-colors">
-          <ExternalLink className="w-5 h-5 text-gray-500 flex-shrink-0" />
-          <div>
-            <div className="font-medium text-white text-sm">Meta Developer Console</div>
-            <div className="text-xs text-gray-500">Configure your Instagram app</div>
+            <p className="text-xs text-gray-600 text-center">Instagram connects through Facebook — you'll see a Facebook login screen. This is normal.</p>
           </div>
-        </button>
-        <button onClick={() => window.open('https://business.facebook.com/', '_blank')} className="flex items-center gap-3 p-4 bg-[#161B22] border border-gray-800 rounded-xl text-left hover:border-gray-600 transition-colors">
-          <ExternalLink className="w-5 h-5 text-gray-500 flex-shrink-0" />
-          <div>
-            <div className="font-medium text-white text-sm">Meta Business Manager</div>
-            <div className="text-xs text-gray-500">Manage your Instagram page</div>
-          </div>
-        </button>
+        )}
       </div>
 
       <p className="text-xs text-gray-600 text-center">
-        AI tone, personality and behavior are managed in{' '}
+        AI tone and behavior are managed in{' '}
         <button onClick={() => router.push('/ai-settings')} className="text-violet-400 hover:underline">AI Settings</button>
-        {' '}— no need to configure them here.
+        {' · '}
+        <a href="https://help.instagram.com/570895513091465" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-gray-400">
+          Instagram Business Help <ExternalLink className="w-3 h-3" />
+        </a>
       </p>
     </div>
   );
