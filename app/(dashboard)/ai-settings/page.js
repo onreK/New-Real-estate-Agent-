@@ -119,7 +119,7 @@ function SharedFields({ channel, ch, update, accentColor = 'text-violet-400' }) 
 
         <Section icon={Bot} iconColor={accentColor} title="Custom AI Instructions">
           <p className="text-xs text-gray-500 mb-3">Tell the AI exactly how to behave and respond to customers</p>
-          <textarea placeholder="Enter custom instructions for AI behavior..." value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-40 resize-none`} />
+          <textarea placeholder={`e.g. Never mention competitors by name.\nAlways end with a question to keep the conversation going.\nIf someone asks for pricing, give a range then offer a free consultation.\nNever promise same-day availability without checking the schedule first.\nIf a lead seems hesitant, offer a free estimate to reduce friction.\nAlways mention our 5-star rating when a lead asks why they should choose us.`} value={ch.customInstructions} onChange={e => update(channel, 'customInstructions', e.target.value)} className={`${inputClass} h-40 resize-none`} />
         </Section>
       </div>
 
