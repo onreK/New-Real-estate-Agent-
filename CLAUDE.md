@@ -226,6 +226,44 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-29 (continued x2)
+**SMS number pool provisioning — GoHighLevel-style instant number assignment**
+
+**Architecture decision:** BizzyBot registers ONE brand + campaign in Twilio (one-time, ~15 business days). Pre-buys a pool of numbers. Every new customer gets a number instantly from the pool — no Twilio account needed on their end. Same approach used by GoHighLevel, HubSpot, etc.
+
+**Code built:**
+- `app/api/sms/provision/route.js` — POST assigns next available number from pool to customer; GET checks if customer already has a number. Auto-creates `customer_phone_numbers` table on first run.
+- `app/api/admin/sms/buy-numbers/route.js` — Admin-only endpoint to buy N numbers from Twilio and add to pool. Optional `areaCode` param. GET returns pool status (available vs assigned count).
+- `app/api/sms/webhook/route.js` — Updated `resolveCustomerFromTwilioNumber` to query `customer_phone_numbers` table first (legacy `customers.phone` fallback kept). Also enabled actual SMS sending — TwiML `<Message>` now returns the AI response (was previously empty/disabled pending A2P).
+
+**DB table added (auto-created):**
+- `customer_phone_numbers` — tracks phone_number, twilio_sid, status (available/active), clerk_user_id, customer_id, assigned_at
+
+**Twilio A2P registration — owner must complete manually:**
+1. Go to Twilio → Messaging → Senders → A2P 10DLC → Register a Brand
+   - Legal business name (must match EIN exactly), EIN, business type: Private, website: bizzybotai.com
+2. After brand approved (3-5 days): Register a Campaign
+   - Use case: Mixed
+   - Description: "AI-powered platform that responds to leads via SMS on behalf of small businesses. Messages include lead follow-ups, appointment reminders, and business inquiries."
+   - Sample 1: "Hi! Thanks for reaching out to [Business Name]. I'd love to help — what questions do you have? Reply STOP to opt out."
+   - Sample 2: "Just following up on your inquiry! We still have availability this week. Would you like to schedule a time? Reply STOP to opt out."
+3. After campaign approved (10-15 days): Call `POST /api/admin/sms/buy-numbers` with `{ quantity: 20 }` to pre-buy the pool
+- Previous A2P rejections were likely due to vague opt-in description or sample messages not matching use case
+
+**Key files changed:**
+- `app/api/sms/provision/route.js` — new file
+- `app/api/admin/sms/buy-numbers/route.js` — new file
+- `app/api/sms/webhook/route.js` — DB routing + SMS sending enabled
+
+**Next priorities:**
+- [ ] Complete Twilio A2P Brand registration (manual — owner action)
+- [ ] After A2P approved: buy number pool via admin endpoint, test end-to-end SMS flow
+- [ ] Build referral tracking into dashboard — crediting the referrer when `BIZZYFRIEND` is used
+- [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
+- [ ] Add "Last Active" toggle to date filter row on Leads page
+
+---
+
 ### Session — 2026-05-29 (continued)
 **Stripe setup, platform rename to BizzyBot AI**
 
@@ -249,7 +287,7 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 - `lib/stripe.js` — new price IDs
 
 **Next priorities:**
-- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [x] SMS pool provisioning built — complete Twilio A2P Brand registration to activate (manual step)
 - [ ] Build referral tracking into dashboard — crediting the referrer when `BIZZYFRIEND` is used
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
@@ -275,7 +313,7 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 **Next priorities:**
 - [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
-- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [x] SMS pool provisioning built — complete Twilio A2P Brand registration to activate (manual step)
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
 - [ ] Tighten onboarding flow — ask industry/business description/tone upfront so AI is pre-configured from day one
@@ -321,7 +359,7 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 **Next priorities:**
 - [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
-- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [x] SMS pool provisioning built — complete Twilio A2P Brand registration to activate (manual step)
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
 - [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
@@ -351,7 +389,7 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 **Next priorities:**
 - [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
-- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [x] SMS pool provisioning built — complete Twilio A2P Brand registration to activate (manual step)
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
 - [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
@@ -377,7 +415,7 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 **Next priorities:**
 - [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
-- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [x] SMS pool provisioning built — complete Twilio A2P Brand registration to activate (manual step)
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
 - [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
@@ -421,7 +459,7 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 **Next priorities:**
 - [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
-- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [x] SMS pool provisioning built — complete Twilio A2P Brand registration to activate (manual step)
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 - [ ] Add "Last Active" toggle to date filter row on Leads page (discussed, not built)
 - [x] Railway cron job — `/api/cron/run` runs hourly, handles Gmail for all customers automatically
@@ -449,7 +487,7 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 **Next priorities:**
 - [ ] Add "Last Active" toggle to date filter row (discussed, not built — lets users filter leads by when they last engaged vs when they were added)
 - [x] Stripe prices created ($29/$69/$199) and price IDs updated in `lib/stripe.js`
-- [ ] Register BizzyBot as Twilio ISV; pre-buy number pool so new customers get a SMS number instantly on signup
+- [x] SMS pool provisioning built — complete Twilio A2P Brand registration to activate (manual step)
 - [ ] Dashboard Analytics redesign (paused until Scheduling feature is complete)
 
 ---
