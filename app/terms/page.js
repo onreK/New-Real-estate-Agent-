@@ -133,7 +133,27 @@ export default function TermsOfService() {
 
           {/* 5 */}
           <section className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">5. Gmail Integration Terms</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">5. SMS Messaging Terms</h2>
+            <p className="mb-4">
+              When you use BizzyBot's SMS channel, the following terms apply to all text messages sent through the platform on your behalf:
+            </p>
+            <ul className="space-y-2 pl-4 mb-4">
+              <li className="flex gap-2"><span className="text-violet-400 mt-1">•</span><span>BizzyBot sends SMS messages to consumers on your behalf only in response to inbound consumer-initiated contact. No unsolicited outbound SMS messages are sent.</span></li>
+              <li className="flex gap-2"><span className="text-violet-400 mt-1">•</span><span>Message frequency varies based on consumer inquiries and your configured follow-up settings. You may receive up to several messages per active conversation.</span></li>
+              <li className="flex gap-2"><span className="text-violet-400 mt-1">•</span><span><strong className="text-gray-100">Message and data rates may apply.</strong> Standard carrier rates apply to all SMS messages sent or received through the platform.</span></li>
+              <li className="flex gap-2"><span className="text-violet-400 mt-1">•</span><span>All SMS messages include opt-out instructions. Consumers may reply <strong className="text-gray-100">STOP</strong> at any time to stop receiving messages. Reply <strong className="text-gray-100">HELP</strong> for assistance. Opt-out requests are processed immediately.</span></li>
+              <li className="flex gap-2"><span className="text-violet-400 mt-1">•</span><span><strong className="text-gray-100">Carriers are not liable for delayed or undelivered messages.</strong></span></li>
+              <li className="flex gap-2"><span className="text-violet-400 mt-1">•</span><span>Mobile information — including phone numbers, SMS content, and opt-in/opt-out status — is never shared with third parties for marketing purposes. See our <a href="/privacy" className="text-violet-400 hover:text-violet-300">Privacy Policy</a> for full details.</span></li>
+              <li className="flex gap-2"><span className="text-violet-400 mt-1">•</span><span>You are responsible for ensuring that all contacts you message through BizzyBot have provided appropriate consent to receive SMS communications from your business.</span></li>
+            </ul>
+            <p className="text-sm text-gray-500">
+              For SMS support, contact <a href="mailto:support@bizzybotai.com" className="text-violet-400 hover:text-violet-300">support@bizzybotai.com</a>.
+            </p>
+          </section>
+
+          {/* 6 */}
+          <section className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-6">
+            <h2 className="text-xl font-semibold text-white mb-4">6. Gmail Integration Terms</h2>
             <p className="mb-4">
               If you connect a Gmail account, the following terms apply in addition to our{' '}
               <a href="/privacy" className="text-violet-400 hover:text-violet-300">Privacy Policy</a>{' '}
@@ -156,9 +176,9 @@ export default function TermsOfService() {
             </ul>
           </section>
 
-          {/* 6 */}
+          {/* 7 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">6. Acceptable Use</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">7. Acceptable Use</h2>
             <p className="mb-3">You agree not to use the Service to:</p>
             <ul className="space-y-2 pl-4">
               {[
@@ -184,9 +204,9 @@ export default function TermsOfService() {
             </p>
           </section>
 
-          {/* 7 */}
+          {/* 8 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">7. AI-Generated Content Disclaimer</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">8. AI-Generated Content Disclaimer</h2>
             <p className="mb-3">
               BizzyBot uses artificial intelligence (OpenAI GPT models) to generate responses on your behalf. You acknowledge and agree that:
             </p>
@@ -206,9 +226,9 @@ export default function TermsOfService() {
             </ul>
           </section>
 
-          {/* 8 */}
+          {/* 9 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">8. Intellectual Property</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">9. Intellectual Property</h2>
             <p className="mb-3">
               <strong className="text-gray-200">BizzyBot's IP:</strong> The Service, including its software, design, brand, and content, is owned by BizzyBot AI and protected by intellectual property laws. You may not copy, distribute, or create derivative works from our platform without written permission.
             </p>
@@ -220,9 +240,9 @@ export default function TermsOfService() {
             </p>
           </section>
 
-          {/* 9 */}
+          {/* 10 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">9. Privacy & Data</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">10. Privacy & Data</h2>
             <p>
               Your use of the Service is subject to our{' '}
               <a href="/privacy" className="text-violet-400 hover:text-violet-300">Privacy Policy</a>,
@@ -230,9 +250,9 @@ export default function TermsOfService() {
             </p>
           </section>
 
-          {/* 10 */}
+          {/* 11 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">10. Service Availability & Modifications</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">11. Service Availability & Modifications</h2>
             <p className="mb-3">
               We strive for high availability but do not guarantee uninterrupted, error-free, or timely access to the Service. We may:
             </p>
@@ -250,9 +270,9 @@ export default function TermsOfService() {
             </ul>
           </section>
 
-          {/* 11 */}
+          {/* 12 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">11. Termination</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">12. Termination</h2>
             <p className="mb-3">
               <strong className="text-gray-200">By you:</strong> You may terminate your account at any time by canceling your subscription and deleting your account from the settings page.
             </p>
@@ -264,9 +284,9 @@ export default function TermsOfService() {
             </p>
           </section>
 
-          {/* 12 */}
+          {/* 13 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">12. Disclaimers</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">13. Disclaimers</h2>
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
               <p className="uppercase text-xs font-semibold text-gray-500 tracking-widest mb-3">Important — Please read carefully</p>
               <p className="mb-3">
@@ -278,9 +298,9 @@ export default function TermsOfService() {
             </div>
           </section>
 
-          {/* 13 */}
+          {/* 14 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">13. Limitation of Liability</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">14. Limitation of Liability</h2>
             <p className="mb-3">
               TO THE MAXIMUM EXTENT PERMITTED BY LAW, BIZZYBOT AI AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO:
             </p>
@@ -302,17 +322,17 @@ export default function TermsOfService() {
             </p>
           </section>
 
-          {/* 14 */}
+          {/* 15 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">14. Indemnification</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">15. Indemnification</h2>
             <p>
               You agree to indemnify, defend, and hold harmless BizzyBot AI and its officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, and expenses (including reasonable attorneys' fees) arising out of or in any way connected with: (a) your access to or use of the Service; (b) your violation of these Terms; (c) messages sent from your account; or (d) your violation of any third-party right.
             </p>
           </section>
 
-          {/* 15 */}
+          {/* 16 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">15. Governing Law & Dispute Resolution</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">16. Governing Law & Dispute Resolution</h2>
             <p className="mb-3">
               These Terms are governed by the laws of the State of Delaware, United States, without regard to conflict of law principles.
             </p>
@@ -324,17 +344,17 @@ export default function TermsOfService() {
             </p>
           </section>
 
-          {/* 16 */}
+          {/* 17 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">16. Changes to These Terms</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">17. Changes to These Terms</h2>
             <p>
               We may update these Terms from time to time. When we make material changes, we will notify you by email at least 14 days before the new Terms take effect. Your continued use of the Service after the effective date constitutes acceptance of the updated Terms. If you disagree with the changes, you may cancel your subscription before they take effect.
             </p>
           </section>
 
-          {/* 17 */}
+          {/* 18 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">17. Miscellaneous</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">18. Miscellaneous</h2>
             <ul className="space-y-2 pl-4">
               {[
                 'These Terms constitute the entire agreement between you and BizzyBot regarding the Service and supersede all prior agreements.',
@@ -351,9 +371,9 @@ export default function TermsOfService() {
             </ul>
           </section>
 
-          {/* 18 */}
+          {/* 19 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">18. Contact Us</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">19. Contact Us</h2>
             <p className="mb-3">
               Questions about these Terms? Reach us at:
             </p>
