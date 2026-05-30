@@ -63,6 +63,14 @@ export async function POST(request) {
           friendlyName: `BizzyBot Pool`
         });
 
+        // Enroll number in the Messaging Service so it's linked to the approved A2P campaign
+        const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+        if (messagingServiceSid) {
+          await twilioClient.messaging.v1.services(messagingServiceSid).phoneNumbers.create({
+            phoneNumberSid: bought.sid
+          });
+        }
+
         await query(
           `INSERT INTO customer_phone_numbers (phone_number, twilio_sid, friendly_name, status)
            VALUES ($1, $2, $3, 'available') ON CONFLICT (phone_number) DO NOTHING`,
