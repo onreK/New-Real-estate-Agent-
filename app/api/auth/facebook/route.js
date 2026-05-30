@@ -35,8 +35,9 @@ export async function GET(request) {
     'pages_read_engagement',
     'pages_manage_metadata',
     'pages_show_list',
-    'instagram_basic',
-    'instagram_manage_messages',
+    'instagram_business_basic',
+    'instagram_business_manage_messages',
+    'instagram_manage_comments',
   ].join(',');
 
   // Sign state with HMAC so the callback can verify it wasn't forged.
