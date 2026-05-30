@@ -28,6 +28,9 @@ export default authMiddleware({
     // OAuth routes - MUST be public for OAuth flows to work
     "/api/auth/google(.*)",
     "/api/auth/facebook(.*)",
+    // Cron endpoint - protected by CRON_SECRET bearer token, not Clerk
+    "/api/cron/run",
+    "/api/stripe/webhook",
   ],
   
   // Routes that are completely ignored by Clerk (no auth checks)
