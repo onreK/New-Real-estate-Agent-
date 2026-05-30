@@ -4,9 +4,10 @@ import { useUser, SignOutButton } from '@clerk/nextjs';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   LayoutDashboard, BarChart3, Mail, Phone, MessageCircle,
-  Facebook, Instagram, Settings, Bot, LogOut, Zap, Target,
+  Facebook, Instagram, Settings, Bot, LogOut, Target,
   Bell, Flame, X, Calendar
 } from 'lucide-react';
 
@@ -134,8 +135,14 @@ export default function DashboardLayout({ children }) {
         <div className="px-4 py-5 border-b border-gray-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+                <Image
+                  src="/bizzybot logo.png"
+                  alt="BizzyBot"
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="min-w-0">
                 <div className="text-white font-semibold text-sm leading-tight">BizzyBot AI</div>
