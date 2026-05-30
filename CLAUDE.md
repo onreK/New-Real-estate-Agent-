@@ -226,6 +226,61 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-30 (continued)
+**Facebook/Instagram Meta App Review — in progress**
+
+**Facebook App ID added to Railway:**
+- App ID: `1018657873452513` — added as `NEXT_PUBLIC_FACEBOOK_APP_ID` env var in Railway
+
+**Instagram OAuth scopes fixed:**
+- Old permission names were outdated — updated `app/api/auth/facebook/route.js`:
+  - `instagram_basic` → `instagram_business_basic`
+  - `instagram_manage_messages` → `instagram_business_manage_messages`
+  - Added `instagram_manage_comments` (was missing entirely)
+
+**Instagram API setup (developers.facebook.com):**
+- Step 1 (permissions): ✅ Already done
+- Step 2 (test account): Skipped for now — needs Instagram Business account connected to a Facebook Page
+- Step 3 (webhooks): Configured — Callback URL: `https://bizzybotai.com/api/instagram/webhook`, Verify token: `verify_bizzy_bot_ai`
+- Step 4 (business login): Redirect URL added: `https://bizzybotai.com/api/auth/facebook/callback`
+
+**Meta Business Verification submitted:**
+- Created "Bizzy Bot Ai LLC" business portfolio in Meta Business Manager
+- Submitted EIN `39-3108116` — matched to "Bizzy Bot Ai LLC" at 13322 Inge Road, Chester VA
+- Status: **In review** (~2 business days)
+
+**App Review permissions selected (3 only):**
+- `instagram_business_basic` (required)
+- `instagram_business_manage_messages`
+- `instagram_business_manage_comments`
+- Unchecked: content_publish, manage_insights, Human Agent (not needed)
+
+**App Review submission — in progress:**
+- Business verification: In review (must complete before final submission)
+- App settings: Privacy policy URL entered (`https://bizzybotai.com/privacy`), category: Business and Pages
+- Allowed usage, Data handling, Reviewer instructions: still need to be filled in
+- Reviewer instructions requires screen recording of: customer connecting Instagram + AI replying to a DM
+
+**Privacy/Terms links added to dashboard:**
+- Added to sidebar footer in `app/(dashboard)/layout.js` — below Sign Out button
+- Previously only existed on landing page — Meta App Review requires links accessible from within the app
+
+**Key files changed:**
+- `app/api/auth/facebook/route.js` — Instagram OAuth scopes updated
+- `app/(dashboard)/layout.js` — Privacy + Terms links added to sidebar
+
+**Next priorities:**
+- [ ] Wait for Meta Business Verification (~2 business days from 2026-05-30)
+- [ ] After verification: fill in Allowed usage, Data handling, Reviewer instructions sections
+- [ ] Record screen video: customer connects Instagram on bizzybotai.com → AI replies to test DM
+- [ ] Submit App Review — then wait 5-7 business days
+- [ ] Set up test Instagram Business account for testing (connected to a Facebook Page)
+- [ ] Wait for Twilio A2P campaign approval (10-15 business days from 2026-05-30)
+- [ ] After Twilio approval: call `POST /api/admin/sms/buy-numbers` with `{ "quantity": 20 }`
+- [ ] Build referral tracking — credit referrer when BIZZYFRIEND coupon used
+
+---
+
 ### Session — 2026-05-30
 **Twilio A2P campaign resubmission + cron fix + Terms of Service SMS section**
 
