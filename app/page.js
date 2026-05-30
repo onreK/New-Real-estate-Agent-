@@ -3,6 +3,7 @@
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Brain, ArrowRight, CheckCircle, Star, Zap,
   MessageSquare, Mail, Smartphone, BarChart3,
@@ -244,8 +245,8 @@ export default function HomePage() {
         <nav className="fixed top-0 w-full z-50 border-b border-white/[0.06] bg-[#070B14]/80 backdrop-blur-xl">
           <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <Brain className="w-4 h-4 text-white" />
+              <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
+                <Image src="/bizzybot logo.png" alt="BizzyBot" width={28} height={28} className="w-full h-full object-contain" />
               </div>
               <span className="font-semibold text-white">BizzyBot</span>
             </div>
