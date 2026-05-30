@@ -226,6 +226,45 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 
 > Update this section at the end of every Claude Code session.
 
+### Session — 2026-05-30
+**Twilio A2P campaign resubmission + cron fix + Terms of Service SMS section**
+
+**Cron job 401 fix — two-part problem:**
+- First issue: `CRON_SECRET` env var was missing from BizzyBotAi service in Railway — added via Railway MCP
+- Second issue (real cause): Clerk middleware was intercepting the cron request before it reached the route handler, blocking it with 401 because no user was logged in. Fixed by adding `/api/cron/run` and `/api/stripe/webhook` to `publicRoutes` in `middleware.js`
+- Cron now runs every hour at the top of the hour without being blocked
+
+**Twilio A2P campaign resubmitted:**
+- Brand status: Approved (created Jun 25 2025, still valid)
+- Previous campaign rejection reasons: (1) CTA couldn't be verified — old description described notifications TO business owners, not AI replies TO leads; (2) Privacy policy couldn't be verified
+- Rewrote all campaign fields: description, sample messages #1 and #2 (with STOP/HELP/rates), cleared samples #3-5, rewrote consent/CTA field, updated privacy + terms URLs
+- Resubmitted — awaiting review (10-15 business days)
+
+**Terms of Service — SMS section added:**
+- Added Section 5 "SMS Messaging Terms" to `app/terms/page.js` with all CTIA-required disclosures: "Message and data rates may apply", STOP/HELP instructions in bold, carrier liability disclaimer, mobile data sharing policy, link to privacy policy
+- Renumbered remaining sections 6-18 → 7-19
+- Required for Twilio campaign approval — previous rejection included privacy policy check failure
+
+**Twilio buy-numbers code fix:**
+- Problem: `app/api/admin/sms/buy-numbers/route.js` was buying numbers but NOT enrolling them in the Twilio Messaging Service linked to the A2P campaign. For A2P compliance every number must be enrolled in the Messaging Service.
+- Fix: After buying each number, code now calls `twilioClient.messaging.v1.services(sid).phoneNumbers.create()` to enroll it
+- Requires `TWILIO_MESSAGING_SERVICE_SID` env var — added to Railway: `MG7d1d710aa54c4ebab29ae4127f233a0b`
+
+**Key files changed:**
+- `middleware.js` — `/api/cron/run` and `/api/stripe/webhook` added to publicRoutes
+- `app/terms/page.js` — SMS messaging section added (Section 5)
+- `app/api/admin/sms/buy-numbers/route.js` — Messaging Service enrollment added
+
+**Next priorities:**
+- [ ] Wait for Twilio A2P campaign approval (10-15 business days from 2026-05-30)
+- [ ] After approval: call `POST /api/admin/sms/buy-numbers` with `{ "quantity": 20 }` to buy number pool
+- [ ] Add real `FACEBOOK_APP_ID` to Railway + register OAuth callback URL in Facebook Developer app
+- [ ] Submit Facebook App Review (pages_messaging, instagram_manage_messages)
+- [ ] Build referral tracking — credit referrer when BIZZYFRIEND coupon used
+- [ ] Hot lead SMS notifications to business owner (after SMS campaign approved)
+
+---
+
 ### Session — 2026-05-29 (continued x7)
 **Twilio A2P registration guide + privacy policy CTIA fix**
 
