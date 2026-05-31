@@ -163,6 +163,8 @@ export async function GET(request) {
           created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
         )
       `).catch(() => {});
+      await query(`ALTER TABLE instagram_connections ADD COLUMN IF NOT EXISTS instagram_account_id VARCHAR(255)`).catch(() => {});
+      await query(`ALTER TABLE instagram_connections ADD COLUMN IF NOT EXISTS instagram_username VARCHAR(255)`).catch(() => {});
 
       await query(`
         INSERT INTO instagram_connections
