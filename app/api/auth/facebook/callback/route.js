@@ -19,18 +19,19 @@ function verifyState(signedState, secret) {
 }
 
 export async function GET(request) {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com';
+  try {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const errorParam = searchParams.get('error');
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://bizzybotai.com';
   const appSecret = process.env.FACEBOOK_APP_SECRET;
 
   // Verify HMAC signature on state before trusting any of its contents
   const payload = appSecret && state ? verifyState(state, appSecret) : null;
   if (!payload) {
-    return NextResponse.redirect(`${baseUrl}/dashboard?error=oauth_invalid_state`);
+    return NextResponse.redirect(`${baseUrl}/instagram-setup?error=oauth_invalid_state`);
   }
 
   const [userId, type] = payload.split(':');
@@ -168,6 +169,11 @@ export async function GET(request) {
 
   } catch (err) {
     console.error('Facebook OAuth callback error:', err);
-    return NextResponse.redirect(`${baseUrl}${setupPage}?error=oauth_failed`);
+    return NextResponse.redirect(`${baseUrl}/instagram-setup?error=oauth_failed`);
+  }
+
+  } catch (outerErr) {
+    console.error('Facebook OAuth outer error:', outerErr);
+    return NextResponse.redirect(`${baseUrl}/instagram-setup?error=oauth_failed`);
   }
 }
