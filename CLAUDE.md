@@ -227,46 +227,61 @@ Referral tracking (crediting the referrer) is not yet built — planned for a fu
 > Update this section at the end of every Claude Code session.
 
 ### Session — 2026-05-31
-**Meta App Review — OAuth fixes + logo update**
+**Logo update + Instagram OAuth fully working + App Review in progress**
 
 **Logo updated:**
-- Replaced placeholder Zap/Brain icons with real BizzyBot logo (`Bizzybot Logo 2.png`) in 3 places: landing page navbar, landing page footer, dashboard sidebar
-- Files changed: `app/(dashboard)/layout.js`, `app/page.js`
+- Replaced placeholder Zap/Brain icons with real `Bizzybot Logo 2.png` in 3 places: landing page navbar, landing page footer, dashboard sidebar
+- Files: `app/(dashboard)/layout.js`, `app/page.js`
 
-**Facebook OAuth — multiple fixes to get Connect Instagram working:**
-- `NEXT_PUBLIC_FACEBOOK_APP_ID` was set to placeholder — updated to real App ID `1018657873452513` (also added `FACEBOOK_APP_ID`) via Railway MCP
-- `/api/auth/facebook` was in `ignoredRoutes` in middleware — Clerk's `auth()` fails on ignored routes, moved to `publicRoutes` only
-- `bizzybotai.com` added to App Domains in Facebook App Settings → Basic
-- OAuth redirect URI `https://bizzybotai.com/api/auth/facebook/callback` added to Facebook Login for Business → Settings → Valid OAuth Redirect URIs
-- Terms of Service URL added to App Settings → Basic
-- Added `app/api/facebook/deauthorize/route.js` and `app/api/facebook/data-deletion/route.js` — required by Meta for App Review; used `@/lib/database.js` (not `@/lib/db`) for DB queries
+**Connect Instagram OAuth — fully working as of end of session:**
+Full list of fixes applied to get `bizzybotai.com/instagram-setup → Connect Instagram → @bizzybotai connected` working:
+1. `NEXT_PUBLIC_FACEBOOK_APP_ID` / `FACEBOOK_APP_ID` were set to placeholder in Railway — updated to `1018657873452513`
+2. `/api/auth/facebook` was in both `publicRoutes` AND `ignoredRoutes` — `ignoredRoutes` wins and blocked Clerk, causing 500. Fixed: removed from ignoredRoutes, kept in publicRoutes
+3. `/api/auth/facebook/callback` was returning 401 (Clerk blocking it) — added it explicitly to `ignoredRoutes` since callback no longer uses `auth()`
+4. `bizzybotai.com` added to Facebook App Domains (App Settings → Basic)
+5. `https://bizzybotai.com/api/auth/facebook/callback` added to Valid OAuth Redirect URIs (Facebook Login for Business → Settings)
+6. Terms of Service URL added to App Settings → Basic (`https://bizzybotai.com/terms`)
+7. `instagram_business_*` scopes are invalid with Facebook Login (require Instagram Business Login via instagram.com) — switched back to `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`
+8. Removed `auth()` Clerk check from callback — Clerk session cookie doesn't survive Facebook redirect; HMAC state verification is sufficient security
+9. `/me/accounts` returns empty for Business Manager accounts — added fallback to `/me/businesses` → `/{biz_id}/owned_pages`
+10. `business_management` scope was missing — added to OAuth scopes so `/me/businesses` API works
+11. `instagram_connections` table existed without `instagram_account_id` column — added `ALTER TABLE IF NOT EXISTS` to patch schema
 
-**Instagram OAuth scopes — switched back to legacy:**
-- `instagram_business_*` scopes require Instagram Business Login (different OAuth URL: instagram.com) — incompatible with our Facebook Login flow
-- Switched back to `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments` — these work with Facebook Login and are fully supported by Meta for App Review
-- `instagram_basic` works with Instagram Business accounts — functionally identical to `instagram_business_basic` for BizzyBot's use case
-- May need to migrate to Instagram Business Login flow in the future but not required now
+**Facebook Developer app configuration (all done):**
+- App ID: `1018657873452513`
+- App Domains: `bizzybotai.com`
+- Valid OAuth Redirect URI: `https://bizzybotai.com/api/auth/facebook/callback`
+- Deauthorize URL: `https://bizzybotai.com/api/facebook/deauthorize`
+- Data Deletion URL: `https://bizzybotai.com/api/facebook/data-deletion`
+- Terms of Service URL: `https://bizzybotai.com/terms`
+- Privacy Policy URL: `https://bizzybotai.com/privacy`
+- Category: Business and Pages
+- App icon: BizzyBot logo uploaded
 
 **App Review submission status:**
-- Business verification: ✅ Approved
-- 3 permissions added to submission: `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`
-- Still needed: screen recording of OAuth connect flow + Allowed usage descriptions + Data handling section
-- To record: log into bizzybotai.com → Instagram Setup → Connect Instagram → approve OAuth → show connected @username
+- Business verification: ✅ Approved (2026-05-31)
+- 3 permissions in submission queue: `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`
+- `instagram_basic` works fine with Instagram Business accounts — functionally same as `instagram_business_basic` for our use case
+- OAuth connect flow: ✅ Tested and working end-to-end — shows "Instagram connected — @bizzybotai"
+- Created BizzyBot AI Facebook Page + linked @bizzybotai Instagram Business account for demo
 
-**Key files changed:**
-- `app/api/auth/facebook/route.js` — App ID env var fallback, scope fixes
-- `middleware.js` — Facebook OAuth routes moved from ignoredRoutes to publicRoutes only; deauthorize/data-deletion added to publicRoutes
-- `app/api/facebook/deauthorize/route.js` — new file
-- `app/api/facebook/data-deletion/route.js` — new file
+**Still needed to complete App Review submission:**
+- [ ] Screen recording: bizzybotai.com → Instagram Setup → Connect Instagram → connected @bizzybotai (record with Loom)
+- [ ] Fill in "Allowed usage" description for each of the 3 permissions (text ready — see previous session notes)
+- [ ] Fill in "Data handling" section
+- [ ] Fill in "Reviewer instructions" (provide test account credentials + step-by-step)
+- [ ] Check "I agree to allowed usage" checkbox for each permission
+- [ ] Upload screen recording and click Submit
+- [ ] Wait 5-7 business days for Meta approval
+
+**Key files changed this session:**
+- `app/api/auth/facebook/route.js` — App ID fallback, scopes updated (added `business_management`, fixed instagram scopes)
+- `app/api/auth/facebook/callback/route.js` — removed Clerk auth() check, rewrote with plain Response.redirect(), added Business Manager API fallback, added ALTER TABLE schema fix
+- `middleware.js` — `/api/auth/facebook/callback` added to ignoredRoutes; deauthorize/data-deletion added to publicRoutes
+- `app/api/facebook/deauthorize/route.js` — new file (Meta required)
+- `app/api/facebook/data-deletion/route.js` — new file (Meta required)
 - `app/(dashboard)/layout.js` — logo update
 - `app/page.js` — logo update (navbar + footer)
-
-**Next priorities:**
-- [ ] Confirm OAuth Connect Instagram works end-to-end with legacy scopes
-- [ ] Record screen demo: bizzybotai.com → Instagram Setup → Connect → connected state
-- [ ] Fill in Allowed usage + Data handling + Reviewer instructions in App Review submission
-- [ ] Upload screen recording and submit App Review
-- [ ] Wait 5-7 business days for Meta approval
 
 ---
 
