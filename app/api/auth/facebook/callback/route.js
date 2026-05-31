@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { query } from '@/lib/database.js';
 
@@ -36,12 +35,6 @@ export async function GET(request) {
 
   const [userId, type] = payload.split(':');
   const setupPage = type === 'instagram' ? '/instagram-setup' : '/facebook-setup';
-
-  // Also verify the Clerk session matches the userId in state
-  const { userId: sessionUserId } = auth();
-  if (!sessionUserId || sessionUserId !== userId) {
-    return NextResponse.redirect(`${baseUrl}/sign-in`);
-  }
 
   if (errorParam) {
     return NextResponse.redirect(`${baseUrl}${setupPage}?error=oauth_denied`);
