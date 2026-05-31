@@ -20,7 +20,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || 'facebook';
 
-  const appId = process.env.FACEBOOK_APP_ID;
+  const appId = process.env.FACEBOOK_APP_ID || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
   const secret = process.env.FACEBOOK_APP_SECRET;
   if (!appId || !secret) {
     const setupPage = type === 'instagram' ? '/instagram-setup' : '/facebook-setup';
@@ -37,7 +37,7 @@ export async function GET(request) {
     'pages_show_list',
     'instagram_business_basic',
     'instagram_business_manage_messages',
-    'instagram_manage_comments',
+    'instagram_business_manage_comments',
   ].join(',');
 
   // Sign state with HMAC so the callback can verify it wasn't forged.
