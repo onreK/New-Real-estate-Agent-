@@ -246,7 +246,7 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
-                <Image src="/bizzybot logo.png" alt="BizzyBot" width={28} height={28} className="w-full h-full object-contain" />
+                <Image src="/Bizzybot Logo 2.png" alt="BizzyBot" width={28} height={28} className="w-full h-full object-contain" />
               </div>
               <span className="font-semibold text-white">BizzyBot</span>
             </div>
@@ -546,7 +546,7 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
-                <Image src="/bizzybot logo.png" alt="BizzyBot" width={28} height={28} className="w-full h-full object-contain" />
+                <Image src="/Bizzybot Logo 2.png" alt="BizzyBot" width={28} height={28} className="w-full h-full object-contain" />
               </div>
               <span className="font-semibold text-white">BizzyBot AI</span>
             </div>

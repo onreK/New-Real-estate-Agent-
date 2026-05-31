@@ -137,7 +137,7 @@ export default function DashboardLayout({ children }) {
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
                 <Image
-                  src="/bizzybot logo.png"
+                  src="/Bizzybot Logo 2.png"
                   alt="BizzyBot"
                   width={32}
                   height={32}
