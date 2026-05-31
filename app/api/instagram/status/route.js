@@ -1,92 +1,35 @@
-// app/api/instagram/status/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { 
-  getInstagramConfig, 
-  getConversationsToday, 
-  calculateResponseRate 
-} from '../../../../lib/instagram-config.js';
+import { query } from '@/lib/database.js';
 
-// Force dynamic rendering for authentication
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     const { userId } = auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    console.log('📸 Checking Instagram status for user:', userId);
+    const result = await query(
+      `SELECT page_id, instagram_username, business_name, status, created_at
+       FROM instagram_connections
+       WHERE user_id = $1 AND status = 'connected'
+       LIMIT 1`,
+      [userId]
+    ).catch(() => ({ rows: [] }));
 
-    // Get Instagram configuration for this user
-    const userConfig = getInstagramConfig(userId);
-    
-    if (!userConfig || !userConfig.accessToken || !userConfig.pageId) {
-      return NextResponse.json({
-        configured: false,
-        conversationsToday: 0,
-        responseRate: 0,
-        status: 'not_configured'
-      });
-    }
+    const conn = result.rows[0];
+    if (!conn) return NextResponse.json({ configured: false, status: 'not_configured' });
 
-    // If configured, check connection status
-    try {
-      // Test Instagram API connection
-      const testResponse = await fetch(`https://graph.facebook.com/v18.0/${userConfig.pageId}?access_token=${userConfig.accessToken}`);
-      
-      if (!testResponse.ok) {
-        console.log('❌ Instagram API connection failed');
-        return NextResponse.json({
-          configured: false,
-          conversationsToday: 0,
-          responseRate: 0,
-          status: 'connection_error',
-          error: 'Instagram API connection failed'
-        });
-      }
-
-      // Get conversation stats (mock data for now)
-      const conversationsToday = getConversationsToday(userId);
-      const responseRate = calculateResponseRate(userId);
-
-      console.log('✅ Instagram status check successful:', {
-        configured: true,
-        conversationsToday,
-        responseRate
-      });
-
-      return NextResponse.json({
-        configured: true,
-        conversationsToday,
-        responseRate,
-        status: 'active',
-        pageId: userConfig.pageId,
-        businessName: userConfig.businessName,
-        lastUpdated: userConfig.configuredAt || new Date().toISOString()
-      });
-
-    } catch (connectionError) {
-      console.error('❌ Instagram connection test failed:', connectionError);
-      return NextResponse.json({
-        configured: false,
-        conversationsToday: 0,
-        responseRate: 0,
-        status: 'connection_error',
-        error: 'Failed to verify Instagram connection'
-      });
-    }
-
-  } catch (error) {
-    console.error('❌ Instagram status check error:', error);
     return NextResponse.json({
-      configured: false,
-      conversationsToday: 0,
-      responseRate: 0,
-      status: 'error',
-      error: 'Internal server error'
-    }, { status: 500 });
+      configured: true,
+      status: 'active',
+      pageId: conn.page_id,
+      username: conn.instagram_username || null,
+      businessName: conn.business_name || null,
+      connectedAt: conn.created_at,
+    });
+  } catch (error) {
+    console.error('❌ Instagram status error:', error);
+    return NextResponse.json({ configured: false, status: 'error' }, { status: 500 });
   }
 }

@@ -33,7 +33,7 @@ export async function GET(request) {
     const appId = process.env.FACEBOOK_APP_ID || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
 
     const payload = appSecret && state ? verifyState(state, appSecret) : null;
-    if (!payload) return redirect('/instagram-setup?error=oauth_invalid_state');
+    if (!payload) return redirect('/instagram?error=oauth_invalid_state');
 
     const colonIdx = payload.indexOf(':');
     const userId = colonIdx > -1 ? payload.slice(0, colonIdx) : payload;
@@ -177,13 +177,13 @@ export async function GET(request) {
           status = 'connected', updated_at = NOW()
       `, [userId, customerId, page.id, page.access_token, igAccountId, username]);
 
-      return redirect(`/instagram-setup?success=connected&username=${encodeURIComponent(username)}`);
+      return redirect(`/instagram?success=connected&username=${encodeURIComponent(username)}`);
     }
 
     return redirect(`${setupPage}?error=oauth_failed`);
 
   } catch (err) {
     console.error('Facebook OAuth callback error:', err);
-    return redirect('/instagram-setup?error=oauth_failed');
+    return redirect('/instagram?error=oauth_failed');
   }
 }

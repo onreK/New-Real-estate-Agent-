@@ -159,6 +159,22 @@ async function handleDM(event, connection) {
 
   await sendDM(senderId, reply, connection?.access_token);
   console.log('✅ Instagram DM reply sent');
+
+  if (connection?.user_id) {
+    await query(`
+      CREATE TABLE IF NOT EXISTS instagram_messages (
+        id SERIAL PRIMARY KEY, user_id VARCHAR(255) NOT NULL,
+        type VARCHAR(50) NOT NULL DEFAULT 'dm', sender_id VARCHAR(255),
+        sender_username VARCHAR(255), message_text TEXT, ai_reply TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `).catch(() => {});
+    await query(
+      `INSERT INTO instagram_messages (user_id, type, sender_id, message_text, ai_reply)
+       VALUES ($1, 'dm', $2, $3, $4)`,
+      [connection.user_id, senderId, messageText.substring(0, 500), reply.substring(0, 1000)]
+    ).catch(() => {});
+  }
 }
 
 async function handleComment(value, pageId, connection) {
@@ -189,4 +205,13 @@ async function handleComment(value, pageId, connection) {
 
   await replyToComment(commentId, username, reply, connection?.access_token);
   console.log('✅ Instagram comment reply sent');
+
+  if (connection?.user_id) {
+    await query(
+      `INSERT INTO instagram_messages (user_id, type, sender_id, sender_username, message_text, ai_reply)
+       VALUES ($1, 'comment', $2, $3, $4, $5)
+       ON CONFLICT DO NOTHING`,
+      [connection.user_id, senderId, username, messageText.substring(0, 500), reply.substring(0, 1000)]
+    ).catch(() => {});
+  }
 }
