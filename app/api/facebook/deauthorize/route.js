@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
-import { getDb } from '@/lib/db';
+import { query } from '@/lib/database.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +22,7 @@ export async function POST(request) {
     const data = parseSignedRequest(signedRequest, secret);
     if (!data) return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
 
-    const db = await getDb();
-    await db.query(
+    await query(
       'DELETE FROM facebook_connections WHERE facebook_user_id = $1',
       [data.user_id]
     );
