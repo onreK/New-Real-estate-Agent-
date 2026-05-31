@@ -69,11 +69,15 @@ export async function GET(request) {
     // Get pages this user manages
     const pagesRes = await fetch(
       `https://graph.facebook.com/v18.0/me/accounts` +
-      `?access_token=${userToken}&fields=id,name,access_token`
+      `?access_token=${userToken}&fields=id,name,access_token&limit=100`
     );
     const pagesData = await pagesRes.json();
+    console.log('Pages API response:', JSON.stringify(pagesData));
     const pages = pagesData.data || [];
-    if (pages.length === 0) return redirect(`${setupPage}?error=no_pages`);
+    if (pages.length === 0) {
+      console.error('No pages found. Full response:', JSON.stringify(pagesData));
+      return redirect(`${setupPage}?error=no_pages`);
+    }
 
     const page = pages[0];
 
