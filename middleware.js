@@ -39,12 +39,9 @@ export default authMiddleware({
     "/_next/static(.*)",
     "/_next/image(.*)",
     "/favicon.ico",
-    // ALSO add OAuth routes to ignored routes as backup
     "/api/auth/google",
     "/api/auth/google/callback",
-    "/api/auth/google/status",
-    "/api/auth/facebook",
-    "/api/auth/facebook/callback"
+    "/api/auth/google/status"
   ]
 });
 
