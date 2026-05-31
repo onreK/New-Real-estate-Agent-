@@ -43,7 +43,8 @@ export default authMiddleware({
     "/favicon.ico",
     "/api/auth/google",
     "/api/auth/google/callback",
-    "/api/auth/google/status"
+    "/api/auth/google/status",
+    "/api/auth/facebook/callback"
   ]
 });
 
