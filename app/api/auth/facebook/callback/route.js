@@ -67,15 +67,42 @@ export async function GET(request) {
     const userToken = longData.access_token || tokenData.access_token;
 
     // Get pages this user manages
+    // Try /me/accounts first (standard Facebook Login)
+    let pages = [];
     const pagesRes = await fetch(
       `https://graph.facebook.com/v18.0/me/accounts` +
       `?access_token=${userToken}&fields=id,name,access_token&limit=100`
     );
     const pagesData = await pagesRes.json();
     console.log('Pages API response:', JSON.stringify(pagesData));
-    const pages = pagesData.data || [];
+    pages = pagesData.data || [];
+
+    // Fallback: try Business Manager API (Facebook Login for Business)
     if (pages.length === 0) {
-      console.error('No pages found. Full response:', JSON.stringify(pagesData));
+      const bizRes = await fetch(
+        `https://graph.facebook.com/v18.0/me/businesses` +
+        `?access_token=${userToken}&fields=id,name&limit=10`
+      );
+      const bizData = await bizRes.json();
+      console.log('Businesses API response:', JSON.stringify(bizData));
+      const businesses = bizData.data || [];
+
+      for (const biz of businesses) {
+        const bizPagesRes = await fetch(
+          `https://graph.facebook.com/v18.0/${biz.id}/owned_pages` +
+          `?access_token=${userToken}&fields=id,name,access_token&limit=100`
+        );
+        const bizPagesData = await bizPagesRes.json();
+        console.log(`Business ${biz.id} pages:`, JSON.stringify(bizPagesData));
+        if (bizPagesData.data?.length > 0) {
+          pages = bizPagesData.data;
+          break;
+        }
+      }
+    }
+
+    if (pages.length === 0) {
+      console.error('No pages found via any API');
       return redirect(`${setupPage}?error=no_pages`);
     }
 
